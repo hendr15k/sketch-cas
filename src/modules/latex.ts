@@ -21,7 +21,7 @@ export function exprToLatex(s: string): string {
     .replace(/cosh\(/g, '\\cosh(')
     .replace(/tanh\(/g, '\\tanh(')
     .replace(/log\(/g, '\\ln(')
-    .replace(/pi/g, '\\pi')
+    .replace(/\bpi\b/g, '\\pi')
     .replace(/abs\(([^)]+)\)/g, '\\left|$1\\right|')
     .replace(/\//g, '/ ')
     .replace(/(\d)([a-z(])/g, '$1\\cdot $2');

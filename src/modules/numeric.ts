@@ -40,9 +40,16 @@ export function evalTemplate(
     case 'square':
       return amp * Math.sign(Math.sin(omega * x + phase)) + offset;
     case 'heaviside':
-      return amp * Math.sign(x - 0.5) + offset;
+      return amp * Math.sign(x) + offset;
     case 'damped':
-      return amp * Math.exp(-freq * 2 * x) * Math.sin(omega * x + phase) + offset;
+      return (
+        amp *
+        Math.exp(-((p['decay'] as number) ?? freq * 2) * x) *
+        Math.sin(omega * x + phase) +
+        offset
+      );
+    case 'linear':
+      return amp * 2 * x + offset - amp;
     case 'exponential':
       return amp * Math.exp(((p['fB'] as number) || 1) * x) + offset;
     default:

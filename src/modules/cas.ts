@@ -48,11 +48,10 @@ function algebriteSolve(e: string): string {
 function runAlgebrite(expr: string, op: CasOperation): CasResult {
   const e = expr.replace(/\*\*/g, '^');
   switch (op) {
-    case 'simplify':
-      return {
-        latex: exprToLatex(Algebrite.simplify(e).toString()),
-        raw: Algebrite.simplify(e).toString(),
-      };
+    case 'simplify': {
+      const s = Algebrite.simplify(e).toString();
+      return { latex: exprToLatex(s), raw: s };
+    }
     case 'diff': {
       const d = Algebrite.derivative(e, 'x').toString();
       return {
@@ -106,7 +105,7 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
       return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
     }
     case 'solve': {
-      const eq = e.replace(/=/g, '-').replace(/==/g, '-');
+      const eq = e.replace(/==/g, '-').replace(/=/g, '-');
       try {
         const sol = nerdamer.solveEquations(eq) as unknown as {
           [key: string]: { toString(): string };
@@ -304,7 +303,7 @@ export function getSymExpr(c: { params: Record<string, number | string> }): stri
   const p = c.params;
   const t = p['type'] as string;
   const a = (p['amp'] as number) || 0;
-  const f = (p['freq'] as number) || 0;
+  const f = (p['freq'] as number) || 1;
   const o = (p['offset'] as number) || 0;
   const ph = (p['phase'] as number) || 0;
   const F = (n: number, dp?: number): string => {

@@ -93,7 +93,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         (x) => f.amp * Math.exp(-d * x) * Math.sin(omega * x + bestSinPhase) + f.off,
         'Gedaempft',
         buildLatex('dmp', omega, bestSinPhase, f.amp, f.off, { d }),
-        { type: 'damped' },
+        { type: 'damped', phase: bestSinPhase, decay: d },
       );
     }
   }

@@ -14,6 +14,7 @@ import {
   toggleGrid,
   toggleOverlay,
   getAllPoints,
+  redraw,
 } from './modules/canvas';
 import { normalizeAndResample, getFeatures } from './modules/recognition';
 import { generateTemplates } from './modules/templates';
@@ -229,7 +230,7 @@ function renderH(): void {
 
   let h = '';
   hist.forEach((x) => {
-    h += `<div class="card" style="cursor:pointer"><div style="display:flex;justify-content:space-between"><span style="font-size:11px">${x.label}</span><span style="font-size:9px;color:#8b949e">${x.time}</span></div></div>`;
+    h += `<div class="card" style="cursor:pointer"><div style="display:flex;justify-content:space-between"><span style="font-size:11px">${esc(x.label)}</span><span style="font-size:9px;color:#8b949e">${esc(x.time)}</span></div></div>`;
   });
   el.innerHTML = h;
 }
@@ -563,6 +564,7 @@ function startPractice(id: string): void {
   state.customPoints = null;
   best = null;
   updateScore('0', '—', '—');
+  redraw();
 
   document.querySelectorAll<HTMLElement>('.tab').forEach((t) => {
     t.classList.remove('active');
@@ -594,6 +596,10 @@ function endPractice(): void {
   const target = trainData.targets.find((t) => t.id === activeTargetId);
   if (!target) {
     activeTargetId = null;
+    const state = getState();
+    state.overlayPoints = null;
+    state.customPoints = null;
+    redraw();
     return;
   }
 
@@ -914,6 +920,7 @@ function setupUIHandlers(): void {
   });
   document.getElementById('bClear')?.addEventListener('click', () => {
     clearAll();
+    best = null;
     updateScore('0', '—', '—');
     const resEl = document.getElementById('tRes');
     const casEl = document.getElementById('tCas');
@@ -1019,6 +1026,36 @@ g['__sk'] = {
   get selectedEngine() {
     return selectedEngine;
   },
+  get trainData() {
+    return trainData;
+  },
+  get practiceActive() {
+    return practiceActive;
+  },
+  get showOvl() {
+    try {
+      return getState().showOverlay;
+    } catch {
+      return true;
+    }
+  },
+  get showGrid() {
+    try {
+      return getState().showGrid;
+    } catch {
+      return true;
+    }
+  },
+  get showGrid() {
+    try {
+      return getState().showGrid;
+    } catch {
+      return true;
+    }
+  },
+  get selEng() {
+    return selectedEngine;
+  },
   normPts,
   getAllPoints,
   saveTrainData,
@@ -1030,6 +1067,7 @@ g['__sk'] = {
   trainMode,
   exportTrainingData,
   genId,
+  evalTemplate,
 };
 
 // ---- Init ----
