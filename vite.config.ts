@@ -12,9 +12,17 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: true,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
+      },
+      output: {
+        manualChunks: {
+          'cas-algebrite': ['algebrite'],
+          'cas-nerdamer': ['nerdamer'],
+          'cas-mathjs': ['mathjs'],
+        },
       },
     },
   },
