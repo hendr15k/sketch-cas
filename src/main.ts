@@ -415,7 +415,7 @@ let activeTargetId: string | null = null;
 function loadTrainData(): void {
   try {
     const raw = localStorage.getItem('scTrainV6');
-    if (raw) trainData = JSON.parse(raw);
+    if (raw) trainData = JSON.parse(raw) as TrainData;
   } catch {
     /* ignore */
   }
@@ -524,7 +524,7 @@ function saveTrainingTarget(): void {
     id: genId(),
     timestamp: Date.now(),
     label,
-    strokes: JSON.parse(JSON.stringify(getState().strokes)),
+    strokes: structuredClone(getState().strokes),
     normalizedPoints: normPts(allPts),
     difficulty: calcDifficulty(allPts),
   };
@@ -611,7 +611,7 @@ function endPractice(): void {
     timestamp: Date.now(),
     targetId: activeTargetId,
     score,
-    strokes: JSON.parse(JSON.stringify(getState().strokes)),
+    strokes: structuredClone(getState().strokes),
   });
   saveTrainData();
 

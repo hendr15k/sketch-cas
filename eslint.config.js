@@ -7,6 +7,7 @@ export default tseslint.config(
   ...tseslint.configs.strictTypeChecked,
   prettier,
   {
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
     languageOptions: {
       parserOptions: {
         projectService: true,
@@ -26,6 +27,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', '*.js'],
+    ignores: ['dist/**', 'node_modules/**', '*.js', '*.cjs', 'src/__tests__/**'],
   },
 );
