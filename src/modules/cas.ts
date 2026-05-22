@@ -1,110 +1,15 @@
 // ============================================================
 // CAS Engine Abstraction (Algebrite, Nerdamer, Xcas/Giac)
+// Uses npm packages directly instead of CDN globals.
 // ============================================================
 
 import type { CasOperation, CasResponse, CasResult } from '../types';
 import { exprToLatex } from './latex';
 
-/* ---- Global declarations for CDN-loaded libraries ---- */
-declare global {
-  interface Window {
-    Algebrite?: {
-      simplify: (e: string) => { toString(): string };
-      derivative: (e: string, v: string) => { toString(): string };
-      integral: (e: string, v: string) => { toString(): string };
-      taylor: (e: string, v: string, n: number) => { toString(): string };
-      roots: (e: string) => { toString(): string };
-    };
-    nerdamer?: {
-      (e: string): {
-        evaluate: () => { toString(): string };
-        toString: () => string;
-      };
-      diff: (e: string, v: string) => { evaluate: () => { toString(): string } };
-      integrate: (e: string, v: string) => { toString: () => string };
-      solveEquations: (e: string) => Array<{ toString(): string }>;
-    };
-    Module?: {
-      cwrap: (name: string, ret: string, args: string[]) => (s: string) => string;
-    };
-  }
-}
-
-let giacLoaded = false;
-let giacLoading = false;
-let caseval: ((s: string) => string) | null = null;
-
-/** Check which engines are available. */
-export function hasAlgebrite(): boolean {
-  return typeof window.Algebrite !== 'undefined';
-}
-
-export function hasNerdamer(): boolean {
-  return typeof window.nerdamer !== 'undefined';
-}
-
-export function hasXcas(): boolean {
-  return giacLoaded && caseval !== null;
-}
-
-export function isGiacLoading(): boolean {
-  return giacLoading;
-}
-
-/** Load Giac/Xcas WASM lazily. */
-export function loadGiac(): void {
-  if (giacLoaded || giacLoading) return;
-  giacLoading = true;
-
-  const statusEl = document.getElementById('engStatus');
-  if (statusEl) {
-    statusEl.innerHTML = '<span style="color:#da3688">⏳ Giac laden…</span>';
-  }
-
-  window.Module = {
-    noInitialRun: true,
-    onRuntimeInitialized() {
-      caseval = window.Module!.cwrap('caseval', 'string', ['string']);
-      giacLoaded = true;
-      giacLoading = false;
-      if (statusEl) {
-        statusEl.innerHTML = '<span style="color:#238636">✓ Giac</span>';
-      }
-      try {
-        caseval('caseval');
-      } catch {
-        // ignore init test error
-      }
-    },
-    setStatus(s: string) {
-      if (s && s.indexOf('/') === -1 && s !== 'All downloads complete.') {
-        if (statusEl) statusEl.innerHTML = '<span style="color:#da3688">⏳ ' + s + '</span>';
-      }
-    },
-  } as unknown as typeof window.Module;
-
-  const script = document.createElement('script');
-  script.src = 'giac.js';
-  script.async = true;
-  script.onerror = () => {
-    giacLoading = false;
-    if (statusEl) {
-      statusEl.innerHTML = '<span style="color:#f85149">✗ Giac</span>';
-    }
-  };
-  document.body.appendChild(script);
-}
-
-/** Register auto-load on first CAS interaction. */
-export function setupGiacAutoload(): void {
-  const casTab = document.querySelector('[data-t="cas"]');
-  const inpTab = document.querySelector('[data-t="inp"]');
-  const handler = () => {
-    if (!giacLoaded && !giacLoading) loadGiac();
-  };
-  casTab?.addEventListener('click', handler, { once: true });
-  inpTab?.addEventListener('click', handler, { once: true });
-}
+import Algebrite from 'algebrite';
+import nerdamer from 'nerdamer';
+import 'nerdamer/Calculus';
+import 'nerdamer/Solve';
 
 /* ---- Algebrite Laplace (hardcoded table) ---- */
 function algebriteLaplace(e: string): string {
@@ -132,7 +37,7 @@ function algebriteLaplace(e: string): string {
 
 function algebriteSolve(e: string): string {
   try {
-    const r = window.Algebrite!.roots(e).toString();
+    const r = Algebrite.roots(e).toString();
     return '\\text{Roots: }' + exprToLatex(r);
   } catch {
     return '\\text{(nicht lösbar)}';
@@ -145,22 +50,22 @@ function runAlgebrite(expr: string, op: CasOperation): CasResult {
   switch (op) {
     case 'simplify':
       return {
-        latex: exprToLatex(window.Algebrite!.simplify(e).toString()),
-        raw: window.Algebrite!.simplify(e).toString(),
+        latex: exprToLatex(Algebrite.simplify(e).toString()),
+        raw: Algebrite.simplify(e).toString(),
       };
     case 'diff': {
-      const d = window.Algebrite!.derivative(e, 'x').toString();
+      const d = Algebrite.derivative(e, 'x').toString();
       return {
         latex: '\\frac{d}{dx}\\left(' + exprToLatex(e) + '\\right)=' + exprToLatex(d),
         raw: d,
       };
     }
     case 'integrate': {
-      const i = window.Algebrite!.integral(e, 'x').toString();
+      const i = Algebrite.integral(e, 'x').toString();
       return { latex: '\\int ' + exprToLatex(e) + '\\,dx=' + exprToLatex(i) + '+C', raw: i };
     }
     case 'taylor': {
-      const t = window.Algebrite!.taylor(e, 'x', 5).toString();
+      const t = Algebrite.taylor(e, 'x', 5).toString();
       return { latex: 'T_5(x)=' + exprToLatex(t), raw: t };
     }
     case 'laplace': {
@@ -178,33 +83,33 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
   const e = expr;
   switch (op) {
     case 'simplify': {
-      const s = window.nerdamer!(e).evaluate().toString();
+      const s = nerdamer(e).evaluate().toString();
       return { latex: exprToLatex(s), raw: s };
     }
     case 'diff': {
-      const d = window.nerdamer!.diff(e, 'x').evaluate().toString();
+      const d = nerdamer.diff(e, 'x').evaluate().toString();
       return {
         latex: '\\frac{d}{dx}\\left(' + exprToLatex(e) + '\\right)=' + exprToLatex(d),
         raw: d,
       };
     }
     case 'integrate': {
-      const i = window.nerdamer!.integrate(e, 'x').toString();
+      const i = nerdamer.integrate(e, 'x').toString();
       return { latex: '\\int ' + exprToLatex(e) + '\\,dx=' + exprToLatex(i) + '+C', raw: i };
     }
     case 'taylor': {
-      const t = window.nerdamer!('taylor(' + e + ',x,0,5)').toString();
+      const t = nerdamer('taylor(' + e + ',x,0,5)').toString();
       return { latex: 'T_5(x)=' + exprToLatex(t), raw: t };
     }
     case 'laplace': {
-      const lp = window.nerdamer!('laplace(' + e + ',x,s)').toString();
-      return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + exprToLatex(lp), raw: lp };
+      const lp = nerdamer('laplace(' + e + ',x,s)').toString();
+      return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
     }
     case 'solve': {
       const eq = e.replace(/=/g, '-').replace(/==/g, '-');
       try {
-        const sol = window.nerdamer!.solveEquations(eq);
-        const lt = 'x \\in \\{' + sol.map((v) => exprToLatex(v.toString())).join(',\\;') + '\\}';
+        const sol = nerdamer.solveEquations(eq);
+        const lt = 'x \\in \\{' + sol.map((v: { toString(): string }) => exprToLatex(v.toString())).join(',\\;') + '\\}';
         return { latex: lt, raw: sol.toString() };
       } catch {
         return { latex: '\\text{(nicht lösbar)}', raw: 'error' };
@@ -215,6 +120,88 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
   }
 }
 
+/* ---- Xcas/Giac WASM lazy-loading ---- */
+let giacLoaded = false;
+let giacLoading = false;
+let caseval: ((s: string) => string) | null = null;
+
+/** Check which engines are available. */
+export function hasAlgebrite(): boolean {
+  return typeof Algebrite !== 'undefined';
+}
+
+export function hasNerdamer(): boolean {
+  return typeof nerdamer === 'function';
+}
+
+export function hasXcas(): boolean {
+  return giacLoaded && caseval !== null;
+}
+
+export function isGiacLoading(): boolean {
+  return giacLoading;
+}
+
+/** Load Giac/Xcas WASM lazily. */
+export function loadGiac(): void {
+  if (giacLoaded || giacLoading) return;
+  giacLoading = true;
+
+  const statusEl = document.getElementById('engStatus');
+  if (statusEl) {
+    statusEl.innerHTML = '<span style="color:var(--color-accent-pink)">⏳ Giac laden…</span>';
+  }
+
+  // Giac uses Emscripten Module pattern — set up the global Module config
+  (window as Record<string, unknown>)['Module'] = {
+    noInitialRun: true,
+    onRuntimeInitialized() {
+      const mod = (window as Record<string, unknown>)['Module'] as {
+        cwrap: (name: string, ret: string, args: string[]) => (s: string) => string;
+      };
+      caseval = mod.cwrap('caseval', 'string', ['string']);
+      giacLoaded = true;
+      giacLoading = false;
+      if (statusEl) {
+        statusEl.innerHTML = '<span style="color:var(--color-accent-green)">✓ Giac</span>';
+      }
+      try {
+        caseval('caseval');
+      } catch {
+        // ignore init test error
+      }
+    },
+    setStatus(s: string) {
+      if (s && s.indexOf('/') === -1 && s !== 'All downloads complete.') {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--color-accent-pink)">⏳ ' + s + '</span>';
+      }
+    },
+  };
+
+  const script = document.createElement('script');
+  script.src = 'giac.js';
+  script.async = true;
+  script.onerror = () => {
+    giacLoading = false;
+    if (statusEl) {
+      statusEl.innerHTML = '<span style="color:var(--color-accent-red)">✗ Giac</span>';
+    }
+  };
+  document.body.appendChild(script);
+}
+
+/** Register auto-load on first CAS interaction. */
+export function setupGiacAutoload(): void {
+  const casTab = document.querySelector('[data-t="cas"]');
+  const inpTab = document.querySelector('[data-t="inp"]');
+  const handler = () => {
+    if (!giacLoaded && !giacLoading) loadGiac();
+  };
+  casTab?.addEventListener('click', handler, { once: true });
+  inpTab?.addEventListener('click', handler, { once: true });
+}
+
+/* ---- Run on Xcas ---- */
 function runXcas(expr: string, op: CasOperation): CasResult {
   const e = expr;
   switch (op) {
@@ -239,7 +226,7 @@ function runXcas(expr: string, op: CasOperation): CasResult {
     }
     case 'laplace': {
       const lp = caseval!('laplace(' + e + ',x,s)').toString();
-      return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + exprToLatex(lp), raw: lp };
+      return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
     }
     case 'solve': {
       const sol = caseval!('solve(' + e + ',x)').toString();
@@ -298,9 +285,7 @@ export function runCas(expr: string, op: CasOperation, selectedEngine: string): 
   return results;
 }
 
-/**
- * Get a symbolic expression string from a template candidate.
- */
+/** Get a symbolic expression string from a template candidate. */
 export function getSymExpr(c: { params: Record<string, number | string> }): string | null {
   const p = c.params;
   const t = p['type'] as string;

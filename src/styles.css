@@ -1,0 +1,631 @@
+/* ============================================================
+   Sketch-CAS Stylesheet
+   CSS custom properties for theming and spacing
+   ============================================================ */
+
+/* ---- Theme Variables ---- */
+:root {
+  /* Colors */
+  --color-bg-primary: #0d1117;
+  --color-bg-secondary: #161b22;
+  --color-bg-tertiary: #21262d;
+  --color-border: #30363d;
+  --color-border-light: #21262d;
+  --color-text-primary: #c9d1d9;
+  --color-text-secondary: #8b949e;
+  --color-text-muted: #484f58;
+
+  /* Accent Colors */
+  --color-accent-blue: #58a6ff;
+  --color-accent-blue-dim: rgba(31, 111, 235, 0.2);
+  --color-accent-green: #238636;
+  --color-accent-orange: #f0883e;
+  --color-accent-pink: #da3688;
+  --color-accent-red: #f85149;
+
+  /* Spacing */
+  --space-xs: 2px;
+  --space-sm: 4px;
+  --space-md: 6px;
+  --space-lg: 8px;
+  --space-xl: 12px;
+  --space-2xl: 16px;
+
+  /* Font Sizes */
+  --font-size-2xs: 9px;
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-md: 12px;
+  --font-size-lg: 13px;
+  --font-size-xl: 14px;
+  --font-size-2xl: 16px;
+
+  /* Border Radius */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 7px;
+  --radius-pill: 12px;
+
+  /* Transitions */
+  --transition-fast: 0.12s;
+  --transition-normal: 0.25s;
+  --transition-slow: 0.3s;
+}
+
+/* ---- Reset & Base ---- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* ---- Layout ---- */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ---- Header ---- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+header h1 {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--color-accent-blue);
+  white-space: nowrap;
+}
+
+header .sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* ---- Buttons ---- */
+.bg {
+  display: flex;
+  gap: var(--space-sm);
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.b {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.b:hover {
+  background: var(--color-border);
+}
+
+.b:active {
+  transform: scale(0.95);
+}
+
+.b.on {
+  background: var(--color-accent-blue-dim);
+  border-color: var(--color-accent-blue-dim);
+  color: var(--color-accent-blue);
+  border-color: #1f6feb;
+}
+
+.b.red {
+  border-color: var(--color-accent-red);
+  color: var(--color-accent-red);
+}
+
+.b.red:hover {
+  background: rgba(248, 81, 73, 0.13);
+}
+
+.b.grn {
+  background: var(--color-accent-green);
+  border-color: var(--color-accent-green);
+  color: #fff;
+}
+
+.b.load {
+  background: rgba(240, 136, 62, 0.2);
+  border-color: var(--color-accent-orange);
+  color: var(--color-accent-orange);
+  cursor: wait;
+}
+
+/* ---- Main Grid ---- */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  overflow: hidden;
+}
+
+/* ---- Canvas ---- */
+.cw {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  border-right: 1px solid var(--color-border);
+}
+
+#dc {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.ao {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+/* ---- Panel ---- */
+.pnl {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+/* ---- Tabs ---- */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+
+.tab {
+  flex: 1;
+  padding: 7px 4px;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tab.active {
+  color: var(--color-accent-blue);
+  border-bottom-color: var(--color-accent-blue);
+}
+
+/* ---- Tab Panels ---- */
+.tp {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: none;
+}
+
+.tp.on {
+  display: block;
+}
+
+/* ---- Cards ---- */
+.card {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 10px;
+  margin-bottom: 6px;
+}
+
+.card.best {
+  border-color: var(--color-accent-green);
+}
+
+.card.cas {
+  border-color: var(--color-accent-orange);
+}
+
+.card.xcas {
+  border-color: var(--color-accent-pink);
+}
+
+.cr {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+/* ---- Badges ---- */
+.badge {
+  background: var(--color-accent-green);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+}
+
+.badge.orange {
+  background: var(--color-accent-orange);
+}
+
+.badge.blue {
+  background: #1f6feb;
+}
+
+.badge.pink {
+  background: var(--color-accent-pink);
+}
+
+.badge.red {
+  background: var(--color-accent-red);
+}
+
+/* ---- Formula & Math ---- */
+.cf {
+  font-size: var(--font-size-xl);
+  margin: 5px 0;
+  min-height: 24px;
+}
+
+/* ---- Progress Bar ---- */
+.mb {
+  height: 2px;
+  background: var(--color-bg-tertiary);
+  border-radius: 1px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+.mf {
+  height: 100%;
+  border-radius: 1px;
+  transition: width var(--transition-slow);
+}
+
+.cm {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+  flex-wrap: wrap;
+}
+
+/* ---- Code / LaTeX Line ---- */
+.cl {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-family: monospace;
+  word-break: break-all;
+  background: var(--color-bg-secondary);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: pre-wrap;
+}
+
+.cl:hover {
+  border-color: var(--color-border);
+}
+
+/* ---- CAS Result Items ---- */
+.ci {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.ci:last-child {
+  border-bottom: none;
+}
+
+.cil {
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.cil.alg {
+  color: var(--color-accent-orange);
+}
+
+.cil.ner {
+  color: var(--color-accent-blue);
+}
+
+.cil.xca {
+  color: var(--color-accent-pink);
+}
+
+.cil.gen {
+  color: var(--color-text-secondary);
+}
+
+.civ {
+  font-size: var(--font-size-md);
+  margin: 1px 0;
+}
+
+.civ .katex-display {
+  margin: 2px 0 !important;
+}
+
+/* ---- Empty State ---- */
+.es {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 14px;
+}
+
+.es .bi {
+  font-size: 32px;
+  margin-bottom: 6px;
+}
+
+.es h3 {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.es p {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  max-width: 220px;
+}
+
+/* ---- Bode Plot ---- */
+.bode-canvas {
+  width: 100%;
+  height: 150px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-accent-green);
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+}
+
+/* ---- Footer ---- */
+footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px;
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.st {
+  display: flex;
+  gap: 12px;
+}
+
+.sv2 {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* ---- CAS Input ---- */
+.cas-input {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: 6px;
+}
+
+.cas-input input {
+  flex: 1;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  color: var(--color-text-primary);
+  font-family: monospace;
+  font-size: var(--font-size-md);
+  outline: none;
+}
+
+.cas-input input:focus {
+  border-color: var(--color-accent-orange);
+}
+
+.cas-btns {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.cas-btns .b {
+  font-size: var(--font-size-xs);
+  padding: 4px 8px;
+}
+
+/* ---- Engine Selector ---- */
+.eng-sel {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.eng-sel .b {
+  font-size: var(--font-size-2xs);
+  padding: 3px 7px;
+  border-radius: var(--radius-pill);
+}
+
+.eng-sel .b.active {
+  border-color: var(--color-accent-green);
+  color: var(--color-accent-green);
+}
+
+/* ---- CAS Progress ---- */
+.cas-progress {
+  height: 3px;
+  background: var(--color-bg-tertiary);
+  border-radius: 2px;
+  margin: 4px 0;
+  overflow: hidden;
+}
+
+.cas-progress .fill {
+  height: 100%;
+  background: var(--color-accent-blue);
+  border-radius: 2px;
+  transition: width var(--transition-slow);
+  width: 0;
+}
+
+.cas-progress .fill.giac {
+  background: var(--color-accent-pink);
+}
+
+.cas-progress .fill.alg {
+  background: var(--color-accent-orange);
+}
+
+.cas-progress .fill.ner {
+  background: var(--color-accent-blue);
+}
+
+/* ---- Training ---- */
+.tr-score {
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  margin: 10px 0;
+  color: var(--color-accent-blue);
+}
+
+.tr-stat {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.tr-stat .card {
+  text-align: center;
+  padding: 8px;
+}
+
+.tr-stat .card .sv2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-accent-blue);
+}
+
+.tr-ghost {
+  opacity: 0.3;
+}
+
+.tr-mode {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: 8px;
+}
+
+.tr-mode .b {
+  flex: 1;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  padding: 5px 6px;
+}
+
+.tr-target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.tr-target:last-child {
+  border-bottom: none;
+}
+
+.tr-target .lbl {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.tr-target .sub {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+}
+
+.tr-target .b {
+  font-size: var(--font-size-2xs);
+  padding: 3px 6px;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+  .main {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+  .pnl {
+    max-height: 50vh;
+    border-top: 1px solid var(--color-border);
+    border-right: none;
+  }
+}
