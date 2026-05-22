@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Sketch → CAS v2</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  background:#0d1117;color:#c9d1d9}
+.app{display:grid;grid-template-rows:auto 1fr auto;height:100vh;height:100dvh}
+
+/* HEADER */
+header{display:flex;align-items:center;gap:10px;padding:8px 14px;
+  background:#161b22;border-bottom:1px solid #30363d}
+header h1{font-size:17px;font-weight:700;color:#58a6ff;white-space:nowrap}
+header .sub{font-size:11px;color:#8b949e}
+.btn-group{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.btn{padding:7px 12px;border:1px solid #30363d;border-radius:6px;
+  background:#21262d;color:#c9d1d9;font-size:12px;cursor:pointer;transition:all .15s;
+  user-select:none;white-space:nowrap}
+.btn:hover{background:#30363d;border-color:#8b949e}
+.btn:active{transform:scale(0.95)}
+.btn.on{background:#1f6feb33;border-color:#1f6feb;color:#58a6ff}
+.btn.danger{border-color:#f85149;color:#f85149}
+.btn.danger:hover{background:#f8514922}
+.btn.primary{background:#238636;border-color:#238636;color:#fff}
+.btn.primary:hover{background:#2ea043}
+
+/* MAIN */
+.main{display:grid;grid-template-columns:1fr 360px;overflow:hidden}
+.canvas-wrap{position:relative;overflow:hidden;background:#0d1117;border-right:1px solid #30363d}
+#drawCanvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.axis-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none}
+
+/* PANEL */
+.panel{display:flex;flex-direction:column;background:#161b22;overflow:hidden}
+.panel-tabs{display:flex;border-bottom:1px solid #30363d}
+.panel-tab{flex:1;padding:8px;text-align:center;font-size:12px;font-weight:600;
+  color:#8b949e;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.panel-tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.panel-content{flex:1;overflow-y:auto;padding:8px}
+.panel-content::-webkit-scrollbar{width:5px}
+.panel-content::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+
+.result-card{background:#0d1117;border:1px solid #30363d;border-radius:8px;
+  padding:12px;margin-bottom:8px;transition:border-color .2s;position:relative}
+.result-card:hover{border-color:#58a6ff}
+.result-card.best{border-color:#238636}
+.result-rank{font-size:11px;color:#8b949e;display:flex;justify-content:space-between;margin-bottom:4px}
+.badge{background:#238636;color:#fff;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.result-formula{font-size:15px;margin:6px 0;min-height:28px}
+.match-bar{height:3px;background:#21262d;border-radius:2px;margin-top:4px;overflow:hidden}
+.match-fill{height:100%;border-radius:2px;transition:width .4s}
+.result-meta{display:flex;gap:8px;margin-top:5px;font-size:10px;color:#8b949e;flex-wrap:wrap}
+.result-latex{font-size:11px;color:#8b949e;font-family:monospace;word-break:break-all;
+  background:#161b22;padding:5px 7px;border-radius:4px;margin-top:5px;cursor:pointer;
+  border:1px solid transparent}
+.result-latex:hover{border-color:#30363d}
+.result-latex::before{content:'📋 '}
+.cas-section{margin-top:8px;padding-top:8px;border-top:1px solid #21262d}
+.cas-item{margin-bottom:6px}
+.cas-label{font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}
+.cas-formula{font-size:13px;margin:2px 0}
+
+/* Empty / History */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:#484f58;text-align:center;padding:24px}
+.empty-state .big-icon{font-size:40px;margin-bottom:12px}
+.empty-state h3{font-size:15px;color:#8b949e;margin-bottom:6px}
+.empty-state p{font-size:12px;line-height:1.5;max-width:220px}
+
+.history-item{background:#0d1117;border:1px solid #30363d;border-radius:6px;
+  padding:10px;margin-bottom:6px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.history-item:hover{border-color:#58a6ff}
+.history-item .hi-formula{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.history-item .hi-time{font-size:10px;color:#8b949e;white-space:nowrap}
+
+/* Recognizing spinner */
+.recognizing{position:absolute;top:10px;right:10px;background:#238636cc;
+  color:#fff;padding:5px 12px;border-radius:14px;font-size:11px;font-weight:600;
+  display:none;align-items:center;gap:6px;z-index:10}
+.recognizing.show{display:flex}
+.spinner{width:11px;height:11px;border:2px solid #ffffff44;border-top-color:#fff;
+  border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Footer */
+footer{display:flex;align-items:center;gap:10px;padding:6px 14px;
+  background:#161b22;border-top:1px solid #30363d;font-size:11px;color:#8b949e}
+footer .stats{display:flex;gap:14px}
+.stat-val{color:#c9d1d9;font-weight:600}
+
+/* Toast */
+.toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);
+  background:#238636;color:#fff;padding:8px 18px;border-radius:8px;font-size:13px;
+  font-weight:600;z-index:100;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+@media(max-width:800px){
+  .main{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  .panel{max-height:42vh;border-top:1px solid #30363d;border-right:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>✏️ Sketch → CAS</h1>
+      <div class="sub">v2 — Erkennung + EE-CAS + Overlay</div>
+    </div>
+    <div class="btn-group">
+      <button class="btn" id="btnUndo" title="Rückgängig">↩</button>
+      <button class="btn" id="btnGrid" title="Gitter ein/aus">⊞</button>
+      <button class="btn" id="btnOverlay" title="Overlay ein/aus">◎</button>
+      <button class="btn danger" id="btnClear" title="Alles löschen">✕</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="drawCanvas"></canvas>
+      <canvas class="axis-overlay" id="axisCanvas"></canvas>
+      <div class="recognizing" id="recognizing"><div class="spinner"></div> Erkennung…</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tabs">
+        <div class="panel-tab active" data-tab="results">🧮 Erkennung</div>
+        <div class="panel-tab" data-tab="cas">⚡ CAS</div>
+        <div class="panel-tab" data-tab="history">🕐 Verlauf</div>
+      </div>
+      <div class="panel-content" id="tabResults">
+        <div class="empty-state" id="emptyState">
+          <div class="big-icon">📈</div>
+          <h3>Zeichne eine Funktion</h3>
+          <p>Stift oder Finger nutzen. Automatische Erkennung nach dem Zeichnen.</p>
+        </div>
+      </div>
+      <div class="panel-content" id="tabCas" style="display:none">
+        <div class="empty-state"><div class="big-icon">⚡</div><h3>Keine Funktion gewählt</h3>
+          <p>Wähle oben eine Funktion — hier erscheinen dann Laplace, Bode & Identitäten.</p></div>
+      </div>
+      <div class="panel-content" id="tabHistory" style="display:none">
+        <div class="empty-state"><div class="big-icon">🕐</div><h3>Leerer Verlauf</h3>
+          <p>Deine Erkennungen werden hier gespeichert.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="stats">
+      <span>Punkte: <span class="stat-val" id="statPts">0</span></span>
+      <span>Best: <span class="stat-val" id="statMatch">—</span></span>
+      <span>Match: <span class="stat-val" id="statPct">—</span></span>
+    </div>
+    <div style="margin-left:auto;font-size:10px">Tippe Latex zum Kopieren</div>
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  SKETCH → CAS v2  —  Full Recognition + CAS + EE + Overlay
+// ═══════════════════════════════════════════════════════════════════
+(() => {
+'use strict';
+
+// ─── Canvas ───
+const canvas = document.getElementById('drawCanvas');
+const ctx = canvas.getContext('2d');
+const axisCanvas = document.getElementById('axisCanvas');
+const axisCtx = axisCanvas.getContext('2d');
+const wrap = document.getElementById('canvasWrap');
+let W, H;
+
+function resize(){
+  const dpr = window.devicePixelRatio||1;
+  const r = wrap.getBoundingClientRect();
+  W=r.width; H=r.height;
+  for(const c of [canvas,axisCanvas]){
+    c.width=W*dpr; c.height=H*dpr;
+    c.style.width=W+'px'; c.style.height=H+'px';
+    c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+  }
+  drawAxes(); redraw();
+}
+window.addEventListener('resize',resize);
+
+// ─── State ───
+let strokes=[], currentStroke=null, isDrawing=false;
+let showGrid=true, showOverlay=true;
+let bestCandidate=null, overlayPoints=null;
+let history=JSON.parse(localStorage.getItem('sketchCasHistory')||'[]');
+let normPts=null; // last normalized points
+
+// ─── Axes ───
+function drawAxes(){
+  const c=axisCtx; c.clearRect(0,0,W,H);
+  if(!showGrid) return;
+  c.strokeStyle='#30363d'; c.lineWidth=1;
+  const step=50;
+  for(let x=step;x<W;x+=step){c.beginPath();c.moveTo(x,0);c.lineTo(x,H);c.stroke()}
+  for(let y=step;y<H;y+=step){c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke()}
+  c.strokeStyle='#484f58'; c.lineWidth=1.5;
+  c.beginPath();c.moveTo(0,H/2);c.lineTo(W,H/2);c.stroke();
+  c.beginPath();c.moveTo(W/2,0);c.lineTo(W/2,H);c.stroke();
+  c.fillStyle='#6e7681'; c.font='10px monospace';
+  c.fillText('x',W-14,H/2-8); c.fillText('y',W/2+8,14);
+  for(let i=-Math.floor(W/(2*step));i<=Math.floor(W/(2*step));i++){
+    if(!i)continue; c.fillText(i,W/2+i*step-4,H/2+14);
+  }
+  for(let i=-Math.floor(H/(2*step));i<=Math.floor(H/(2*step));i++){
+    if(!i)continue; c.fillText(i,W/2+6,H/2-i*step+4);
+  }
+}
+
+// ─── Stroke Drawing ───
+function redraw(){
+  ctx.clearRect(0,0,W,H);
+  for(const s of strokes) drawStroke(s);
+  if(showOverlay && overlayPoints) drawOverlay();
+}
+
+function drawStroke(s){
+  if(s.points.length<2)return;
+  ctx.strokeStyle=s.color; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y);
+  for(let i=1;i<s.points.length;i++){
+    const p=s.points[i];
+    if(p.pressure!==undefined && p.pressure>0)
+      ctx.lineWidth=Math.max(1, s.width*(0.3+0.7*p.pressure));
+    else ctx.lineWidth=s.width;
+    if(i<s.points.length-1){
+      const p1=s.points[i], p2=s.points[i+1];
+      ctx.quadraticCurveTo(p1.x,p1.y,(p1.x+p2.x)/2,(p1.y+p2.y)/2);
+    } else ctx.lineTo(p.x,p.y);
+  }
+  ctx.stroke();
+}
+
+function drawOverlay(){
+  ctx.strokeStyle='#f0883e'; ctx.lineWidth=2; ctx.setLineDash([6,4]);
+  ctx.beginPath();
+  const first=overlayPoints[0];
+  ctx.moveTo(normToScreenX(first.x), normToScreenY(first.y));
+  for(let i=1;i<overlayPoints.length;i++){
+    const p=overlayPoints[i];
+    ctx.lineTo(normToScreenX(p.x), normToScreenY(p.y));
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+
+function normToScreenX(nx){ return nx * W; }
+function normToScreenY(ny){ return H/2 - ny * (H/2 - 30); }
+
+// ─── Pointer Events ───
+function gp(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,pressure:e.pressure||0.5}}
+
+canvas.addEventListener('pointerdown',e=>{
+  e.preventDefault(); canvas.setPointerCapture(e.pointerId);
+  isDrawing=true;
+  currentStroke={points:[gp(e)],color:'#58a6ff',width:2.5};
+});
+canvas.addEventListener('pointermove',e=>{
+  if(!isDrawing||!currentStroke)return; e.preventDefault();
+  currentStroke.points.push(gp(e));
+  redraw(); drawStroke(currentStroke);
+});
+canvas.addEventListener('pointerup',()=>{
+  if(!isDrawing||!currentStroke)return;
+  isDrawing=false; strokes.push(currentStroke); currentStroke=null;
+  redraw(); scheduleRecognition();
+});
+canvas.addEventListener('pointercancel',()=>{isDrawing=false;currentStroke=null});
+canvas.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+canvas.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+
+// ─── UI ───
+document.getElementById('btnUndo').onclick=()=>{strokes.pop();redraw();scheduleRecognition()};
+document.getElementById('btnClear').onclick=()=>{
+  strokes=[];overlayPoints=null;bestCandidate=null;redraw();
+  document.getElementById('tabResults').innerHTML=emptyHtml('📈','Zeichne eine Funktion','Stift oder Finger nutzen.');
+  updateStats(0,'—','—');
+};
+document.getElementById('btnGrid').onclick=function(){showGrid=!showGrid;this.classList.toggle('on',showGrid);drawAxes();redraw()};
+document.getElementById('btnOverlay').onclick=function(){showOverlay=!showOverlay;this.classList.toggle('on',showOverlay);redraw()};
+
+// Tabs
+document.querySelectorAll('.panel-tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('.panel-tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tabResults').style.display=t.dataset.tab==='results'?'':'none';
+    document.getElementById('tabCas').style.display=t.dataset.tab==='cas'?'':'none';
+    document.getElementById('tabHistory').style.display=t.dataset.tab==='history'?'':'none';
+  };
+});
+
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500)}
+function updateStats(pts,match,pct){
+  document.getElementById('statPts').textContent=pts;
+  document.getElementById('statMatch').textContent=match;
+  document.getElementById('statPct').textContent=pct;
+}
+function emptyHtml(icon,title,desc){return`<div class="empty-state"><div class="big-icon">${icon}</div><h3>${title}</h3><p>${desc}</p></div>`}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RECOGNITION ENGINE v2
+// ═══════════════════════════════════════════════════════════════════
+let recogTimer=null;
+function scheduleRecognition(){
+  clearTimeout(recogTimer);
+  recogTimer=setTimeout(recognize,350);
+}
+
+function normalizePoints(){
+  let all=[]; for(const s of strokes) all.push(...s.points);
+  if(all.length<10)return null;
+  const xs=all.map(p=>p.x),ys=all.map(p=>p.y);
+  const xMin=Math.min(...xs),xMax=Math.max(...xs);
+  const yMin=Math.min(...ys),yMax=Math.max(...ys);
+  const xR=xMax-xMin||1, yR=yMax-yMin||1;
+  all=all.map(p=>({x:(p.x-xMin)/xR, y:-(((p.y-yMin)/yR)*2-1)}));
+  all.sort((a,b)=>a.x-b.x);
+  // Resample + smooth
+  const N=400, res=[];
+  for(let i=0;i<N;i++){
+    const tx=i/(N-1);
+    let idx=0;
+    while(idx<all.length-1&&all[idx+1].x<tx)idx++;
+    if(idx>=all.length-1){res.push({x:tx,y:all[all.length-1].y})}
+    else{
+      const dt=(all[idx+1].x-all[idx].x)>1e-6?(tx-all[idx].x)/(all[idx+1].x-all[idx].x):0;
+      res.push({x:tx, y:all[idx].y+dt*(all[idx+1].y-all[idx].y)});
+    }
+  }
+  // Gaussian smooth (sigma=3)
+  const sm=[...res];
+  for(let i=2;i<res.length-2;i++){
+    sm[i].y=0.0625*res[i-2].y+0.25*res[i-1].y+0.375*res[i].y+0.25*res[i+1].y+0.0625*res[i+2].y;
+  }
+  return sm;
+}
+
+function detectFeatures(pts){
+  const ys=pts.map(p=>p.y);
+  const yMin=Math.min(...ys),yMax=Math.max(...ys);
+  const amp=(yMax-yMin)/2, offset=(yMax+yMin)/2, mean=offset;
+  const crossings=[];
+  for(let i=1;i<ys.length;i++){
+    if((ys[i-1]-mean)*(ys[i]-mean)<0){
+      const t=(mean-ys[i-1])/(ys[i]-ys[i-1]);
+      crossings.push((i-1+t)/(ys.length-1));
+    }
+  }
+  let period=0, isPeriodic=false;
+  if(crossings.length>=4){
+    const diffs=[];
+    for(let i=2;i<crossings.length;i++) diffs.push(crossings[i]-crossings[i-2]);
+    const avg=diffs.reduce((a,b)=>a+b,0)/diffs.length;
+    const v=diffs.reduce((a,b)=>a+(b-avg)**2,0)/diffs.length;
+    if(v<0.01&&avg>0.02){period=avg;isPeriodic=true}
+  }
+  let peaks=0,valleys=0;
+  for(let i=2;i<ys.length-2;i++){
+    if(ys[i]>ys[i-1]&&ys[i]>ys[i+1]&&ys[i]>ys[i-2]&&ys[i]>ys[i+2])peaks++;
+    if(ys[i]<ys[i-1]&&ys[i]<ys[i+1]&&ys[i]<ys[i-2]&&ys[i]<ys[i+2])valleys++;
+  }
+  // Detect monotonic sections (for step/damp)
+  const diffs2=[];
+  for(let i=1;i<ys.length;i++) diffs2.push(ys[i]-ys[i-1]);
+  const posRuns=countRuns(diffs2,d=>d>0.001);
+  const negRuns=countRuns(diffs2,d=>d<-0.001);
+  // Detect if starts low ends high (step-up) or vice versa
+  const stepUp=ys[0]<mean&&ys[ys.length-1]>mean;
+  const stepDown=ys[0]>mean&&ys[ys.length-1]<mean;
+  // Detect damping: peaks decreasing, valleys increasing
+  const peakVals=[], valleyVals=[];
+  for(let i=2;i<ys.length-2;i++){
+    if(ys[i]>ys[i-1]&&ys[i]>ys[i+1]) peakVals.push(ys[i]);
+    if(ys[i]<ys[i-1]&&ys[i]<ys[i+1]) valleyVals.push(ys[i]);
+  }
+  let isDamped=false;
+  if(peakVals.length>=2){
+    const decr=peakVals.every((v,i)=>i===0||v<=peakVals[i-1]+0.01);
+    const incr=valleyVals.every((v,i)=>i===0||v>=valleyVals[i-1]-0.01);
+    if(decr&&incr&&peakVals.length>=2) isDamped=true;
+  }
+  // Curvature
+  let curvature=0;
+  for(let i=1;i<ys.length-1;i++) curvature+=Math.abs(ys[i+1]-2*ys[i]+ys[i-1]);
+  curvature/=ys.length;
+  return{yMin,yMax,amp,offset,mean,crossings,period,isPeriodic,peaks,valleys,
+    stepUp,stepDown,isDamped,peakVals,valleyVals,curvature,n:ys.length};
+}
+
+function countRuns(arr,fn){
+  let runs=0, inRun=false;
+  for(const v of arr){if(fn(v)){if(!inRun)runs++;inRun=true}else inRun=false}
+  return runs;
+}
+
+// ─── RMSE ───
+function rmse(a,b){let s=0;const n=Math.min(a.length,b.length);for(let i=0;i<n;i++)s+=(a[i]-b[i])**2;return Math.sqrt(s/n)}
+
+// ─── Sinusoid Fitting ──
+function fitPhase(xs,ys,freq,baseFn){
+  let bestP=0,bestE=Infinity;
+  for(let p=0;p<Math.PI*2;p+=0.03){
+    const tmpl=xs.map(x=>1*Math.baseFn(2*Math.PI*freq*x+p));
+    const e=rmse(ys,tmpl);
+    if(e<bestE){bestE=e;bestP=p}
+  }
+  return{phase:bestP,err:bestE};
+}
+
+// ─── Poly fit ──
+function fitPoly(xs,ys,deg){
+  const n=xs.length,m=deg+1;
+  const A=Array.from({length:m},()=>new Float64Array(m));
+  const b=new Float64Array(m);
+  for(let i=0;i<n;i++){
+    const p=[1];for(let j=1;j<m;j++)p.push(p[j-1]*xs[i]);
+    for(let r=0;r<m;r++){b[r]+=p[r]*ys[i];for(let c=0;c<m;c++)A[r][c]+=p[r]*p[c]}
+  }
+  const M=A.map((row,i)=>[...row,b[i]]);
+  for(let col=0;col<m;col++){
+    let mx=col;
+    for(let r=col+1;r<m;r++)if(Math.abs(M[r][col])>Math.abs(M[mx][col]))mx=r;
+    [M[col],M[mx]]=[M[mx],M[col]];
+    if(Math.abs(M[col][col])<1e-12)return null;
+    for(let r=col+1;r<m;r++){const f=M[r][col]/M[col][col];for(let j=col;j<=m;j++)M[r][j]-=f*M[col][j]}
+  }
+  const x=new Array(m);
+  for(let i=m-1;i>=0;i--){x[i]=M[i][m];for(let j=i+1;j<m;j++)x[i]-=M[i][j]*x[j];x[i]/=M[i][i]}
+  return x;
+}
+
+// ─── Exponential Fit ──
+function fitExp(xs,ys){
+  for(let c=-2;c<=2;c+=0.15){
+    const ln=xs.map((x,i)=>Math.log(Math.abs(ys[i]-c)+1e-10));
+    if(ln.some(v=>!isFinite(v)))continue;
+    // Linear: ln(y-c) = ln(a) + b*x
+    const n=xs.length;
+    let sx=0,sy=0,sxx=0,sxy=0;
+    for(let i=0;i<n;i++){sx+=xs[i];sy+=ln[i];sxx+=xs[i]**2;sxy+=xs[i]*ln[i]}
+    const denom=n*sxx-sx*sx;
+    if(Math.abs(denom)<1e-10)continue;
+    const b=(n*sxy-sx*sy)/denom;
+    const a=Math.exp((sy-b*sx)/n);
+    let err=0;
+    for(let i=0;i<n;i++)err+=(a*Math.exp(b*xs[i])+c-ys[i])**2;
+    err=Math.sqrt(err/n);
+    if(Math.abs(b)>0.05&&isFinite(a)&&isFinite(b))return{a,b,c,err};
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TEMPLATE GENERATION — ALL FUNCTION TYPES
+// ═══════════════════════════════════════════════════════════════════
+function generateTemplates(pts,feat){
+  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+  const cands=[];
+  const freq=feat.period>0?1/feat.period:1;
+
+  function add(gen,label,latex,params={}){
+    const tmpl=xs.map(gen);
+    const err=rmse(ys,tmpl);
+    cands.push({label,latex,err,params:{amp:feat.amp,freq,offset:feat.offset,...params}});
+  }
+
+  // ── Periodic ──
+  if(feat.isPeriodic){
+    const omega=2*Math.PI*freq;
+    // sin
+    let bestSinP=0,bestSinE=Infinity;
+    for(let p=0;p<Math.PI*2;p+=0.03){
+      const t=xs.map(x=>Math.sin(omega*x+p));
+      const e=rmse(ys,t); if(e<bestSinE){bestSinE=e;bestSinP=p}
+    }
+    add(x=>feat.amp*Math.sin(omega*x+bestSinP)+feat.offset,
+      'Sinus', fmtTrig('sin',omega,bestSinP,feat.amp,feat.offset),{type:'sin',phase:bestSinP});
+    // cos
+    let bestCosP=0,bestCosE=Infinity;
+    for(let p=0;p<Math.PI*2;p+=0.03){
+      const t=xs.map(x=>Math.cos(omega*x+p));
+      const e=rmse(ys,t); if(e<bestCosE){bestCosE=e;bestCosP=p}
+    }
+    add(x=>feat.amp*Math.cos(omega*x+bestCosP)+feat.offset,
+      'Cosinus', fmtTrig('cos',omega,bestCosP,feat.amp,feat.offset),{type:'cos',phase:bestCosP});
+    // |sin|
+    add(x=>feat.amp*Math.abs(Math.sin(omega*x+bestSinP))+feat.offset,
+      '|Sinus|', fmtAbs('sin',omega,bestSinP,feat.amp,feat.offset),{type:'abs_sin'});
+    // |cos|
+    add(x=>feat.amp*Math.abs(Math.cos(omega*x+bestCosP))+feat.offset,
+      '|Cosinus|', fmtAbs('cos',omega,bestCosP,feat.amp,feat.offset),{type:'abs_cos'});
+    // Square
+    add(x=>feat.amp*Math.sign(Math.sin(omega*x+bestSinP))+feat.offset,
+      'Rechtecksignal', fmtSgn('sin',omega,bestSinP,feat.amp,feat.offset),{type:'square'});
+    // Triangle
+    add(x=>{
+      const t=(omega*x+bestSinP)/(2*Math.PI);
+      return feat.amp*(4*Math.abs(t-Math.floor(t+0.5))-1)+feat.offset;
+    },'Dreiecksignal',fmtTri(omega,bestSinP,feat.amp,feat.offset),{type:'triangle'});
+    // Sawtooth
+    add(x=>{
+      const t=(omega*x+bestSinP)/(2*Math.PI);
+      return feat.amp*(2*(t-Math.floor(t))-1)+feat.offset;
+    },'Sägezahn',fmtSaw(omega,bestSinP,feat.amp,feat.offset),{type:'saw'});
+    // Damped oscillation: a*e^(-bx)*sin(cx+d)+e
+    if(feat.isDamped){
+      const decay=Math.log(Math.max(0.01,Math.abs(feat.peakVals[0]-feat.offset)+0.01))/
+                   Math.max(0.01,feat.period*(feat.peakVals.length-1||1));
+      add(x=>feat.amp*Math.exp(-Math.abs(decay)*2*x)*Math.sin(omega*x+bestSinP)+feat.offset,
+        'Gedämpfte Schwingung',
+        fmtDamped(Math.abs(decay*2),omega,bestSinP,feat.amp,feat.offset),
+        {type:'damped'});
+    }
+  }
+
+  // ── Non-periodic ──
+  if(!feat.isPeriodic){
+    // Linear
+    const la=(ys[ys.length-1]-ys[0]);
+    const lb=ys[0];
+    add(x=>la*x+lb,'Linear',fmtPoly([la,lb]),{type:'linear'});
+    // Quadratic
+    const qc=fitPoly(xs,ys,2);
+    if(qc) add(x=>qc[0]*x*x+qc[1]*x+qc[2],'Quadratisch',fmtPoly(qc),{type:'quadratic'});
+    // Cubic
+    const cc=fitPoly(xs,ys,3);
+    if(cc) add(x=>cc[0]*x**3+cc[1]*x*x+cc[2]*x+cc[3],'Kubisch',fmtPoly(cc),{type:'cubic'});
+    // Quartic
+    const q4=fitPoly(xs,ys,4);
+    if(q4) add(x=>q4[0]*x**4+q4[1]*x**3+q4[2]*x*x+q4[3]*x+q4[4],'Quartisch',fmtPoly(q4),{type:'quartic'});
+    // Exponential
+    const ef=fitExp(xs,ys);
+    if(ef) add(x=>ef.a*Math.exp(ef.b*x)+ef.c,'Exponentiell',fmtExp(ef),{type:'exponential',fitA:ef.a,fitB:ef.b,fitC:ef.c});
+    // Logarithmic
+    if(xs[0]>0.01){
+      const lA=(ys[ys.length-1]-ys[0])/(Math.log(xs[xs.length-1]+0.01)-Math.log(xs[0]+0.01)+1e-10);
+      const lD=ys[0]-lA*Math.log(xs[0]+0.01);
+      add(x=>lA*Math.log(x+0.01)+lD,'Logarithmisch',fmtLog(lA,lD),{type:'logarithmic'});
+    }
+    // Heaviside (step function)
+    const midIdx=Math.floor(ys.length/2);
+    const before=ys.slice(0,midIdx);
+    const after=ys.slice(midIdx);
+    const avgBefore=before.reduce((a,b)=>a+b,0)/before.length;
+    const avgAfter=after.reduce((a,b)=>a+b,0)/after.length;
+    const stepDiff=Math.abs(avgAfter-avgBefore);
+    if(stepDiff>feat.amp*0.5){
+      const stepA=(avgAfter-avgBefore)/2;
+      const stepOff=(avgAfter+avgBefore)/2;
+      add(x=>stepA*Math.sign(x-0.5)+stepOff,'Heaviside (Einheitssprung)',
+        fmtHeaviside(stepA,stepOff),{type:'heaviside'});
+    }
+  }
+
+  cands.sort((a,b)=>a.err-b.err);
+  return cands;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LATEX FORMATTERS
+// ═══════════════════════════════════════════════════════════════════
+function fn(n,d=2){if(Math.abs(n)<0.001)return'0';if(Math.abs(n-Math.round(n))<0.01)return''+Math.round(n);return n.toFixed(d).replace(/0+$/,'').replace(/\.$/,'')}
+
+function fmtTrig(type,omega,phase,amp,off){
+  const w=fn(omega,1); const p=fn(phase,1);
+  let inner=omega>.95&&omega<1.05?'x':w+'x';
+  if(Math.abs(phase)>.05)inner+=(phase>0?' + ':' - ')+fn(Math.abs(phase),1);
+  let r='';if(Math.abs(amp-1)>.01)r+=fn(amp,1)+'\\cdot ';
+  r+=`\\${type}\\!\\left(${inner}\\right)`;
+  if(Math.abs(off)>.01)r+=(off>0?' + ':' - ')+fn(Math.abs(off),1);
+  return r;
+}
+function fmtAbs(type,omega,phase,amp,off){
+  const w=fn(omega,1);
+  let inner=omega>.95&&omega<1.05?'x':w+'x';
+  if(Math.abs(phase)>.05)inner+=(phase>0?' + ':' - ')+fn(Math.abs(phase),1);
+  let r='';if(Math.abs(amp-1)>.01)r+=fn(amp,1)+'\\cdot ';
+  r+=`\\left|\\${type}\\!\\left(${inner}\\right)\\right|`;
+  if(Math.abs(off)>.01)r+=(off>0?' + ':' - ')+fn(Math.abs(off),1);
+  return r;
+}
+function fmtSgn(type,omega,phase,amp,off){
+  let inner=omega>.95&&omega<1.05?'x':fn(omega,1)+'x';
+  if(Math.abs(phase)>.05)inner+=(phase>0?' + ':' - ')+fn(Math.abs(phase),1);
+  let r=fn(amp,1)+'\\cdot \\mathrm{sgn}\\!\\left(\\sin\\!\\left('+inner+'\\right)\\right)';
+  if(Math.abs(off)>.01)r+=(off>0?' + ':' - ')+fn(Math.abs(off),1);
+  return r;
+}
+function fmtTri(omega,phase,amp,off){
+  let inner=omega>.95&&omega<1.05?'x':fn(omega,1)+'x';
+  if(Math.abs(phase)>.05)inner+=(phase>0?' + ':' - ')+fn(Math.abs(phase),1);
+  let r=fn(amp,1)+'\\cdot \\triangle\\!\\left('+inner+'\\right)';
+  if(Math.abs(off)>.01)r+=(off>0?' + ':' - ')+fn(Math.abs(off),1);
+  return r;
+}
+function fmtSaw(omega,phase,amp,off){
+  let inner=omega>.95&&omega<1.05?'x':fn(omega,1)+'x';
+  if(Math.abs(phase)>.05)inner+=(phase>0?' + ':' - ')+fn(Math.abs(phase),1);
+  let r=fn(amp,1)+'\\cdot \\mathrm{saw}\\!\\left('+inner+'\\right)';
+  if(Math.abs(off)>.01)r+=(off>0?' + ':' - ')+fn(Math.abs(off),1);
+  return r;
+}
+function fmtDamped(decay,omega,phase,amp,off){
+  let inner=omega>.95&&omega<1.05?'x':fn(omega,1)+'x';
+  if(Math.abs(phase)>.05)inner+=(phase>0?' + ':' - ')+fn(Math.abs(phase),1);
+  let r=fn(amp,1)+'\\,e^{-'+fn(decay,2)+'t}\\sin\\!\\left('+inner+'\\right)';
+  if(Math.abs(off)>.01)r+=(off>0?' + ':' - ')+fn(Math.abs(off),1);
+  return r;
+}
+function fmtPoly(c){
+  const deg=c.length-1; let r='';
+  for(let i=0;i<=deg;i++){
+    const v=c[i],p=deg-i;
+    if(Math.abs(v)<0.001)continue;
+    if(r!=='')r+=v>0?' + ':' - '; else if(v<0)r+='-';
+    const av=Math.abs(v);
+    if(p===0)r+=fn(av);
+    else if(p===1)r+=(Math.abs(av-1)<0.01?'':fn(av))+'x';
+    else r+=(Math.abs(av-1)<0.01?'':fn(av))+'x^{'+p+'}';
+  }
+  return r||'0';
+}
+function fmtExp(f){
+  let r='';if(Math.abs(f.a-1)>.01)r+=fn(f.a,2)+'\\cdot ';
+  r+=`e^{${fn(f.b,2)}x}`;
+  if(Math.abs(f.c)>.01)r+=(f.c>0?' + ':' - ')+fn(Math.abs(f.c),2);
+  return r;
+}
+function fmtLog(a,d){
+  let r='';if(Math.abs(a-1)>.01)r+=fn(a,2)+'\\cdot ';
+  r+='\\ln(x)';
+  if(Math.abs(d)>.01)r+=(d>0?' + ':' - ')+fn(Math.abs(d),2);
+  return r;
+}
+function fmtHeaviside(a,off){
+  let r=fn(a,1)+'\\cdot H(x)';
+  if(Math.abs(off)>.01)r+=(off>0?' + ':' - ')+fn(Math.abs(off),1);
+  return r;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CAS — LAPLACE, BODE, IDENTITIES
+// ═══════════════════════════════════════════════════════════════════
+function casAnalyze(c){
+  const out=[];
+  const t=c.params.type;
+
+  // Laplace Transform
+  const laplaceMap={
+    sin:{fn:'\\frac{\\omega}{s^2+\\omega^2}',vars:'\\omega'},
+    cos:{fn:'\\frac{s}{s^2+\\omega^2}',vars:'\\omega'},
+    abs_sin:{fn:'\\frac{2}{\\pi}\\cdot\\frac{1}{s}+\\frac{2\\omega}{\\pi}\\sum\\frac{(-1)^n}{s^2+4n^2\\omega^2}',vars:'\\omega'},
+    square:{fn:'\\frac{4}{\\pi}\\sum_{n=0}^{\\infty}\\frac{1}{(2n+1)}\\cdot\\frac{(2n+1)\\omega}{s^2+((2n+1)\\omega)^2}',vars:'\\omega'},
+    exponential:{fn:'\\frac{a}{s-b}',vars:'a,b'},
+    linear:{fn:'\\frac{a}{s^2}+\\frac{b}{s}',vars:'a,b'},
+    quadratic:{fn:'\\frac{2a}{s^3}+\\frac{b}{s^2}+\\frac{c}{s}',vars:'a,b,c'},
+    cubic:{fn:'\\frac{6a}{s^4}+\\frac{2b}{s^3}+\\frac{c}{s^2}+\\frac{d}{s}',vars:'a,b,c,d'},
+    damped:{fn:'\\frac{\\omega}{(s+\\alpha)^2+\\omega^2}',vars:'\\alpha,\\omega'},
+    heaviside:{fn:'\\frac{1}{s}',vars:''},
+  };
+  if(laplaceMap[t]){
+    const omega=fn(c.params.freq*2*Math.PI,2);
+    let desc=laplaceMap[t].fn;
+    if(t==='sin'||t==='cos'||t==='square'||t==='abs_sin'){
+      desc=desc.replace(/\\omega/g,omega);
+    }
+    if(t==='exponential'){
+      desc=desc.replace('a',fn(c.params.fitA||c.params.amp,2)).replace('b',fn(c.params.fitB||1,2));
+    }
+    out.push({label:'Laplace-Transformation',latex:`\\mathcal{L}\\{f(t)\\} = ${desc}`});
+  }
+
+  // Identitäten
+  if(t==='sin'){
+    out.push({label:'Trig-Identität',latex:'\\sin^2(x)+\\cos^2(x)=1'});
+    out.push({label:'Addition',latex:'\\sin(a\\pm b)=\\sin a\\cos b \\pm \\cos a\\sin b'});
+  }
+  if(t==='cos'){
+    out.push({label:'Trig-Identität',latex:'\\cos(2x)=2\\cos^2(x)-1'});
+  }
+  if(t==='abs_sin'){
+    out.push({label:'Identität',latex:'|\\sin(x)|=\\frac{1-\\cos(2x)}{2}'});
+    out.push({label:'Fourier',latex:'|\\sin(x)|=\\frac{2}{\\pi}-\\frac{4}{\\pi}\\sum_{n=1}^{\\infty}\\frac{\\cos(2nx)}{4n^2-1}'});
+  }
+  if(t==='square'){
+    out.push({label:'Fourier-Reihe',latex:'\\mathrm{sgn}(\\sin x)=\\frac{4}{\\pi}\\sum_{n=0}^{\\infty}\\frac{\\sin((2n+1)x)}{2n+1}'});
+  }
+  if(t==='triangle'){
+    out.push({label:'Fourier-Reihe',latex:'\\triangle(x)=\\frac{8}{\\pi^2}\\sum_{n=0}^{\\infty}\\frac{(-1)^n\\sin((2n+1)x)}{(2n+1)^2}'});
+  }
+  if(t==='heaviside'){
+    out.push({label:'Definition',latex:'H(x)=\\begin{cases}0&x<0\\\\1&x\\geq0\\end{cases}'});
+    out.push({label:'Ableitung',latex:'\\frac{d}{dx}H(x)=\\delta(x) \\text{ (Dirac-Impuls)}'});
+  }
+  if(t==='damped'){
+    out.push({label:'Form',latex:'f(t)=Ae^{-\\alpha t}\\sin(\\omega t+\\varphi)+d'});
+    out.push({label:'Bode',latex:'|G(j\\omega)|=\\frac{A}{\\sqrt{(\\alpha^2+\\omega^2)}}'});
+  }
+  if(t==='exponential'){
+    const b=fn(c.params.fitB||1,2);
+    out.push({label:'Ableitung',latex:`\\frac{d}{dx}f(x)=${b}\\cdot f(x)`});
+    out.push({label:'Integral',latex:`\\int f(x)\\,dx=\\frac{1}{${b}}f(x)+C`});
+  }
+  if(t==='quadratic'){
+    out.push({label:'Ableitung',latex:"f'(x)=2ax+b"});
+    out.push({label:'Extremum',latex:'x_{\\min}=\\frac{-b}{2a}'});
+  }
+
+  // Bode info for periodic/damped
+  if(t==='sin'||t==='cos'){
+    const omega=fn(c.params.freq*2*Math.PI,2);
+    out.push({label:'Bode: Frequenz',latex:`\\omega = ${omega}\\,\\mathrm{rad/s},\\; f = ${fn(c.params.freq,2)}\\,\\mathrm{Hz}`});
+    const T=c.params.freq>0?fn(1/c.params.freq,3):'?';
+    out.push({label:'Bode: Periode',latex:`T = ${T}\\,\\mathrm{s}`});
+    out.push({label:'Bode: Phase',latex:`\\varphi = ${fn(c.params.phase||0,2)}\\,\\mathrm{rad}`});
+  }
+
+  // EE application hint
+  if(t==='heaviside') out.push({label:'EE-Anwendung',latex:'Einschaltvorgang: \\,u(t)=U_0\\cdot H(t-t_0)'});
+  if(t==='damped') out.push({label:'EE-Anwendung',latex:'RLC-Transient: \\,i(t)=I_0 e^{-\\alpha t}\\sin(\\omega_d t)'});
+  if(t==='exponential') out.push({label:'EE-Anwendung',latex:'Kondensator: \\,u_C(t)=U_0(1-e^{-t/\\tau})'});
+
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MAIN RECOGNITION
+// ═══════════════════════════════════════════════════════════════════
+function recognize(){
+  normPts=normalizePoints();
+  if(!normPts)return;
+  const feat=detectFeatures(normPts);
+  const cands=generateTemplates(normPts,feat).slice(0,8);
+  if(!cands.length)return;
+
+  bestCandidate=cands[0];
+  // Generate overlay points
+  const xs=normPts.map(p=>p.x);
+  overlayPoints=xs.map(x=>({x, y:evalTemplate(x,cands[0])}));
+
+  const totalPts=strokes.reduce((s,st)=>s+st.points.length,0);
+  const pct=Math.max(0,Math.min(100,100*(1-cands[0].err))).toFixed(1);
+  updateStats(totalPts,cands[0].label,pct+'%');
+
+  renderResults(cands,feat);
+  renderCas(cands[0]);
+  addToHistory(cands[0]);
+  redraw();
+}
+
+function evalTemplate(x,c){
+  const amp=c.params.amp, freq=c.params.freq, off=c.params.offset;
+  const omega=2*Math.PI*freq, t=c.params.type, ph=c.params.phase||0;
+  switch(t){
+    case'sin':return amp*Math.sin(omega*x+ph)+off;
+    case'cos':return amp*Math.cos(omega*x+ph)+off;
+    case'abs_sin':return amp*Math.abs(Math.sin(omega*x+ph))+off;
+    case'abs_cos':return amp*Math.abs(Math.cos(omega*x+ph))+off;
+    case'square':return amp*Math.sign(Math.sin(omega*x+ph))+off;
+    case'triangle':{const tt=(omega*x+ph)/(2*Math.PI);return amp*(4*Math.abs(tt-Math.floor(tt+0.5))-1)+off}
+    case'saw':{const tt=(omega*x+ph)/(2*Math.PI);return amp*(2*(tt-Math.floor(tt))-1)+off}
+    case'heaviside':return amp*Math.sign(x-0.5)+off;
+    case'linear':{const a=amp*2,b=off-amp;return a*x+b}
+    default:return 0;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════════════
+function renderResults(cands,feat){
+  const el=document.getElementById('tabResults');
+  const maxErr=Math.max(...cands.map(c=>c.err));
+  const minErr=cands[0].err;
+  let html='';
+  cands.forEach((c,i)=>{
+    const pct=Math.max(0,Math.min(100,100*(1-(c.err-minErr)/(maxErr-minErr+.001))));
+    const bc=i===0?'best':'';
+    html+=`<div class="result-card ${bc}" onclick="window._selectResult(${i})">
+      <div class="result-rank"><span>${c.label}</span>${i===0?'<span class="badge">Bester Fit</span>':''}</div>
+      <div class="result-formula" data-latex="${esc(c.latex)}"></div>
+      <div class="match-bar"><div class="match-fill" style="width:${pct}%;background:${i===0?'#238636':'#58a6ff'}"></div></div>
+      <div class="result-meta">
+        <span>📊 ${(100-c.err*100).toFixed(1)}%</span>
+        <span>📈 ${feat.peaks}Max ${feat.valleys}Min</span>
+        ${feat.isPeriodic?'<span>🔄 periodic</span>':''}
+      </div>
+      <div class="result-latex" onclick="event.stopPropagation();copyText(this)">${esc(c.latex)}</div>
+    </div>`;
+  });
+  el.innerHTML=html;
+  renderKatex(el);
+}
+
+window._selectResult=function(i){
+  // Switch to CAS tab for selected result
+  document.querySelectorAll('.panel-tab')[1].click();
+};
+
+function renderCas(c){
+  const el=document.getElementById('tabCas');
+  const casItems=casAnalyze(c);
+  let html=`<div class="result-card best">
+    <div class="result-rank"><span>${c.label}</span><span class="badge">CAS</span></div>
+    <div class="result-formula" data-latex="${esc(c.latex)}"></div>
+  </div>`;
+  if(casItems.length){
+    html+='<div style="padding:4px 0">';
+    for(const item of casItems){
+      html+=`<div class="cas-item"><div class="cas-label">${item.label}</div>
+        <div class="cas-formula" data-latex="${esc(item.latex)}"></div></div>`;
+    }
+    html+='</div>';
+  }
+  el.innerHTML=html;
+  renderKatex(el);
+}
+
+// ── History ──
+function addToHistory(c){
+  const now=new Date();
+  const time=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  history.unshift({label:c.label,latex:c.latex,time,ts:now.getTime()});
+  if(history.length>50)history=history.slice(0,50);
+  localStorage.setItem('sketchCasHistory',JSON.stringify(history));
+  renderHistory();
+}
+function renderHistory(){
+  const el=document.getElementById('tabHistory');
+  if(!history.length){el.innerHTML=emptyHtml('🕐','Leerer Verlauf','Deine Erkennungen werden hier gespeichert.');return}
+  let html='';
+  for(const h of history){
+    html+=`<div class="history-item" onclick="copyText(this.querySelector('.hi-formula'))">
+      <div class="hi-formula">${esc(h.label)}</div>
+      <div class="hi-time">${h.time}</div>
+    </div>`;
+  }
+  el.innerHTML=html;
+}
+renderHistory();
+
+// ── Helpers ──
+function renderKatex(el){
+  requestAnimationFrame(()=>{
+    el.querySelectorAll('[data-latex]').forEach(e=>{
+      try{katex.render(e.getAttribute('data-latex'),e,{throwOnError:false,displayMode:false,
+        macros:{'\\mathrm{sgn}':'\\operatorname{sgn}','\\triangle':'\\mathbin{\\triangle}'}})}
+      catch(er){e.textContent=e.getAttribute('data-latex')}
+    });
+  });
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+window.copyText=function(el){
+  navigator.clipboard.writeText(el.textContent||el.getAttribute('data-latex')).then(()=>toast('Kopiert!'));
+};
+
+// ── Init ──
+resize();
+})();
+</script>
+</body>
+</html>

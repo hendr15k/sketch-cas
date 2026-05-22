@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Sketch → CAS v6</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.0/lib/browser/math.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/nerdamer.core.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Calculus.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Solve.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#c9d1d9}
+.app{display:grid;grid-template-rows:auto 1fr auto;height:100vh;height:100dvh}
+header{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#161b22;border-bottom:1px solid #30363d}
+header h1{font-size:16px;font-weight:700;color:#58a6ff;white-space:nowrap}
+header .sub{font-size:10px;color:#8b949e}
+.bg{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+.b{padding:6px 10px;border:1px solid #30363d;border-radius:5px;background:#21262d;color:#c9d1d9;font-size:11px;cursor:pointer;transition:all .12s;user-select:none;white-space:nowrap}
+.b:hover{background:#30363d}.b:active{transform:scale(.95)}
+.b.on{background:#1f6feb33;border-color:#1f6feb;color:#58a6ff}
+.b.red{border-color:#f85149;color:#f85149}.b.red:hover{background:#f8514922}
+.b.grn{background:#238636;border-color:#238636;color:#fff}
+.b.load{background:#f0883e33;border-color:#f0883e;color:#f0883e;cursor:wait}
+.main{display:grid;grid-template-columns:1fr 400px;overflow:hidden}
+.cw{position:relative;overflow:hidden;background:#0d1117;border-right:1px solid #30363d}
+#dc{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.ao{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none}
+.pnl{display:flex;flex-direction:column;background:#161b22;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid #30363d;overflow-x:auto}
+.tab{flex:1;padding:7px 4px;text-align:center;font-size:11px;font-weight:600;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent;transition:all .12s;white-space:nowrap}
+.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.tp{flex:1;overflow-y:auto;padding:8px;display:none}.tp.on{display:block}
+.card{background:#0d1117;border:1px solid #30363d;border-radius:7px;padding:10px;margin-bottom:6px}
+.card.best{border-color:#238636}.card.cas{border-color:#f0883e}
+.card.xcas{border-color:#da3688}
+.cr{font-size:10px;color:#8b949e;display:flex;justify-content:space-between;margin-bottom:3px}
+.badge{background:#238636;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600}
+.badge.orange{background:#f0883e}.badge.blue{background:#1f6feb}.badge.pink{background:#da3688}
+.badge.red{background:#f85149}
+.cf{font-size:14px;margin:5px 0;min-height:24px}
+.mb{height:2px;background:#21262d;border-radius:1px;margin-top:3px;overflow:hidden}
+.mf{height:100%;border-radius:1px;transition:width .3s}
+.cm{display:flex;gap:6px;margin-top:4px;font-size:9px;color:#8b949e;flex-wrap:wrap}
+.cl{font-size:10px;color:#8b949e;font-family:monospace;word-break:break-all;background:#161b22;padding:4px 6px;border-radius:3px;margin-top:4px;cursor:pointer;border:1px solid transparent;white-space:pre-wrap}
+.cl:hover{border-color:#30363d}
+.ci{margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #21262d}
+.ci:last-child{border-bottom:none}
+.cil{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.cil.alg{color:#f0883e}.cil.ner{color:#1f6feb}.cil.xca{color:#da3688}.cil.gen{color:#8b949e}
+.civ{font-size:12px;margin:1px 0}
+.civ .katex-display{margin:2px 0 !important}
+.es{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:140px;color:#484f58;text-align:center;padding:14px}
+.es .bi{font-size:32px;margin-bottom:6px}.es h3{font-size:13px;color:#8b949e;margin-bottom:4px}.es p{font-size:11px;line-height:1.5;max-width:220px}
+.bode-canvas{width:100%;height:150px;background:#0d1117;border:1px solid #30363d;border-radius:5px}
+.toast{position:fixed;bottom:50px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:6px 16px;border-radius:7px;font-size:12px;font-weight:600;z-index:100;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+footer{display:flex;align-items:center;gap:10px;padding:5px 12px;background:#161b22;border-top:1px solid #30363d;font-size:10px;color:#8b949e}
+.st{display:flex;gap:12px}.sv2{color:#c9d1d9;font-weight:600}
+.cas-input{display:flex;gap:4px;margin-bottom:6px}
+.cas-input input{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:5px;padding:6px 8px;color:#c9d1d9;font-family:monospace;font-size:12px;outline:none}
+.cas-input input:focus{border-color:#f0883e}
+.cas-btns{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.cas-btns .b{font-size:10px;padding:4px 8px}
+.eng-sel{display:flex;gap:3px;margin-bottom:8px}
+.eng-sel .b{font-size:9px;padding:3px 7px;border-radius:12px}
+.eng-sel .b.active{border-color:#238636;color:#238636}
+.cas-progress{height:3px;background:#21262d;border-radius:2px;margin:4px 0;overflow:hidden}
+.cas-progress .fill{height:100%;background:#58a6ff;border-radius:2px;transition:width .3s;width:0}
+.cas-progress .fill.giac{background:#da3688}
+.cas-progress .fill.alg{background:#f0883e}
+.cas-progress .fill.ner{background:#1f6feb}
+.tr-score{font-size:32px;font-weight:700;text-align:center;margin:10px 0;color:#58a6ff}
+.tr-stat{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}
+.tr-stat .card{text-align:center;padding:8px}
+.tr-stat .card .sv2{font-size:16px;font-weight:700;color:#58a6ff}
+.tr-ghost{opacity:0.3}
+.tr-mode{display:flex;gap:4px;margin-bottom:8px}
+.tr-mode .b{flex:1;text-align:center;font-size:10px;padding:5px 6px}
+.tr-target{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-bottom:1px solid #21262d}
+.tr-target:last-child{border-bottom:none}
+.tr-target .lbl{font-size:11px;color:#c9d1d9}
+.tr-target .sub{font-size:9px;color:#8b949e}
+.tr-target .b{font-size:9px;padding:3px 6px}
+@media(max-width:900px){.main{grid-template-columns:1fr;grid-template-rows:1fr auto}.pnl{max-height:50vh;border-top:1px solid #30363d;border-right:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div><h1>✏️ Sketch → CAS</h1><div class="sub">v6 — Algebrite · Nerdamer · Xcas · Training</div></div>
+  <div class="bg">
+    <button class="b" id="bUndo" title="Undo">↩</button>
+    <button class="b" id="bRedo" title="Redo">↪</button>
+    <button class="b on" id="bGrid" title="Gitter">⊞</button>
+    <button class="b on" id="bOvl" title="Overlay">◎</button>
+    <button class="b" id="bSound" title="Ton">🔊</button>
+    <button class="b" id="bExport" title="PNG">💾</button>
+    <button class="b red" id="bClear" title="Alles löschen">✕</button>
+  </div>
+</header>
+<div class="main">
+  <div class="cw" id="cw"><canvas id="dc"></canvas><canvas class="ao" id="ac"></canvas></div>
+  <div class="pnl">
+    <div class="tabs">
+      <div class="tab active" data-t="res">🧮 Erkennung</div>
+      <div class="tab" data-t="cas">⚡ CAS</div>
+      <div class="tab" data-t="inp">⌨️ Eingabe</div>
+      <div class="tab" data-t="bode">📊 Bode</div>
+      <div class="tab" data-t="hist">🕐</div>
+      <div class="tab" data-t="train">🎯 Training</div>
+    </div>
+    <div class="tp on" id="tRes"><div class="es"><div class="bi">📈</div><h3>Zeichne eine Funktion</h3><p>Stift oder Finger. Erkennung + multi-CAS automatisch.</p></div></div>
+    <div class="tp" id="tCas"><div class="es"><div class="bi">⚡</div><h3>Wähle eine Funktion oben</h3><p>Alle CAS-Engines analysieren dann: Ableitung, Integral, Laplace, Taylor…</p></div></div>
+    <div class="tp" id="tInp">
+      <div class="card"><div class="cr"><span>Formel eingeben</span></div>
+        <div class="cas-input"><input id="casIn" placeholder="z.B. sin(x)^2 + cos(x)^2"></div>
+        <div class="eng-sel" id="engSel">
+          <button class="b on" data-eng="all">Alle</button>
+          <button class="b" data-eng="algebrite">Algebrite</button>
+          <button class="b" data-eng="nerdamer">Nerdamer</button>
+          <button class="b" data-eng="xcas">Xcas</button>
+        </div>
+        <div class="cas-btns">
+          <button class="b" onclick="multiCasEval('simplify')">Vereinfachen</button>
+          <button class="b" onclick="multiCasEval('diff')">Ableitung</button>
+          <button class="b" onclick="multiCasEval('integrate')">Integral</button>
+          <button class="b" onclick="multiCasEval('taylor')">Taylor</button>
+          <button class="b" onclick="multiCasEval('laplace')">Laplace</button>
+          <button class="b" onclick="multiCasEval('solve')">Lösen</button>
+          <button class="b" onclick="multiCasEval('plot')">Plot</button>
+        </div>
+        <div class="cas-progress" id="casProg"><div class="fill" id="casFill"></div></div>
+        <div id="casResult"></div>
+      </div>
+      <div class="card"><div class="cr"><span>Gleichung lösen</span><span class="badge blue">Multi-Solver</span></div>
+        <div class="cas-input"><input id="eqIn" placeholder="z.B. x^2 - 4 = 0"></div>
+        <button class="b" onclick="multiSolveEq()" style="margin-bottom:6px">Alle Engines</button>
+        <div id="eqResult"></div>
+      </div>
+    </div>
+    <div class="tp" id="tBode"><div class="es"><div class="bi">📊</div><h3>Bode-Darstellung</h3><p>Periodische oder Exp.-Funktion erkennen.</p></div></div>
+    <div class="tp" id="tHist"></div>
+    <div class="tp" id="tTrain"></div>
+  </div>
+</div>
+<footer>
+  <div class="st"><span>Pkt: <span class="sv2" id="sP">0</span></span><span>Best: <span class="sv2" id="sM">—</span></span><span>Fit: <span class="sv2" id="sF">—</span></span></div>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+    <span id="engStatus"></span>
+    <span>Algebrite · Nerdamer · Xcas</span>
+  </div>
+</footer>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+(function(){
+/* ===== GLOBALS ===== */
+var canvas=document.getElementById("dc"),ctx=canvas.getContext("2d");
+var ac=document.getElementById("ac"),ax=ac.getContext("2d"),cwEl=document.getElementById("cw");
+var W,H,showGrid=true,showOvl=true;
+var strokes=[],undoS=[],redoS=[],curS=null,isDraw=false;
+var best=null,ovlP=null,custP=null;
+var hist=JSON.parse(localStorage.getItem("scH5")||"[]");
+var audioCtx=null;
+var selEng="all";
+var giacLoaded=false,giacLoading=false,giacMod=null,caseval=null;
+var practiceActive=false,activeTargetId=null;
+var trainData={targets:[],attempts:[]};
+var trainCurrentMode="record";
+
+/* ===== CANVAS ===== */
+function resize(){
+  var d=devicePixelRatio||1,r=cwEl.getBoundingClientRect();W=r.width;H=r.height;
+  [canvas,ac].forEach(function(c){c.width=W*d;c.height=H*d;c.style.width=W+"px";c.style.height=H+"px";c.getContext("2d").setTransform(d,0,0,d,0,0)});
+  drawAx();redraw();
+}
+window.addEventListener("resize",resize);
+function drawAx(){
+  ax.clearRect(0,0,W,H);if(!showGrid)return;
+  ax.strokeStyle="#30363d";ax.lineWidth=1;
+  for(var s=50;s<W;s+=50){ax.beginPath();ax.moveTo(s,0);ax.lineTo(s,H);ax.stroke()}
+  for(var s=50;s<H;s+=50){ax.beginPath();ax.moveTo(0,s);ax.lineTo(W,s);ax.stroke()}
+  ax.strokeStyle="#484f58";ax.lineWidth=1.5;
+  ax.beginPath();ax.moveTo(0,H/2);ax.lineTo(W,H/2);ax.stroke();
+  ax.beginPath();ax.moveTo(W/2,0);ax.lineTo(W/2,H);ax.stroke();
+  ax.fillStyle="#6e7681";ax.font="9px monospace";
+  ax.fillText("x",W-12,H/2-6);ax.fillText("y",W/2+6,12);
+  for(var i=-Math.floor(W/100);i<=Math.floor(W/100);i++){if(!i)continue;ax.fillText(""+i,W/2+i*50-3,H/2+12)}
+  for(var i=-Math.floor(H/100);i<=Math.floor(H/100);i++){if(!i)continue;ax.fillText(""+i,W/2+5,H/2-i*50+3)}
+}
+function redraw(){ctx.clearRect(0,0,W,H);strokes.forEach(drawS);if(curS)drawS(curS);if(showOvl){if(ovlP)drawOv(ovlP,"#f0883e");if(custP)drawOv(custP,"#da3688")}}
+function drawS(s){if(s.points.length<2)return;ctx.strokeStyle=s.color;ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(s.points[0].x,s.points[0].y);
+  for(var i=1;i<s.points.length;i++){var p=s.points[i];ctx.lineWidth=(p.pressure!==undefined)?Math.max(1,s.width*(.3+.7*p.pressure)):s.width;
+  if(i<s.points.length-1){var n=s.points[i+1];ctx.quadraticCurveTo(p.x,p.y,(p.x+n.x)/2,(p.y+n.y)/2)}else ctx.lineTo(p.x,p.y)}ctx.stroke()}
+function nx(n){return n*W}function ny(n){return H/2-n*(H/2-30)}
+function drawOv(pts,color){ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(nx(pts[0].x),ny(pts[0].y));
+  for(var i=1;i<pts.length;i++)ctx.lineTo(nx(pts[i].x),ny(pts[i].y));ctx.stroke();ctx.setLineDash([])}
+
+/* ===== POINTER ===== */
+function gp(e){var r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,pressure:e.pressure||.5}}
+canvas.addEventListener("pointerdown",function(e){if(e.pointerType==="pen"&&e.button===5)return;e.preventDefault();canvas.setPointerCapture(e.pointerId);isDraw=true;
+  undoS.push(JSON.parse(JSON.stringify(strokes)));redoS=[];if(undoS.length>100)undoS.shift();curS={points:[gp(e)],color:"#58a6ff",width:2.5}});
+canvas.addEventListener("pointermove",function(e){if(!isDraw||!curS)return;e.preventDefault();curS.points.push(gp(e));redraw();drawS(curS)});
+canvas.addEventListener("pointerup",function(){if(!isDraw||!curS)return;isDraw=false;strokes.push(curS);curS=null;redraw();scheduleR()});
+canvas.addEventListener("pointercancel",function(){isDraw=false;curS=null});
+canvas.addEventListener("touchstart",function(e){e.preventDefault()},{passive:false});
+canvas.addEventListener("touchmove",function(e){e.preventDefault()},{passive:false});
+
+/* ===== UI ===== */
+function toast(m){var t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},1500)}
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function updS(p,m,f){document.getElementById("sP").textContent=p;document.getElementById("sM").textContent=m;document.getElementById("sF").textContent=f}
+function eH(icon,title,desc){return '<div class="es"><div class="bi">'+icon+"</div><h3>"+title+"</h3><p>"+desc+"</p></div>"}
+
+document.getElementById("bUndo").onclick=function(){if(!undoS.length)return;redoS.push(JSON.parse(JSON.stringify(strokes)));strokes=undoS.pop();ovlP=null;custP=null;best=null;redraw();scheduleR()};
+document.getElementById("bRedo").onclick=function(){if(!redoS.length)return;undoS.push(JSON.parse(JSON.stringify(strokes)));strokes=redoS.pop();redraw();scheduleR()};
+document.getElementById("bGrid").onclick=function(){showGrid=!showGrid;this.classList.toggle("on");drawAx();redraw()};
+document.getElementById("bOvl").onclick=function(){showOvl=!showOvl;this.classList.toggle("on");redraw()};
+document.getElementById("bClear").onclick=function(){undoS.push(JSON.parse(JSON.stringify(strokes)));strokes=[];ovlP=null;custP=null;best=null;redoS=[];redraw();updS(0,"—","—");
+  practiceActive=false;activeTargetId=null;
+  document.getElementById("tRes").innerHTML=eH("📈","Zeichne eine Funktion","Stift oder Finger.");
+  document.getElementById("tCas").innerHTML=eH("⚡","Wähle eine Funktion","Alle CAS-Engines analysieren automatisch.");
+  document.getElementById("tBode").innerHTML=eH("📊","Bode","Periodische Funktion erkennen.");};
+document.querySelectorAll(".tab").forEach(function(t){t.onclick=function(){
+  document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("active")});t.classList.add("active");
+  ["tRes","tCas","tInp","tBode","tHist","tTrain"].forEach(function(id){document.getElementById(id).classList.remove("on")});
+  var map={res:"tRes",cas:"tCas",inp:"tInp",bode:"tBode",hist:"tHist",train:"tTrain"};document.getElementById(map[t.dataset.t]).classList.add("on")}});
+
+/* Engine selector */
+document.getElementById("engSel").addEventListener("click",function(e){
+  var btn=e.target.closest("[data-eng]");if(!btn)return;
+  this.querySelectorAll(".b").forEach(function(b){b.classList.remove("on")});btn.classList.add("on");
+  selEng=btn.dataset.eng;
+});
+
+/* ===== MULTI-CAS ABSTRACTION ===== */
+function hasAlgebrite(){return typeof Algebrite!=="undefined"}
+function hasNerdamer(){return typeof nerdamer!=="undefined"}
+function hasXcas(){return giacLoaded&&caseval!==null}
+
+/* Run expression on one or all CAS engines */
+function runCas(expr,op){
+  var results=[];
+  if(selEng==="all"||selEng==="algebrite")if(hasAlgebrite())try{results.push({engine:"Algebrite",tag:"alg",result:runAlgebrite(expr,op)})}catch(e){results.push({engine:"Algebrite",tag:"alg",error:e.message})}
+  if(selEng==="all"||selEng==="nerdamer")if(hasNerdamer())try{results.push({engine:"Nerdamer",tag:"ner",result:runNerdamer(expr,op)})}catch(e){results.push({engine:"Nerdamer",tag:"ner",error:e.message})}
+  if(selEng==="all"||selEng==="xcas")if(hasXcas())try{results.push({engine:"Xcas(Giac)",tag:"xca",result:runXcas(expr,op)})}catch(e){results.push({engine:"Xcas(Giac)",tag:"xca",error:e.message})}
+  if(selEng==="xcas"&&!hasXcas())results.push({engine:"Xcas(Giac)",tag:"xca",error:"Wird geladen… Klicke nochmal.",loading:true});
+  return results;
+}
+
+/* ===== ALGEBRITE ===== */
+function runAlgebrite(expr,op){
+  var e=expr.replace(/\*\*/g,"^");
+  switch(op){
+    case"simplify":return{latex:exprToLatex(Algebrite.simplify(e).toString()),raw:Algebrite.simplify(e).toString()};
+    case"diff":var d=Algebrite.derivative(e,"x").toString();return{latex:"\\frac{d}{dx}\\left("+exprToLatex(e)+"\\right)="+exprToLatex(d),raw:d};
+    case"integrate":var i=Algebrite.integral(e,"x").toString();return{latex:"\\int "+exprToLatex(e)+"\\,dx="+exprToLatex(i)+"+C",raw:i};
+    case"taylor":var t=Algebrite.taylor(e,"x",5).toString();return{latex:"T_5(x)="+exprToLatex(t),raw:t};
+    case"laplace":var lp=algebriteLaplace(e);return{latex:"\\mathcal{L}\\{"+exprToLatex(e)+"\\}="+lp,raw:lp};
+    case"solve":return{latex:algebriteSolve(e),raw:e};
+    case"plot":return{latex:"\\text{Plot: }"+exprToLatex(e),plot:true};
+  }
+  return{latex:exprToLatex(e),raw:e};
+}
+function algebriteLaplace(e){
+  var el=e.toLowerCase().replace(/\s+/g,"");
+  if(el==="sin(t)"||el==="sin(x)")return"\\frac{1}{s^2+1}";
+  if(el==="cos(t)"||el==="cos(x)")return"\\frac{s}{s^2+1}";
+  if(el==="exp(-t)"||el==="exp(-x)")return"\\frac{1}{s+1}";
+  if(el==="1"||el==="1(t)")return"\\frac{1}{s}";
+  if(el==="t"||el==="x")return"\\frac{1}{s^2}";
+  var sm=e.match(/^(\d*\.?\d*)\*?sin\((\d*\.?\d*)\*?[tx]\)$/);
+  if(sm){var a=sm[1]||"1",b=sm[2]||"1";return"\\frac{"+a+"\\cdot "+b+"}{s^2+"+b+"^2}"}
+  var cm=e.match(/^(\d*\.?\d*)\*?cos\((\d*\.?\d*)\*?[tx]\)$/);
+  if(cm){var a=cm[1]||"1",b=cm[2]||"1";return"\\frac{"+a+"\\cdot s}{s^2+"+b+"^2}"}
+  return"\\text{(nicht direkt)}";
+}
+function algebriteSolve(e){
+  try{var r=Algebrite.roots(e).toString();return"\\text{Roots: }"+exprToLatex(r)}catch(ex){return"\\text{(nicht lösbar)}"}
+}
+
+/* ===== NERDAMER ===== */
+function runNerdamer(expr,op){
+  var e=expr;
+  switch(op){
+    case"simplify":var s=nerdamer(e).evaluate().toString();return{latex:exprToLatex(s),raw:s};
+    case"diff":var d=nerdamer.diff(e,"x").evaluate().toString();return{latex:"\\frac{d}{dx}\\left("+exprToLatex(e)+"\\right)="+exprToLatex(d),raw:d};
+    case"integrate":var i=nerdamer.integrate(e,"x").toString();return{latex:"\\int "+exprToLatex(e)+"\\,dx="+exprToLatex(i)+"+C",raw:i};
+    case"taylor":var t=nerdamer("taylor("+e+",x,0,5)").toString();return{latex:"T_5(x)="+exprToLatex(t),raw:t};
+    case"laplace":var lp=nerdamer("laplace("+e+",x,s)").toString();return{latex:"\\mathcal{L}\\{"+exprToLatex(e)+"\\}="+exprToLatex(lp),raw:lp};
+    case"solve":var eq=e.replace(/=/g,"-").replace(/==/g,"-");
+      try{var sol=nerdamer.solveEquations(eq);var lt="x \\in \\{"+sol.map(function(v){return exprToLatex(v.toString())}).join(",\\;")+"\\}";
+        return{latex:lt,raw:sol.toString()}}catch(ex){return{latex:"\\text{(nicht lösbar)}",raw:"error"}};
+    case"plot":return{latex:"\\text{Plot: }"+exprToLatex(e),plot:true};
+  }
+  return{latex:exprToLatex(e),raw:e};
+}
+
+/* ===== XCAS (Giac.js) ===== */
+function runXcas(expr,op){
+  var e=expr;
+  switch(op){
+    case"simplify":var s=caseval("normal(simplify("+e+"))").toString();return{latex:exprToLatex(s),raw:s};
+    case"diff":var d=caseval("diff("+e+",x)").toString();return{latex:"\\frac{d}{dx}\\left("+exprToLatex(e)+"\\right)="+exprToLatex(d),raw:d};
+    case"integrate":var i=caseval("integrate("+e+",x)").toString();return{latex:"\\int "+exprToLatex(e)+"\\,dx="+exprToLatex(i)+"+C",raw:i};
+    case"taylor":var t=caseval("taylor("+e+",x,0,5)").toString();return{latex:"T_5(x)="+exprToLatex(t),raw:t};
+    case"laplace":var lp=caseval("laplace("+e+",x,s)").toString();return{latex:"\\mathcal{L}\\{"+exprToLatex(e)+"\\}="+exprToLatex(lp),raw:lp};
+    case"solve":var sol=caseval("solve("+e+",x)").toString();
+      return{latex:"\\text{solve: }"+exprToLatex(sol),raw:sol};
+    case"plot":return{latex:"\\text{Plot: }"+exprToLatex(e),plot:true};
+  }
+  return{latex:exprToLatex(e),raw:e};
+}
+
+/* ===== LAZY LOAD GIAC ===== */
+function loadGiac(){
+  if(giacLoaded||giacLoading)return;giacLoading=true;
+  toast("Lade Xcas/Giac (~21 MB)…");
+  var statusEl=document.getElementById("engStatus");
+  statusEl.innerHTML='<span style="color:#da3688">⏳ Giac laden…</span>';
+  window.Module={noInitialRun:true,onRuntimeInitialized:function(){
+    giacMod=window.Module;caseval=giacMod.cwrap("caseval","string",["string"]);
+    giacLoaded=true;giacLoading=false;toast("Xcas/Giac bereit!");
+    statusEl.innerHTML='<span style="color:#238636">✓ Giac</span>';
+    try{caseval("caseval")}catch(e){}
+  },setStatus:function(s){if(s&&s.indexOf("/")===-1&&s!=="All downloads complete.")statusEl.innerHTML='<span style="color:#da3688">⏳ '+esc(s)+'</span>'}};
+  var script=document.createElement("script");script.src="giac.js";script.async=true;
+  script.onerror=function(){giacLoading=false;toast("Giac-Laden fehlgeschlagen");statusEl.innerHTML='<span style="color:#f85149">✗ Giac</span>';};
+  document.body.appendChild(script);
+}
+
+/* ===== EXPRESSION TO LATEX ===== */
+function exprToLatex(s){
+  if(!s)return"";
+  return s.replace(/\*\*/g,"^")
+    .replace(/sqrt\(([^)]+)\)/g,"\\sqrt{$1}")
+    .replace(/sin\(/g,"\\sin(").replace(/cos\(/g,"\\cos(").replace(/tan\(/g,"\\tan(")
+    .replace(/asin\(/g,"\\arcsin(").replace(/acos\(/g,"\\arccos(").replace(/atan\(/g,"\\arctan(")
+    .replace(/sinh\(/g,"\\sinh(").replace(/cosh\(/g,"\\cosh(").replace(/tanh\(/g,"\\tanh(")
+    .replace(/log\(/g,"\\ln(").replace(/pi/g,"\\pi")
+    .replace(/abs\(([^)]+)\)/g,"\\left|$1\\right|")
+    .replace(/\//g,"/ ")
+    .replace(/(\d)([a-z(])/g,"$1\\cdot $2");
+}
+
+/* ===== MULTI-CAS EVAL (INPUT TAB) ===== */
+window.multiCasEval=function(op){
+  var raw=document.getElementById("casIn").value.trim();
+  if(!raw){toast("Formel eingeben!");return}
+  var el=document.getElementById("casResult");
+  var fill=document.getElementById("casFill");
+  fill.style.width="20%";fill.className="fill";
+
+  if(op==="plot"){evalPlot(raw);fill.style.width="100%";return}
+  if(op==="solve"&&!raw.includes("="))raw=raw+"=0";
+
+  var results=runCas(raw,op);
+  var h="";
+  if(results.length===0){h=eH("⚡","Kein CAS aktiv","Wähle einen Engine unten.");}
+  else{
+    results.forEach(function(r,i){
+      if(r.error){
+        var errClass=r.loading?"card xcas":"card";
+        h+='<div class="'+errClass+'"><div class="cr"><span>'+r.engine+'</span><span class="badge red">Fehler</span></div><div style="color:#f85149;font-size:11px">'+esc(r.error)+"</div></div>";
+      }else{
+        var bc=r.tag==="alg"?"border-color:#f0883e":r.tag==="ner"?"border-color:#1f6feb":"border-color:#da3688";
+        h+='<div class="card" style="'+bc+'"><div class="cr"><span>'+r.engine+'</span><span class="badge '+(r.tag==="alg"?"orange":r.tag==="ner"?"blue":"pink")+'">'+op.toUpperCase()+'</span></div>';
+        h+='<div class="civ" data-latex="'+esc(r.result.latex)+'"></div>';
+        h+='<div class="cl" onclick="event.stopPropagation();cpT(this)">'+esc(r.result.raw||r.result.latex)+"</div></div>";
+      }
+    });
+  }
+  el.innerHTML=h;fill.style.width="100%";
+  setTimeout(function(){fill.style.width="0"},1000);
+  renderK(el);
+};
+
+function evalPlot(expr){
+  try{
+    var fn=makeNumFn(expr);
+    var pts=[];for(var i=0;i<400;i++){var x=(i/399)*10-5;var y=fn(x);pts.push({x:(i/399),y:isFinite(y)?Math.max(-1.2,Math.min(1.2,y/3)):0})}
+    custP=pts;redraw();toast("Geplottet!");
+  }catch(e){toast("Plot-Fehler: "+e.message)}
+}
+
+function makeNumFn(expr){
+  var prepared=expr.replace(/\^/g,"**");
+  var fn=new Function("x","return "+prepared.replace(/\b(sin|cos|tan|abs|sqrt|exp|log|asin|acos|atan|sinh|cosh|tanh)\b/g,"Math.$1").replace(/\bpi\b/g,"Math.PI").replace(/\be\b/g,"Math.E"));
+  fn(0);fn(1);return fn;
+}
+
+/* ===== MULTI-SOLVE ===== */
+window.multiSolveEq=function(){
+  var raw=document.getElementById("eqIn").value.trim();
+  if(!raw){toast("Gleichung eingeben!");return}
+  var el=document.getElementById("eqResult");
+  var expr=raw.includes("=")?raw.split("=").join("-(")+")":raw;
+  var h="";
+
+  // Algebrite
+  if(hasAlgebrite()){
+    try{var r=Algebrite.roots(expr).toString();
+      h+='<div class="card" style="border-color:#f0883e"><div class="cr"><span>Algebrite</span><span class="badge orange">Roots</span></div>';
+      h+='<div class="civ" data-latex="x='+esc(exprToLatex(r))+'"></div><div class="cl" onclick="cpT(this)">'+esc(r)+"</div></div>";
+    }catch(e){h+='<div class="card" style="border-color:#f85149"><div class="cr"><span>Algebrite</span><span class="badge red">Fehler</span></div><div style="color:#f85149;font-size:11px">'+esc(e.message)+"</div></div>"}
+  }
+  // Nerdamer
+  if(hasNerdamer()){
+    try{var sol=nerdamer.solveEquations(expr);
+      h+='<div class="card" style="border-color:#1f6feb"><div class="cr"><span>Nerdamer</span><span class="badge blue">Solve</span></div>';
+      var lt="x \\in \\{"+sol.map(function(v){return exprToLatex(v.toString())}).join(",\\;")+"\\}";
+      h+='<div class="civ" data-latex="'+esc(lt)+'"></div><div class="cl" onclick="cpT(this)">'+esc(sol.toString())+"</div></div>";
+    }catch(e){h+='<div class="card" style="border-color:#f85149"><div class="cr"><span>Nerdamer</span><span class="badge red">Fehler</span></div><div style="color:#f85149;font-size:11px">'+esc(e.message)+"</div></div>"}
+  }
+  // Xcas
+  if(hasXcas()){
+    try{var sol=caseval("solve("+expr+",x)").toString();
+      h+='<div class="card" style="border-color:#da3688"><div class="cr"><span>Xcas(Giac)</span><span class="badge pink">Solve</span></div>';
+      h+='<div class="civ" data-latex="x='+esc(exprToLatex(sol))+'"></div><div class="cl" onclick="cpT(this)">'+esc(sol)+"</div></div>";
+    }catch(e){h+='<div class="card" style="border-color:#f85149"><div class="cr"><span>Xcas(Giac)</span><span class="badge red">Fehler</span></div><div style="color:#f85149;font-size:11px">'+esc(e.message)+"</div></div>"}
+  }
+  if(!h)h=eH("⚡","Kein CAS aktiv","");
+  el.innerHTML=h;renderK(el);
+};
+
+/* ===== RECOGNITION ===== */
+var recogT=null;
+function scheduleR(){clearTimeout(recogT);recogT=setTimeout(recognize,350)}
+
+function nPts(){
+  var all=[];strokes.forEach(function(s){all=all.concat(s.points)});
+  if(all.length<10)return null;
+  var xs=all.map(function(p){return p.x}),ys=all.map(function(p){return p.y});
+  var xMn=Math.min.apply(null,xs),xMx=Math.max.apply(null,xs),yMn=Math.min.apply(null,ys),yMx=Math.max.apply(null,ys);
+  var xR=xMx-xMn||1,yR=yMx-yMn||1;
+  all=all.map(function(p){return{x:(p.x-xMn)/xR,y:-(((p.y-yMn)/yR)*2-1)}}).sort(function(a,b){return a.x-b.x});
+  var N=400,res=[];
+  for(var i=0;i<N;i++){var tx=i/(N-1),idx=0;while(idx<all.length-1&&all[idx+1].x<tx)idx++;
+    if(idx>=all.length-1)res.push({x:tx,y:all[all.length-1].y});
+    else{var dt=(all[idx+1].x-all[idx].x)>1e-6?(tx-all[idx].x)/(all[idx+1].x-all[idx].x):0;res.push({x:tx,y:all[idx].y+dt*(all[idx+1].y-all[idx].y)})}}
+  var sm=res.slice();for(var i=2;i<res.length-2;i++)sm[i].y=.0625*res[i-2].y+.25*res[i-1].y+.375*res[i].y+.25*res[i+1].y+.0625*res[i+2].y;
+  return sm;
+}
+
+function getFeat(pts){
+  var ys=pts.map(function(p){return p.y});var yMn=Math.min.apply(null,ys),yMx=Math.max.apply(null,ys);
+  var amp=(yMx-yMn)/2,off=(yMx+yMn)/2,cr=[];
+  for(var i=1;i<ys.length;i++){if((ys[i-1]-off)*(ys[i]-off)<0)cr.push((i-1+(off-ys[i-1])/(ys[i]-ys[i-1]))/(ys.length-1))}
+  var period=0,isPer=false;
+  if(cr.length>=4){var d=[];for(var i=2;i<cr.length;i++)d.push(cr[i]-cr[i-2]);var avg=d.reduce(function(a,b){return a+b},0)/d.length;
+    var v=d.reduce(function(a,b){return a+(b-avg)*(b-avg)},0)/d.length;if(v<.01&&avg>.02){period=avg;isPer=true}}
+  var pk=0,vl=0;
+  for(var i=2;i<ys.length-2;i++){if(ys[i]>ys[i-1]&&ys[i]>ys[i+1]&&ys[i]>ys[i-2]&&ys[i]>ys[i+2])pk++;if(ys[i]<ys[i-1]&&ys[i]<ys[i+1]&&ys[i]<ys[i-2]&&ys[i]<ys[i+2])vl++}
+  var pkV=[],vlV=[];
+  for(var i=2;i<ys.length-2;i++){if(ys[i]>ys[i-1]&&ys[i]>ys[i+1])pkV.push(ys[i]);if(ys[i]<ys[i-1]&&ys[i]<ys[i+1])vlV.push(ys[i])}
+  var isDamp=false;
+  if(pkV.length>=2&&pkV.every(function(v,i){return !i||v<=pkV[i-1]+.01})&&vlV.every(function(v,i){return !i||v>=vlV[i-1]-.01}))isDamp=true;
+  return{amp:amp,off:off,period:period,isPer:isPer,pk:pk,vl:vl,pkV:pkV,vlV:vlV,isDamp:isDamp};
+}
+function rmse(a,b){var s=0,n=Math.min(a.length,b.length);for(var i=0;i<n;i++)s+=(a[i]-b[i])*(a[i]-b[i]);return Math.sqrt(s/n)}
+
+/* ===== TEMPLATES ===== */
+function genT(pts,f){
+  var xs=pts.map(function(p){return p.x}),ys=pts.map(function(p){return p.y});
+  var c=[],freq=f.period>0?1/f.period:1,om=2*Math.PI*freq;
+  function add(g,l,lt,p){var t=xs.map(g);var e=rmse(ys,t);c.push({label:l,latex:lt,err:e,params:Object.assign({amp:f.amp,freq:freq,offset:f.off},p||{})})}
+
+  if(f.isPer){
+    var bsp=0,bse=1e9,bcp=0,bce=1e9;
+    for(var p=0;p<Math.PI*2;p+=.03){var t=xs.map(function(x){return Math.sin(om*x+p)});var e=rmse(ys,t);if(e<bse){bse=e;bsp=p}}
+    for(var p=0;p<Math.PI*2;p+=.03){var t=xs.map(function(x){return Math.cos(om*x+p)});var e=rmse(ys,t);if(e<bce){bce=e;bcp=p}}
+    add(function(x){return f.amp*Math.sin(om*x+bsp)+f.off},"Sinus",mkLat("sin",om,bsp,f.amp,f.off),{type:"sin",phase:bsp});
+    add(function(x){return f.amp*Math.cos(om*x+bcp)+f.off},"Cosinus",mkLat("cos",om,bcp,f.amp,f.off),{type:"cos",phase:bcp});
+    add(function(x){return f.amp*Math.abs(Math.sin(om*x+bsp))+f.off},"|Sinus|",mkLat("abs_sin",om,bsp,f.amp,f.off),{type:"abs_sin"});
+    add(function(x){return f.amp*Math.sign(Math.sin(om*x+bsp))+f.off},"Rechteck",mkLat("sgn",om,bsp,f.amp,f.off),{type:"square"});
+    if(f.isDamp){
+      var dec=Math.log(Math.max(.01,Math.abs(f.pkV[0]-f.off)+.01))/Math.max(.01,f.period*(f.pkV.length-1||1));
+      add(function(x){return f.amp*Math.exp(-Math.abs(dec)*2*x)*Math.sin(om*x+bsp)+f.off},"Gedaempft",mkLat("dmp",om,bsp,f.amp,f.off,{d:Math.abs(dec*2)}),{type:"damped"});
+    }
+  }
+  if(!f.isPer){
+    add(function(x){return f.amp*2*x+f.off-f.amp},"Linear",mkLat("lin",0,0,f.amp*2,f.off-f.amp),{type:"linear"});
+    [2,3,4].forEach(function(d){var cc=fitPoly(xs,ys,d);if(cc){var lbl=["","Linear","Quadratisch","Kubisch","Quartisch"][d];
+      add(function(x){var r=0;for(var i=0;i<=d;i++)r+=cc[i]*Math.pow(x,d-i);return r},lbl,mkLatPoly(cc),{type:"poly"+d})}});
+    var ef=fitExp(xs,ys);if(ef)add(function(x){return ef.a*Math.exp(ef.b*x)+ef.c},"Exponentiell",mkLat("exp",0,0,ef.a,ef.c,{b:ef.b}),{type:"exponential",fA:ef.a,fB:ef.b,fC:ef.c});
+  }
+  c.sort(function(a,b){return a.err-b.err});return c;
+}
+
+/* ===== LATEX BUILDERS ===== */
+function F(n,dp){if(Math.abs(n)<.001)return"0";if(dp===undefined&&Math.abs(n-Math.round(n))<.01)return""+Math.round(n);return n.toFixed(dp||2).replace(/0+$/,"").replace(/\.$/,"")}
+function mkLat(type,om,ph,a,o,extra){
+  var inn=Math.abs(om-1)<.1?"x":F(om)+"x";
+  if(Math.abs(ph)>.05)inn+=(ph>0?" + ":" - ")+F(Math.abs(ph));
+  var r="";
+  switch(type){
+    case"sin":r=(Math.abs(a-1)>.01?F(a)+"\\cdot ":"")+"\\sin\\!\\left("+inn+"\\right)";break;
+    case"cos":r=(Math.abs(a-1)>.01?F(a)+"\\cdot ":"")+"\\cos\\!\\left("+inn+"\\right)";break;
+    case"abs_sin":r=(Math.abs(a-1)>.01?F(a)+"\\cdot ":"")+"\\left|\\sin\\!\\left("+inn+"\\right)\\right|";break;
+    case"sgn":r=F(a)+"\\,\\mathrm{sgn}(\\sin("+inn+"))";break;
+    case"dmp":r=F(a)+"\\,e^{-"+F(extra.d,2)+"t}\\sin("+inn+")";break;
+    case"lin":r=F(a)+"\\,x";if(Math.abs(o)>.01)r+=(o>0?" + ":" - ")+F(Math.abs(o));return r;
+    case"exp":r=(Math.abs(a-1)>.01?F(a,2)+"\\cdot ":"")+"e^{"+F(extra.b||1,2)+"x}";if(Math.abs(o)>.01)r+=(o>0?" + ":" - ")+F(Math.abs(o),2);return r;
+  }
+  if(Math.abs(o)>.01&&type!=="lin")r+=(o>0?" + ":" - ")+F(Math.abs(o));
+  return r;
+}
+function mkLatPoly(c){var d=c.length-1,r="";for(var i=0;i<=d;i++){var v=c[i],p=d-i;if(Math.abs(v)<.001)continue;if(r!=="")r+=v>0?" + ":" - ";else if(v<0)r+="-";var av=Math.abs(v);
+  if(p===0)r+=F(av);else if(p===1)r+=(Math.abs(av-1)<.01?"":F(av))+"x";else r+=(Math.abs(av-1)<.01?"":F(av))+"x^{"+p+"}"}return r||"0"}
+
+/* ===== NUMERIC ===== */
+function evalT(x,c){
+  var a=c.params.amp,f=c.params.freq,o=c.params.offset,om=2*Math.PI*f,p=c.params.phase||0,t=c.params.type;
+  switch(t){case"sin":return a*Math.sin(om*x+p)+o;case"cos":return a*Math.cos(om*x+p)+o;
+    case"abs_sin":return a*Math.abs(Math.sin(om*x+p))+o;case"square":return a*Math.sign(Math.sin(om*x+p))+o;
+    case"heaviside":return a*Math.sign(x-.5)+o;
+    case"damped":return a*Math.exp(-f*2*x)*Math.sin(om*x+p)+o;
+    case"exponential":return a*Math.exp((c.params.fB||1)*x)+o;default:return 0}
+}
+function fitPoly(xs,ys,d){var n=xs.length,m=d+1;var A=[];for(var r=0;r<m;r++){A[r]=[];for(var c=0;c<m;c++)A[r][c]=0}var b=[];for(var r=0;r<m;r++)b[r]=0;
+  for(var i=0;i<n;i++){var p=[1];for(var j=1;j<m;j++)p.push(p[j-1]*xs[i]);for(var r=0;r<m;r++){b[r]+=p[r]*ys[i];for(var c=0;c<m;c++)A[r][c]+=p[r]*p[c]}}
+  var M=[];for(var r=0;r<m;r++){M[r]=A[r].slice();M[r].push(b[r])}
+  for(var c=0;c<m;c++){var mx=c;for(var r=c+1;r<m;r++)if(Math.abs(M[r][c])>Math.abs(M[mx][c]))mx=r;var tmp=M[c];M[c]=M[mx];M[mx]=tmp;
+    if(Math.abs(M[c][c])<1e-12)return null;for(var r=c+1;r<m;r++){var f=M[r][c]/M[c][c];for(var j=c;j<=m;j++)M[r][j]-=f*M[c][j]}}
+  var x=[];for(var i=0;i<m;i++)x[i]=0;for(var i=m-1;i>=0;i--){x[i]=M[i][m];for(var j=i+1;j<m;j++)x[i]-=M[i][j]*x[j];x[i]/=M[i][i]}return x}
+function fitExp(xs,ys){for(var c=-2;c<=2;c+=.15){var ln=[];var ok=true;
+  for(var i=0;i<xs.length;i++){var v=Math.log(Math.abs(ys[i]-c)+1e-10);if(!isFinite(v)){ok=false;break}ln.push(v)}if(!ok)continue;
+  var n=xs.length,sx=0,sy=0,sxx=0,sxy=0;for(var i=0;i<n;i++){sx+=xs[i];sy+=ln[i];sxx+=xs[i]*xs[i];sxy+=xs[i]*ln[i]}
+  var dn=n*sxx-sx*sx;if(Math.abs(dn)<1e-10)continue;var bv=(n*sxy-sx*sy)/dn,a=Math.exp((sy-bv*sx)/n);
+  var err=0;for(var i=0;i<n;i++)err+=(a*Math.exp(bv*xs[i])+c-ys[i])*(a*Math.exp(bv*xs[i])+c-ys[i]);err=Math.sqrt(err/n);
+  if(Math.abs(bv)>.05&&isFinite(a)&&isFinite(bv))return{a:a,b:bv,c:c,err:err}}return null}
+
+/* ===== RECOGNIZE ===== */
+function recognize(){
+  if(practiceActive)return; /* don't overwrite ghost overlay during practice */
+  var pts=nPts();if(!pts)return;var f=getFeat(pts);
+  var cands=genT(pts,f).slice(0,6);if(!cands.length)return;
+  best=cands[0];var xs=pts.map(function(p){return p.x});
+  ovlP=xs.map(function(x){return{x:x,y:evalT(x,best)}});custP=null;
+  var tp=strokes.reduce(function(s,st){return s+st.points.length},0);
+  var pct=Math.max(0,Math.min(100,100*(1-best.err))).toFixed(1);
+  updS(tp,best.label,pct+"%");renderRes(cands,f);renderCAS(best);drawBode(best);addH(best);redraw();
+}
+
+function renderRes(cands,f){
+  var el=document.getElementById("tRes"),mx=Math.max.apply(null,cands.map(function(c){return c.err})),mn=cands[0].err;
+  var h="";cands.forEach(function(c,i){
+    var pct=Math.max(0,Math.min(100,100*(1-(c.err-mn)/(mx-mn+.001))));
+    var cls=i===0?"best":"";
+    var badge=i===0?'<span class="badge">Best</span>':"";
+    var bgColor=i===0?"#238636":"#58a6ff";
+    h+='<div class="card '+cls+'" onclick="window._casTab()">';
+    h+='<div class="cr"><span>'+c.label+'</span>'+badge+'</div>';
+    h+='<div class="cf" data-latex="'+esc(c.latex)+'"></div>';
+    h+='<div class="mb"><div class="mf" style="width:'+pct+'%;background:'+bgColor+'"></div></div>';
+    h+='<div class="cm"><span>Fit: '+(100-c.err*100).toFixed(1)+'%</span></div>';
+    h+='<div class="cl" onclick="event.stopPropagation();cpT(this)">'+esc(c.latex)+'</div>';
+    h+='</div>';
+  });el.innerHTML=h;renderK(el);
+}
+
+/* ===== CAS PANEL (MULTI-ENGINE) ===== */
+function renderCAS(c){
+  var el=document.getElementById("tCas");
+  var symExpr=getSymExpr(c);
+  if(!symExpr){el.innerHTML=eH("⚡","CAS nicht verfügbar","Für diesen Typ.");return}
+
+  var h='<div class="card best"><div class="cr"><span>'+c.label+'</span><span class="badge">Erkannt</span></div><div class="cf" data-latex="'+esc(c.latex)+'"></div></div>';
+
+  // Show available engines
+  var engines=[];
+  if(hasAlgebrite())engines.push({name:"Algebrite",tag:"alg"});
+  if(hasNerdamer())engines.push({name:"Nerdamer",tag:"ner"});
+  if(hasXcas())engines.push({name:"Xcas(Giac)",tag:"xca"});
+  if(!engines.length){h+='<div style="color:#8b949e;font-size:11px;text-align:center;padding:10px">Lade Giac für volle CAS-Power…</div>'}
+
+  var ops=["simplify","diff","integrate","taylor","laplace"];
+  var opLabels={"simplify":"Vereinfacht","diff":"Ableitung f'(x)","integrate":"Stammfunktion","taylor":"Taylor (n=5)","laplace":"Laplace"};
+
+  // For each operation, run all engines and show side-by-side
+  ops.forEach(function(op){
+    var results=runCas(symExpr,op);
+    if(results.length===0)return;
+    h+='<div style="margin-top:8px"><div style="font-size:10px;font-weight:600;color:#c9d1d9;margin-bottom:4px">'+opLabels[op]+'</div>';
+    results.forEach(function(r){
+      if(r.error){
+        h+='<div class="ci"><div class="cil gen">'+r.engine+'</div><div style="color:#f85149;font-size:10px">'+esc(r.error)+'</div></div>';
+      }else{
+        var cls=r.tag==="alg"?"alg":r.tag==="ner"?"ner":"xca";
+        h+='<div class="ci"><div class="cil '+cls+'">'+r.engine+'</div><div class="civ" data-latex="'+esc(r.result.latex)+'"></div></div>';
+      }
+    });
+    h+='</div>';
+  });
+
+  // Frequency analysis
+  if(c.params.freq){
+    var om=F(c.params.freq*2*Math.PI);
+    h+='<div class="ci"><div class="cil gen">Frequenzanalyse</div><div class="civ" data-latex="\\omega='+om+'\\,\\mathrm{rad/s},\\;f='+F(c.params.freq)+'\\,\\mathrm{Hz},\\;T='+F(1/c.params.freq,3)+'\\,\\mathrm{s}"></div></div>';
+  }
+
+  el.innerHTML=h;renderK(el);
+}
+
+function getSymExpr(c){
+  var p=c.params,t=p.type,a=p.amp,f=p.freq,o=p.offset,ph=p.phase||0;
+  switch(t){
+    case"sin":return F(a,4)+"*sin("+F(2*Math.PI*f,4)+"*x"+(Math.abs(ph)>.05?"+"+F(ph,4):"")+")"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    case"cos":return F(a,4)+"*cos("+F(2*Math.PI*f,4)+"*x"+(Math.abs(ph)>.05?"+"+F(ph,4):"")+")"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    case"linear":return F(a*2,4)+"*x+"+F(o,4);
+    case"exponential":return F(a,4)+"*exp("+F(p.fB||1,4)+"*x)"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    case"abs_sin":return F(a,4)+"*abs(sin("+F(2*Math.PI*f,4)+"*x))"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    case"damped":return F(a,4)+"*exp(-"+F(f*2,4)+"*x)*sin("+F(2*Math.PI*f,4)+"*x)";
+    case"heaviside":return F(a,4)+"*(x>0?1:0)"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    default:return null;
+  }
+}
+
+function renderK(el){requestAnimationFrame(function(){el.querySelectorAll("[data-latex]").forEach(function(e){
+  try{katex.render(e.getAttribute("data-latex"),e,{throwOnError:false,displayMode:false})}catch(er){e.textContent=e.getAttribute("data-latex")}})})}
+window.cpT=function(el){navigator.clipboard.writeText(el.textContent||el.getAttribute("data-latex")||"").then(function(){toast("Kopiert!")})};
+window._casTab=function(){document.querySelectorAll(".tab")[1].click()};
+
+/* ===== BODE ===== */
+function drawBode(c){
+  var el=document.getElementById("tBode");
+  el.innerHTML='<div class="card best"><div class="cr"><span>Frequenzgang</span><span class="badge">Bode</span></div><canvas class="bode-canvas" id="bodeMag"></canvas><div style="text-align:center;font-size:9px;color:#8b949e;margin:2px 0">|H(j omega)| dB</div><canvas class="bode-canvas" id="bodePhase" style="margin-top:4px"></canvas><div style="text-align:center;font-size:9px;color:#8b949e">Phase (Grad)</div></div>';
+  var t=c.params.type,freq=c.params.freq||1,amp=c.params.amp||1,om0=2*Math.PI*freq;
+  requestAnimationFrame(function(){
+    var magC=document.getElementById("bodeMag"),phC=document.getElementById("bodePhase");if(!magC||!phC)return;
+    [magC,phC].forEach(function(cv){var d=devicePixelRatio||1;var r=cv.getBoundingClientRect();cv.width=r.width*d;cv.height=r.height*d;cv.style.width=r.width+"px";cv.style.height=r.height+"px";cv.getContext("2d").setTransform(d,0,0,d,0,0)});
+    var W2=magC.getBoundingClientRect().width,H2=magC.getBoundingClientRect().height;
+    var magCtx=magC.getContext("2d"),phCtx=phC.getContext("2d");
+    [magCtx,phCtx].forEach(function(c2){c2.clearRect(0,0,W2,H2);c2.fillStyle="#0d1117";c2.fillRect(0,0,W2,H2);
+      c2.strokeStyle="#21262d";c2.lineWidth=.5;for(var i=0;i<=6;i++){var x=i/6*W2;c2.beginPath();c2.moveTo(x,0);c2.lineTo(x,H2);c2.stroke()}
+      for(var i=0;i<=4;i++){var y=i/4*H2;c2.beginPath();c2.moveTo(0,y);c2.lineTo(W2,y);c2.stroke()}});
+    var N=200,fMin=.01,fMax=100,magData=[],phData=[];
+    for(var i=0;i<N;i++){var logF=Math.log10(fMin)+i/(N-1)*(Math.log10(fMax)-Math.log10(fMin));var f=Math.pow(10,logF),w=2*Math.PI*f,mag,phase;
+      if(t==="sin"||t==="cos"||t==="abs_sin"){mag=amp/Math.sqrt(Math.pow(w*w-om0*om0,2)+Math.pow(w*om0*.5,2)+.001);phase=-Math.atan2(w*om0*.5,w*w-om0*om0)*180/Math.PI}
+      else if(t==="exponential"||t==="heaviside"){var tau=1/freq;mag=amp/Math.sqrt(1+Math.pow(w*tau,2));phase=-Math.atan(w*tau)*180/Math.PI}
+      else if(t==="damped"){var z=.3;mag=amp*om0*om0/Math.sqrt(Math.pow(om0*om0-w*w,2)+Math.pow(2*z*om0*w,2)+.001);phase=-Math.atan2(2*z*om0*w,om0*om0-w*w)*180/Math.PI}
+      else{mag=amp/(1+w/om0);phase=-Math.atan(w/om0)*180/Math.PI}magData.push(mag);phData.push(phase)}
+    var maxDB=20*Math.log10(Math.max.apply(null,magData)+.001),minDB=Math.min(-40,maxDB-60);
+    magCtx.strokeStyle="#58a6ff";magCtx.lineWidth=1.5;magCtx.beginPath();
+    for(var i=0;i<N;i++){var x=i/(N-1)*W2;var db=20*Math.log10(magData[i]+.001);var y=H2-(db-minDB)/(maxDB-minDB+1)*H2;i===0?magCtx.moveTo(x,y):magCtx.lineTo(x,y)}magCtx.stroke();
+    phCtx.strokeStyle="#f0883e";phCtx.lineWidth=1.5;phCtx.beginPath();
+    for(var i=0;i<N;i++){var x=i/(N-1)*W2;var y=H2/2-phData[i]/180*H2/2;i===0?phCtx.moveTo(x,y):phCtx.lineTo(x,y)}phCtx.stroke();
+    magCtx.fillStyle="#6e7681";magCtx.font="8px monospace";
+    [0.01,0.1,1,10,100].forEach(function(f){var x=(Math.log10(f)-Math.log10(fMin))/(Math.log10(fMax)-Math.log10(fMin))*W2;magCtx.fillText(f>=1?""+f:f.toFixed(2),x-8,H2-2);phCtx.fillText(f>=1?""+f:f.toFixed(2),x-8,H2-2)});
+  });
+}
+
+/* ===== AUDIO ===== */
+document.getElementById("bSound").onclick=function(){
+  if(!best){toast("Erst Funktion erkennen!");return}
+  try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    var sr=audioCtx.sampleRate,dur=2,buf=audioCtx.createBuffer(1,sr*dur,sr),d=buf.getChannelData(0);
+    var p=best.params,amp=p.amp||1,freq=p.freq||1,off=p.offset||0,ph=p.phase||0,om=2*Math.PI*freq;
+    for(var i=0;i<d.length;i++){var x=i/sr,y=0;switch(p.type){
+      case"sin":y=amp*Math.sin(om*x+ph)+off;break;case"cos":y=amp*Math.cos(om*x+ph)+off;break;
+      case"abs_sin":y=amp*Math.abs(Math.sin(om*x+ph))+off;break;case"square":y=amp*Math.sign(Math.sin(om*x+ph))+off;break;
+      case"damped":y=amp*Math.exp(-freq*x)*Math.sin(om*x+ph)+off;break;
+      case"exponential":y=amp*Math.exp((p.fB||1)*x)+off;break;case"heaviside":y=amp*Math.sign(x-.5)+off;break;
+      default:y=amp*Math.sin(om*x+ph)+off}d[i]=Math.max(-1,Math.min(1,y*.3))}
+    var src=audioCtx.createBufferSource();src.buffer=buf;var fade=audioCtx.createGain();src.connect(fade);fade.connect(audioCtx.destination);
+    fade.gain.setValueAtTime(0,audioCtx.currentTime);fade.gain.linearRampToValueAtTime(1,audioCtx.currentTime+.05);
+    fade.gain.setValueAtTime(1,audioCtx.currentTime+dur-.1);fade.gain.linearRampToValueAtTime(0,audioCtx.currentTime+dur);
+    src.start();src.stop(audioCtx.currentTime+dur);toast("Spiele: "+best.label)}catch(e){toast("Audio: "+e.message)}
+};
+
+/* ===== PNG EXPORT ===== */
+document.getElementById("bExport").onclick=function(){
+  var tmp=document.createElement("canvas");tmp.width=canvas.width;tmp.height=canvas.height;
+  var tc=tmp.getContext("2d");tc.fillStyle="#0d1117";tc.fillRect(0,0,tmp.width,tmp.height);tc.drawImage(ac,0,0);tc.drawImage(canvas,0,0);
+  tmp.toBlob(function(blob){var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="sketch-cas.png";a.click();URL.revokeObjectURL(url);toast("PNG exportiert!")});
+};
+
+/* ===== HISTORY ===== */
+function addH(c){var now=new Date(),time=("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2);
+  hist.unshift({label:c.label,latex:c.latex,time:time});if(hist.length>50)hist=hist.slice(0,50);
+  localStorage.setItem("scH5",JSON.stringify(hist));renderH()}
+function renderH(){var el=document.getElementById("tHist");
+  if(!hist.length){el.innerHTML=eH("🕐","Leerer Verlauf","Erkennungen werden gespeichert.");return}
+  var h="";hist.forEach(function(x){h+='<div class="card" style="cursor:pointer"><div style="display:flex;justify-content:space-between"><span style="font-size:11px">'+x.label+'</span><span style="font-size:9px;color:#8b949e">'+x.time+"</span></div></div>"});el.innerHTML=h}
+
+/* ===== INIT ===== */
+/* ===== TRAINING SYSTEM ===== */
+function renderTrainingList(){trainMode(trainCurrentMode)}
+function loadTrainData(){
+  try{var raw=localStorage.getItem("scTrainV6");if(raw)trainData=JSON.parse(raw)}catch(e){}
+  if(!trainData)trainData={targets:[],attempts:[]};
+  if(!trainData.targets)trainData.targets=[];
+  if(!trainData.attempts)trainData.attempts=[];
+}
+function saveTrainData(){
+  try{localStorage.setItem("scTrainV6",JSON.stringify(trainData))}catch(e){toast("Speicherfehler!")}
+}
+function genId(){return "t_"+Date.now()+"_"+Math.random().toString(36).substr(2,6)}
+
+function getAllPoints(){
+  var all=[];
+  strokes.forEach(function(s){all=all.concat(s.points.map(function(p){return{x:p.x,y:p.y}}))});
+  return all;
+}
+
+function normPts(pts){
+  if(!pts||pts.length<2)return pts;
+  var xs=pts.map(function(p){return p.x}),ys=pts.map(function(p){return p.y});
+  var xMn=Math.min.apply(null,xs),xMx=Math.max.apply(null,xs);
+  var yMn=Math.min.apply(null,ys),yMx=Math.max.apply(null,ys);
+  var xR=xMx-xMn||1,yR=yMx-yMn||1;
+  return pts.map(function(p){return{x:(p.x-xMn)/xR,y:-(((p.y-yMn)/yR)*2-1)}});
+}
+
+function resampleX(pts,N){
+  if(!pts||pts.length<2)return pts;
+  var sorted=pts.slice().sort(function(a,b){return a.x-b.x});
+  var res=[];
+  for(var i=0;i<N;i++){
+    var tx=i/(N-1);
+    var idx=0;
+    while(idx<sorted.length-1&&sorted[idx+1].x<tx)idx++;
+    if(idx>=sorted.length-1){res.push({x:tx,y:sorted[sorted.length-1].y})}
+    else{
+      var dx=(sorted[idx+1].x-sorted[idx].x);
+      var dt=dx>1e-6?(tx-sorted[idx].x)/dx:0;
+      res.push({x:tx,y:sorted[idx].y+dt*(sorted[idx+1].y-sorted[idx].y)});
+    }
+  }
+  return res;
+}
+
+function comparePaths(ref,att){
+  var N=200;
+  var rn=resampleX(ref,N); /* ref is already normalized (stored normalizedPoints) */
+  var an=resampleX(normPts(att),N);
+  if(!rn||!an||rn.length<2||an.length<2)return 1;
+  var s=0;
+  for(var i=0;i<N;i++){
+    var dx=rn[i].x-an[i].x;
+    var dy=rn[i].y-an[i].y;
+    s+=dx*dx+dy*dy;
+  }
+  return Math.sqrt(s/N);
+}
+
+function calcDifficulty(pts){
+  if(!pts||pts.length<10)return "Einfach";
+  var xs=pts.map(function(p){return p.x}),ys=pts.map(function(p){return p.y});
+  var xMn=Math.min.apply(null,xs),xMx=Math.max.apply(null,xs);
+  var yMn=Math.min.apply(null,ys),yMx=Math.max.apply(null,ys);
+  var ranges=xMx-xMn+yMx-yMn;
+  var crossings=0;
+  var midY=(yMx+yMn)/2;
+  for(var i=1;i<ys.length;i++){
+    if((ys[i-1]<midY&&ys[i]>=midY)||(ys[i-1]>=midY&&ys[i]<midY))crossings++;
+  }
+  var score=0;
+  if(pts.length>500)score+=2;else if(pts.length>200)score+=1;
+  if(crossings>8)score+=2;else if(crossings>4)score+=1;
+  if(ranges>400)score+=1;
+  if(score>=4)return "Schwer";
+  if(score>=2)return "Mittel";
+  return "Einfach";
+}
+
+function saveTrainingTarget(){
+  var allPts=getAllPoints();
+  if(allPts.length<10){toast("Mindestens 10 Punkte zeichnen!");return}
+  var labelEl=document.getElementById("trLabel");
+  var label=labelEl?labelEl.value.trim():"";
+  if(!label){toast("Bezeichnung eingeben!");return}
+  var target={
+    id:genId(),
+    timestamp:Date.now(),
+    label:label,
+    strokes:JSON.parse(JSON.stringify(strokes)),
+    normalizedPoints:normPts(allPts),
+    difficulty:calcDifficulty(allPts)
+  };
+  trainData.targets.push(target);
+  saveTrainData();
+  if(labelEl)labelEl.value="";
+  toast("Ziel gespeichert: "+label);
+  renderTrainingList();
+}
+
+function deleteTarget(id){
+  trainData.targets=trainData.targets.filter(function(t){return t.id!==id});
+  trainData.attempts=trainData.attempts.filter(function(a){return a.targetId!==id});
+  saveTrainData();
+  renderTrainingList();
+  toast("Ziel gelöscht");
+}
+
+function startPractice(id){
+  var target=null;
+  for(var i=0;i<trainData.targets.length;i++){
+    if(trainData.targets[i].id===id){target=trainData.targets[i];break}
+  }
+  if(!target){toast("Ziel nicht gefunden!");return}
+  if(!target.normalizedPoints||target.normalizedPoints.length<2){toast("Keine Referenzdaten!");return}
+  activeTargetId=id;
+  practiceActive=true;
+  strokes=[];undoS=[];redoS=[];curS=null;
+  ovlP=target.normalizedPoints;
+  custP=null;best=null;
+  redraw();
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")});
+  var allTabs=document.querySelectorAll(".tab");
+  for(var i=0;i<allTabs.length;i++){if(allTabs[i].dataset.t==="res"){allTabs[i].classList.add("active");break}}
+  ["tRes","tCas","tInp","tBode","tHist","tTrain"].forEach(function(pid){document.getElementById(pid).classList.remove("on")});
+  document.getElementById("tRes").classList.add("on");
+  document.getElementById("tRes").innerHTML=eH("🎯","Übung: "+esc(target.label),"Zeichne die Formel nach! Ghost-Overlay zeigt das Referenzbild.")+'<div style="text-align:center;margin-top:8px"><button class="b grn" onclick="endPractice()" id="btnFertig">✅ Fertig — Bewerten</button></div>';
+  toast("Übung gestartet: "+target.label);
+}
+
+function endPractice(){
+  if(!practiceActive||!activeTargetId)return;
+  clearTimeout(recogT); /* cancel pending recognition so it doesn't overwrite overlay */
+  practiceActive=false;
+  var target=null;
+  for(var i=0;i<trainData.targets.length;i++){
+    if(trainData.targets[i].id===activeTargetId){target=trainData.targets[i];break}
+  }
+  if(!target){activeTargetId=null;return}
+  var attPts=getAllPoints();
+  if(attPts.length<10){toast("Mindestens 10 Punkte zum Vergleichen!");activeTargetId=null;ovlP=null;redraw();return}
+  var err=comparePaths(target.normalizedPoints,attPts);
+  var score=Math.max(0,Math.min(100,Math.round((1-err)*100)));
+  var attempt={
+    timestamp:Date.now(),
+    targetId:activeTargetId,
+    score:score,
+    strokes:JSON.parse(JSON.stringify(strokes))
+  };
+  trainData.attempts.push(attempt);
+  saveTrainData();
+  ovlP=null;custP=null;best=null;activeTargetId=null;
+  redraw();
+  document.getElementById("tRes").innerHTML=eH("📈","Zeichne eine Funktion","Stift oder Finger. Erkennung + multi-CAS automatisch.");
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")});
+  var allTabs=document.querySelectorAll(".tab");
+  for(var i=0;i<allTabs.length;i++){if(allTabs[i].dataset.t==="train"){allTabs[i].classList.add("active");break}}
+  ["tRes","tCas","tInp","tBode","tHist","tTrain"].forEach(function(pid){document.getElementById(pid).classList.remove("on")});
+  document.getElementById("tTrain").classList.add("on");
+  renderTrainingList(); /* rebuild DOM first, then inject score */
+  var resultEl=document.getElementById("trResult");
+  if(resultEl){
+    var scoreClass=score>=80?"#238636":score>=50?"#f0883e":"#f85149";
+    var scoreLabel=score>=80?"Sehr gut!":score>=50?"Gut!":"Weiter üben!";
+    resultEl.innerHTML='<div class="card" style="border-color:'+scoreClass+'"><div class="tr-score" style="color:'+scoreClass+'">'+score+'%</div><div style="text-align:center;font-size:12px;color:'+scoreClass+';margin-bottom:6px">'+scoreLabel+'</div><div class="card" style="margin:0"><div class="cr"><span>Vergleich mit: '+esc(target.label)+'</span><span class="badge">Referenz</span></div><div style="font-size:10px;color:#8b949e">RMSE-Fehler: '+err.toFixed(4)+'</div></div></div>';
+  }
+  toast("Ergebnis: "+score+"% — "+(score>=80?"Sehr gut!":score>=50?"Gut!":"Weiter üben!"));
+}
+
+function trainMode(mode){
+  var el=document.getElementById("tTrain");
+  if(!el)return;
+  trainCurrentMode=mode;
+  var modeBtns=[
+    {m:"record",l:"📝 Aufzeichnen"},
+    {m:"practice",l:"🎯 Üben"},
+    {m:"stats",l:"📊 Statistik"}
+  ];
+  var h='<div class="tr-mode">';
+  modeBtns.forEach(function(mb){
+    h+='<button class="b'+(mb.m===mode?" on":"")+'" onclick="trainMode(\''+mb.m+'\')">'+mb.l+'</button>';
+  });
+  h+='</div>';
+  h+='<div id="trResult"></div>';
+  if(mode==="record"){
+    h+='<div class="card"><div class="cr"><span>Ziel speichern</span><span class="badge orange">Record</span></div>';
+    h+='<div class="cas-input"><input id="trLabel" placeholder="Bezeichnung (z.B. sin(x))"></div>';
+    h+='<button class="b grn" onclick="saveTrainingTarget()">💾 Speichern</button>';
+    h+='</div>';
+    h+='<div class="card"><div class="cr"><span>Gespeicherte Ziele</span><span class="badge blue">'+trainData.targets.length+'</span></div>';
+    if(trainData.targets.length===0){
+      h+='<div style="text-align:center;padding:12px;color:#484f58;font-size:11px">Noch keine Ziele gespeichert.</div>';
+    }else{
+      h+='<div style="max-height:250px;overflow-y:auto">';
+      trainData.targets.forEach(function(t){
+        var count=trainData.attempts.filter(function(a){return a.targetId===t.id}).length;
+        h+='<div class="tr-target"><div><div class="lbl">'+esc(t.label)+'</div><div class="sub">'+t.difficulty+' · '+count+' Versuche</div></div>';
+        h+='<div style="display:flex;gap:3px"><button class="b" onclick="startPractice(\''+t.id+'\')">▶</button>';
+        h+='<button class="b red" onclick="deleteTarget(\''+t.id+'\')">✕</button></div></div>';
+      });
+      h+='</div>';
+    }
+    h+='</div>';
+  }else if(mode==="practice"){
+    h+='<div class="card"><div class="cr"><span>Zum Üben auswählen</span><span class="badge">Practice</span></div>';
+    if(trainData.targets.length===0){
+      h+='<div style="text-align:center;padding:12px;color:#484f58;font-size:11px">Keine Ziele vorhanden. Erst welche aufzeichnen!</div>';
+    }else{
+      h+='<div style="max-height:400px;overflow-y:auto">';
+      trainData.targets.forEach(function(t){
+        var atts=trainData.attempts.filter(function(a){return a.targetId===t.id});
+        var avgScore=0;
+        if(atts.length>0){
+          var sum=atts.reduce(function(s,a){return s+a.score},0);
+          avgScore=Math.round(sum/atts.length);
+        }
+        h+='<div class="tr-target"><div><div class="lbl">'+esc(t.label)+'</div><div class="sub">'+t.difficulty+' · Ø '+avgScore+'% · '+atts.length+' Versuche</div></div>';
+        h+='<button class="b grn" onclick="startPractice(\''+t.id+'\')">▶ Üben</button></div>';
+      });
+      h+='</div>';
+    }
+    h+='</div>';
+  }else if(mode==="stats"){
+    var totalTargets=trainData.targets.length;
+    var totalAttempts=trainData.attempts.length;
+    var avgScore=0;
+    if(totalAttempts>0){
+      var sum=trainData.attempts.reduce(function(s,a){return s+a.score},0);
+      avgScore=Math.round(sum/totalAttempts);
+    }
+    var bestScore=0;
+    if(totalAttempts>0){
+      var mx=trainData.attempts.map(function(a){return a.score});
+      bestScore=Math.max.apply(null,mx);
+    }
+    var perTarget={};
+    trainData.attempts.forEach(function(a){
+      if(!perTarget[a.targetId])perTarget[a.targetId]={scores:[],count:0};
+      perTarget[a.targetId].scores.push(a.score);
+      perTarget[a.targetId].count++;
+    });
+    h+='<div class="tr-stat">';
+    h+='<div class="card"><div style="font-size:9px;color:#8b949e">Ziele</div><div class="sv2">'+totalTargets+'</div></div>';
+    h+='<div class="card"><div style="font-size:9px;color:#8b949e">Versuche</div><div class="sv2">'+totalAttempts+'</div></div>';
+    h+='<div class="card"><div style="font-size:9px;color:#8b949e">Ø Score</div><div class="sv2">'+avgScore+'%</div></div>';
+    h+='</div>';
+    h+='<div class="tr-stat">';
+    h+='<div class="card"><div style="font-size:9px;color:#8b949e">Bestes Ergebnis</div><div class="sv2" style="color:#238636">'+bestScore+'%</div></div>';
+    h+='<div class="card"><div style="font-size:9px;color:#8b949e">Daten</div><div class="sv2">'+trainData.targets.length+"</div></div>";
+    h+='<div class="card"><div style="font-size:9px;color:#8b949e">Fortschritt</div><div class="sv2" style="font-size:11px">'+(totalAttempts>0?Math.round(trainData.attempts.reduce(function(s,a){return s+a.score},0)/totalAttempts)+'% Ø':'—')+'</div></div>';
+    h+='</div>';
+    if(totalTargets>0){
+      h+='<div class="card"><div class="cr"><span>Pro Ziel</span></div>';
+      trainData.targets.forEach(function(t){
+        var ta=perTarget[t.id];
+        var cnt=ta?ta.count:0;
+        var avg=ta?Math.round(ta.scores.reduce(function(s,v){return s+v},0)/cnt):0;
+        var bst=ta?Math.max.apply(null,ta.scores):0;
+        h+='<div class="tr-target"><div><div class="lbl">'+esc(t.label)+'</div><div class="sub">Ø '+avg+'% · Best: '+bst+'% · '+cnt+' Versuche</div></div></div>';
+      });
+      h+='</div>';
+    }
+    h+='<div style="margin-top:8px"><button class="b grn" onclick="sendToHermes()">📤 An Hermes senden</button>';
+    h+='<button class="b" onclick="exportTrainingData()">📥 Export JSON</button>';
+    h+='<button class="b red" onclick="if(confirm(\'Alle Trainingsdaten löschen?\')){trainData={targets:[],attempts:[]};saveTrainData();trainMode(\'stats\');toast(\'Gelöscht!\')}">🗑 Alles löschen</button></div>';
+  }
+  el.innerHTML=h;
+}
+
+function exportTrainingData(){
+  var json=JSON.stringify(trainData,null,2);
+  var blob=new Blob([json],{type:"application/json"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;
+  a.download="sketch-cas-training.json";
+  a.click();
+  URL.revokeObjectURL(url);
+  toast("Training-Data exported!");
+}
+
+function sendToHermes(){
+  var note=prompt("Notiz an Hermes (optional):","");
+  if(note===null)return;
+  var payload={data:trainData,note:note,timestamp:Date.now(),userAgent:navigator.userAgent};
+  var btn=document.querySelector("[onclick='sendToHermes()']");
+  if(btn){btn.textContent="⏳ Sende...";btn.disabled=true}
+  fetch("/api/send-training",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  }).then(function(r){return r.json()}).then(function(res){
+    if(res.ok){toast("📤 An Hermes gesendet! ("+res.file+")")}
+    else{toast("Fehler: "+(res.error||"Unbekannt"))}
+  }).catch(function(e){toast("Netzwerk-Fehler: "+e.message)}).finally(function(){
+    if(btn){btn.textContent="📤 An Hermes senden";btn.disabled=false}
+  });
+}
+
+resize();renderH();loadTrainData();trainMode("record");
+
+/* ===== TEST API ===== expose internals for Playwright testing */
+window.__sk={
+  get strokes(){return strokes},get showGrid(){return showGrid},set showGrid(v){showGrid=v},
+  get showOvl(){return showOvl},set showOvl(v){showOvl=v},get selEng(){return selEng},
+  get practiceActive(){return practiceActive},get activeTargetId(){return activeTargetId},
+  get trainData(){return trainData},set trainData(v){trainData=v},
+  get best(){return best},get ovlP(){return ovlP},set ovlP(v){ovlP=v},
+  normPts:normPts,nPts:nPts,drawOv:drawOv,evalT:evalT,esc:esc,exprToLatex:exprToLatex,
+  get recogBest(){return best},
+  saveTrainData:saveTrainData,loadTrainData:loadTrainData,
+  saveTrainingTarget:saveTrainingTarget,deleteTarget:deleteTarget,
+  startPractice:startPractice,endPractice:endPractice,
+  trainMode:trainMode,exportTrainingData:exportTrainingData,
+  genId:genId,getAllPoints:getAllPoints
+};
+
+/* Auto-load Giac on first CAS interaction */
+document.querySelector('[data-t="cas"]').addEventListener("click",function(){if(!giacLoaded&&!giacLoading)loadGiac()},{once:true});
+document.querySelector('[data-t="inp"]').addEventListener("click",function(){if(!giacLoaded&&!giacLoading)loadGiac()},{once:true});
+
+})();
+</script>
+</body>
+</html>

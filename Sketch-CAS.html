@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Sketch → CAS</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; overflow:hidden; font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  background:#0d1117; color:#c9d1d9; }
+
+.app { display:grid; grid-template-rows:auto 1fr auto; height:100vh; height:100dvh; }
+
+/* ─── HEADER ─── */
+header { display:flex; align-items:center; gap:12px; padding:10px 16px;
+  background:#161b22; border-bottom:1px solid #30363d; }
+header h1 { font-size:18px; font-weight:600; color:#58a6ff; white-space:nowrap; }
+header .subtitle { font-size:12px; color:#8b949e; }
+
+.btn-group { display:flex; gap:6px; margin-left:auto; }
+.btn { padding:8px 14px; border:1px solid #30363d; border-radius:6px;
+  background:#21262d; color:#c9d1d9; font-size:13px; cursor:pointer;
+  transition:all .15s; user-select:none; }
+.btn:hover { background:#30363d; border-color:#8b949e; }
+.btn:active { transform:scale(0.96); }
+.btn.danger { border-color:#f85149; color:#f85149; }
+.btn.danger:hover { background:#f8514922; }
+.btn.primary { background:#238636; border-color:#238636; color:#fff; }
+.btn.primary:hover { background:#2ea043; }
+
+/* ─── MAIN: Canvas + Panel ─── */
+.main { display:grid; grid-template-columns:1fr 340px; overflow:hidden; }
+
+.canvas-wrap { position:relative; overflow:hidden; background:#0d1117;
+  border-right:1px solid #30363d; }
+#drawCanvas { display:block; width:100%; height:100%; touch-action:none; cursor:crosshair; }
+
+/* Axis overlay */
+.axis-overlay { position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; }
+
+/* Side Panel */
+.panel { display:flex; flex-direction:column; background:#161b22; overflow:hidden; }
+.panel-header { padding:12px 16px; border-bottom:1px solid #30363d;
+  font-size:14px; font-weight:600; color:#58a6ff; display:flex; align-items:center; gap:8px; }
+.panel-header .icon { font-size:18px; }
+
+.results { flex:1; overflow-y:auto; padding:8px; }
+.results::-webkit-scrollbar { width:6px; }
+.results::-webkit-scrollbar-thumb { background:#30363d; border-radius:3px; }
+
+.result-card { background:#0d1117; border:1px solid #30363d; border-radius:8px;
+  padding:14px; margin-bottom:8px; transition:border-color .2s; }
+.result-card:hover { border-color:#58a6ff; }
+.result-card.best { border-color:#238636; background:#0d1117ee; }
+
+.result-rank { font-size:11px; color:#8b949e; text-transform:uppercase;
+  letter-spacing:.5px; margin-bottom:6px; display:flex; justify-content:space-between; }
+.result-rank .badge { background:#238636; color:#fff; padding:1px 6px;
+  border-radius:4px; font-size:10px; font-weight:600; }
+.result-formula { font-size:16px; margin:8px 0; min-height:30px; }
+.result-latex { font-size:12px; color:#8b949e; font-family:monospace;
+  word-break:break-all; background:#161b22; padding:6px 8px; border-radius:4px;
+  margin-top:6px; cursor:pointer; border:1px solid transparent; }
+.result-latex:hover { border-color:#30363d; }
+.result-latex::before { content:'📋 '; }
+
+.result-meta { display:flex; gap:10px; margin-top:8px; font-size:11px; color:#8b949e; }
+.result-meta span { display:flex; align-items:center; gap:3px; }
+.match-bar { height:3px; background:#21262d; border-radius:2px; margin-top:6px; overflow:hidden; }
+.match-fill { height:100%; border-radius:2px; transition:width .4s ease; }
+
+/* ─── FOOTER ─── */
+footer { display:flex; align-items:center; gap:12px; padding:8px 16px;
+  background:#161b22; border-top:1px solid #30363d; font-size:12px; color:#8b949e; }
+footer .stats { display:flex; gap:16px; }
+footer .stat-val { color:#c9d1d9; font-weight:600; }
+
+/* ─── Empty State ─── */
+.empty-state { display:flex; flex-direction:column; align-items:center;
+  justify-content:center; height:100%; color:#484f58; text-align:center; padding:32px; }
+.empty-state .big-icon { font-size:48px; margin-bottom:16px; }
+.empty-state h3 { font-size:16px; color:#8b949e; margin-bottom:8px; }
+.empty-state p { font-size:13px; line-height:1.5; max-width:240px; }
+
+/* ─── Loading ─── */
+.recognizing { position:absolute; top:12px; right:12px; background:#238636cc;
+  color:#fff; padding:6px 14px; border-radius:16px; font-size:12px; font-weight:600;
+  display:none; align-items:center; gap:6px; z-index:10; }
+.recognizing.show { display:flex; }
+.recognizing .spinner { width:12px; height:12px; border:2px solid #ffffff44;
+  border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Responsive: Tablet */
+@media (max-width:800px) {
+  .main { grid-template-columns:1fr; grid-template-rows:1fr auto; }
+  .panel { max-height:40vh; border-top:1px solid #30363d; border-right:none; }
+  .canvas-wrap { border-right:none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>✏️ Sketch → CAS</h1>
+      <div class="subtitle">Zeichne Funktionen, erkenne sie algebraisch</div>
+    </div>
+    <div class="btn-group">
+      <button class="btn" id="btnUndo" title="Rückgängig">↩</button>
+      <button class="btn danger" id="btnClear" title="Alles löschen">✕</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="drawCanvas"></canvas>
+      <canvas class="axis-overlay" id="axisCanvas"></canvas>
+      <div class="recognizing" id="recognizing">
+        <div class="spinner"></div> Erkennung läuft…
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="icon">🧮</span> CAS-Vorschläge
+      </div>
+      <div class="results" id="results">
+        <div class="empty-state" id="emptyState">
+          <div class="big-icon">📈</div>
+          <h3>Noch keine Zeichnung</h3>
+          <p>Zeichne eine Funktion mit dem Stift oder Finger auf die Fläche links.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="stats">
+      <span>Punkte: <span class="stat-val" id="statPts">0</span></span>
+      <span>Erkannt: <span class="stat-val" id="statMatch">—</span></span>
+    </div>
+    <div style="margin-left:auto; font-size:11px;">
+      Tippe auf einen Latex-Code zum Kopieren
+    </div>
+  </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  SKETCH → CAS  —  Function Sketch Recognition Engine
+// ═══════════════════════════════════════════════════════════════
+
+(() => {
+'use strict';
+
+// ─── Canvas Setup ───
+const canvas = document.getElementById('drawCanvas');
+const ctx = canvas.getContext('2d');
+const axisCanvas = document.getElementById('axisCanvas');
+const axisCtx = axisCanvas.getContext('2d');
+const canvasWrap = document.getElementById('canvasWrap');
+
+let W, H;
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvasWrap.getBoundingClientRect();
+  W = rect.width; H = rect.height;
+  for (const c of [canvas, axisCanvas]) {
+    c.width = W * dpr; c.height = H * dpr;
+    c.style.width = W + 'px'; c.style.height = H + 'px';
+    c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  drawAxes();
+  redraw();
+}
+window.addEventListener('resize', resize);
+
+// ─── Drawing State ───
+let strokes = [];       // Array of stroke arrays [{points, color, width}]
+let currentStroke = null;
+let isDrawing = false;
+
+// ─── Axis Drawing ───
+function drawAxes() {
+  const cx = axisCtx;
+  cx.clearRect(0, 0, W, H);
+  cx.strokeStyle = '#30363d';
+  cx.lineWidth = 1;
+
+  // Grid
+  const step = 50;
+  for (let x = step; x < W; x += step) {
+    cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, H); cx.stroke();
+  }
+  for (let y = step; y < H; y += step) {
+    cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke();
+  }
+
+  // Axes
+  cx.strokeStyle = '#484f58';
+  cx.lineWidth = 1.5;
+  cx.beginPath(); cx.moveTo(0, H/2); cx.lineTo(W, H/2); cx.stroke();
+  cx.beginPath(); cx.moveTo(W/2, 0); cx.lineTo(W/2, H); cx.stroke();
+
+  // Labels
+  cx.fillStyle = '#484f58';
+  cx.font = '11px monospace';
+  cx.fillText('x', W - 14, H/2 - 8);
+  cx.fillText('y', W/2 + 8, 14);
+
+  // Tick marks
+  cx.fillStyle = '#6e7681';
+  for (let i = -Math.floor(W/(2*step)); i <= Math.floor(W/(2*step)); i++) {
+    if (i === 0) continue;
+    const x = W/2 + i * step;
+    cx.fillText(i.toString(), x - 4, H/2 + 16);
+  }
+  for (let i = -Math.floor(H/(2*step)); i <= Math.floor(H/(2*step)); i++) {
+    if (i === 0) continue;
+    const y = H/2 - i * step;
+    cx.fillText(i.toString(), W/2 + 8, y + 4);
+  }
+}
+
+// ─── Stroke Drawing ───
+function redraw() {
+  ctx.clearRect(0, 0, W, H);
+  for (const stroke of strokes) drawStroke(stroke);
+}
+
+function drawStroke(s) {
+  if (s.points.length < 2) return;
+  ctx.strokeStyle = s.color;
+  ctx.lineWidth = s.width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(s.points[0].x, s.points[0].y);
+  for (let i = 1; i < s.points.length; i++) {
+    const p = s.points[i];
+    if (p.pressure !== undefined && p.pressure > 0) {
+      ctx.lineWidth = Math.max(1, s.width * (0.3 + 0.7 * p.pressure));
+    }
+    if (i < s.points.length - 1) {
+      const p0 = s.points[i-1], p1 = s.points[i], p2 = s.points[i+1];
+      const mx = (p1.x + p2.x)/2, my = (p1.y + p2.y)/2;
+      ctx.quadraticCurveTo(p1.x, p1.y, mx, my);
+    } else {
+      ctx.lineTo(p.x, p.y);
+    }
+  }
+  ctx.stroke();
+}
+
+// ─── Pointer Events (Stylus Support) ───
+function getPointerPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
+    pressure: e.pressure !== undefined ? e.pressure : 0.5
+  };
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  canvas.setPointerCapture(e.pointerId);
+  isDrawing = true;
+  currentStroke = { points: [getPointerPos(e)], color: '#58a6ff', width: 2.5 };
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!isDrawing || !currentStroke) return;
+  e.preventDefault();
+  currentStroke.points.push(getPointerPos(e));
+  redraw();
+  drawStroke(currentStroke);
+});
+
+canvas.addEventListener('pointerup', (e) => {
+  if (!isDrawing || !currentStroke) return;
+  isDrawing = false;
+  strokes.push(currentStroke);
+  currentStroke = null;
+  redraw();
+  scheduleRecognition();
+});
+
+canvas.addEventListener('pointercancel', () => {
+  isDrawing = false;
+  currentStroke = null;
+});
+
+// Prevent scrolling on touch
+canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+// ─── Undo / Clear ───
+document.getElementById('btnUndo').addEventListener('click', () => {
+  strokes.pop();
+  redraw();
+  scheduleRecognition();
+});
+document.getElementById('btnClear').addEventListener('click', () => {
+  strokes = [];
+  redraw();
+  document.getElementById('results').innerHTML = `
+    <div class="empty-state" id="emptyState">
+      <div class="big-icon">📈</div>
+      <h3>Noch keine Zeichnung</h3>
+      <p>Zeichne eine Funktion mit dem Stift oder Finger auf die Fläche links.</p>
+    </div>`;
+  document.getElementById('statPts').textContent = '0';
+  document.getElementById('statMatch').textContent = '—';
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  FUNCTION RECOGNITION ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+let recogTimer = null;
+function scheduleRecognition() {
+  clearTimeout(recogTimer);
+  recogTimer = setTimeout(recognize, 300);
+}
+
+// Normalize strokes to a single resampled point array {x,y} in [0,1]×[-1,1]
+function normalizePoints() {
+  // Merge all strokes into one sorted array
+  let all = [];
+  for (const s of strokes) all.push(...s.points);
+  if (all.length < 10) return null;
+
+  // Map to normalized coords: x in [0,1], y in [-1,1]
+  const xs = all.map(p => p.x), ys = all.map(p => p.y);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const xRange = xMax - xMin || 1;
+  const yRange = yMax - yMin || 1;
+
+  all = all.map(p => ({
+    x: (p.x - xMin) / xRange,           // [0,1]
+    y: -(((p.y - yMin) / yRange) * 2 - 1) // [-1,1], y-inverted
+  }));
+
+  // Sort by x
+  all.sort((a, b) => a.x - b.x);
+
+  // Resample to N evenly-spaced x values
+  const N = 300;
+  const resampled = [];
+  for (let i = 0; i < N; i++) {
+    const targetX = i / (N - 1);
+    // Find bracketing points
+    let idx = 0;
+    while (idx < all.length - 1 && all[idx + 1].x < targetX) idx++;
+    if (idx >= all.length - 1) {
+      resampled.push({ x: targetX, y: all[all.length - 1].y });
+    } else {
+      const t = (all[idx + 1].x - all[idx].x) > 0.0001
+        ? (targetX - all[idx].x) / (all[idx + 1].x - all[idx].x) : 0;
+      resampled.push({
+        x: targetX,
+        y: all[idx].y + t * (all[idx + 1].y - all[idx].y)
+      });
+    }
+  }
+  return resampled;
+}
+
+// ─── Feature Detection ───
+function detectFeatures(pts) {
+  const ys = pts.map(p => p.y);
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const amplitude = (yMax - yMin) / 2;
+  const offset = (yMax + yMin) / 2;
+
+  // Zero crossings (relative to mean)
+  const mean = offset;
+  const crossings = [];
+  for (let i = 1; i < ys.length; i++) {
+    if ((ys[i-1] - mean) * (ys[i] - mean) < 0) {
+      const t = (mean - ys[i-1]) / (ys[i] - ys[i-1]);
+      crossings.push((i - 1 + t) / (ys.length - 1));
+    }
+  }
+
+  // Period estimation from zero crossings
+  let period = 0;
+  let isPeriodic = false;
+  if (crossings.length >= 4) {
+    const diffs = [];
+    for (let i = 2; i < crossings.length; i++) {
+      diffs.push(crossings[i] - crossings[i-2]); // full period = 2 zero crossings
+    }
+    const avgPeriod = diffs.reduce((a,b) => a+b, 0) / diffs.length;
+    const variance = diffs.reduce((a,b) => a + (b - avgPeriod)**2, 0) / diffs.length;
+    if (variance < 0.01 && avgPeriod > 0.02) {
+      period = avgPeriod;
+      isPeriodic = true;
+    }
+  }
+
+  // Count peaks (local maxima)
+  let peaks = 0;
+  for (let i = 2; i < ys.length - 2; i++) {
+    if (ys[i] > ys[i-1] && ys[i] > ys[i+1] && ys[i] > ys[i-2] && ys[i] > ys[i+2]) peaks++;
+  }
+  let valleys = 0;
+  for (let i = 2; i < ys.length - 2; i++) {
+    if (ys[i] < ys[i-1] && ys[i] < ys[i+1] && ys[i] < ys[i-2] && ys[i] < ys[i+2]) valleys++;
+  }
+
+  // Shape analysis: ratio of time above/below mean
+  const aboveMean = ys.filter(y => y > mean + 0.05).length;
+  const belowMean = ys.filter(y => y < mean - 0.05).length;
+  const atMean = ys.length - aboveMean - belowMean;
+  const dutyRatio = aboveMean / (aboveMean + belowMean + 1);
+
+  // Sharpness: measure corners vs smooth
+  let curvature = 0;
+  for (let i = 1; i < ys.length - 1; i++) {
+    curvature += Math.abs(ys[i+1] - 2*ys[i] + ys[i-1]);
+  }
+  curvature /= ys.length;
+  const smoothness = 1 - Math.min(curvature / (amplitude + 0.001), 1);
+
+  // Monotonicity
+  let increases = 0, decreases = 0;
+  for (let i = 1; i < ys.length; i++) {
+    if (ys[i] > ys[i-1] + 0.001) increases++;
+    else if (ys[i] < ys[i-1] - 0.001) decreases++;
+  }
+  const monotonicity = Math.abs(increases - decreases) / ys.length;
+
+  // First and last y values for polynomial detection
+  const yFirst = ys[0], yLast = ys[ys.length-1];
+
+  return {
+    yMin, yMax, amplitude, offset, mean,
+    crossings, period, isPeriodic,
+    peaks, valleys,
+    dutyRatio, curvature, smoothness, monotonicity,
+    yFirst, yLast, n: ys.length
+  };
+}
+
+// ─── RMSE between drawn and template ───
+function rmse(drawn, template) {
+  let sum = 0;
+  const n = Math.min(drawn.length, template.length);
+  for (let i = 0; i < n; i++) {
+    const dy = drawn[i] - template[i];
+    sum += dy * dy;
+  }
+  return Math.sqrt(sum / n);
+}
+
+// ─── Parameter Fitting for sin/cos ───
+function fitSinusoid(pts, features) {
+  // Estimate frequency from period
+  const freq = features.period > 0 ? 1 / features.period : 1;
+
+  // Try sin and cos, find phase shift
+  const xs = pts.map(p => p.x);
+  const ys = pts.map(p => p.y);
+
+  // For each candidate, find best phase
+  function fitPhase(baseFn) {
+    let bestPhase = 0, bestErr = Infinity;
+    for (let phase = 0; phase < Math.PI * 2; phase += 0.05) {
+      const template = xs.map(x => {
+        return features.amplitude * baseFn(2 * Math.PI * freq * x + phase) + features.offset;
+      });
+      const err = rmse(ys, template);
+      if (err < bestErr) { bestErr = err; bestPhase = phase; }
+    }
+    return { phase: bestPhase, err: bestErr };
+  }
+
+  const sinFit = fitPhase(Math.sin);
+  const cosFit = fitPhase(Math.cos);
+
+  return { freq, sinFit, cosFit };
+}
+
+// ─── Template Functions ───
+function generateTemplates(pts, features) {
+  const xs = pts.map(p => p.x);
+  const ys = pts.map(p => p.y);
+  const candidates = [];
+  const freq = features.period > 0 ? 1 / features.period : 1;
+
+  function evalAndScore(genFn, label, latex, params) {
+    const template = xs.map(genFn);
+    const err = rmse(ys, template);
+    // Penalty for unreasonable params
+    const penalty = params.penalty || 0;
+    candidates.push({
+      label, latex, err: err + penalty,
+      params: { amp: features.amplitude, freq, offset: features.offset, ...params }
+    });
+  }
+
+  // ── Periodic Functions ──
+  if (features.isPeriodic) {
+    const { sinFit, cosFit } = fitSinusoid(pts, features);
+
+    // sin
+    evalAndScore(
+      x => features.amplitude * Math.sin(2 * Math.PI * freq * x + sinFit.phase) + features.offset,
+      'Sinus',
+      formatSinus('sin', freq, sinFit.phase, features.amplitude, features.offset),
+      { type: 'sin', phase: sinFit.phase, sinErr: sinFit.err }
+    );
+
+    // cos
+    evalAndScore(
+      x => features.amplitude * Math.cos(2 * Math.PI * freq * x + cosFit.phase) + features.offset,
+      'Cosinus',
+      formatSinus('cos', freq, cosFit.phase, features.amplitude, features.offset),
+      { type: 'cos', phase: cosFit.phase, cosErr: cosFit.err }
+    );
+
+    // |sin|  (rectified sine)
+    evalAndScore(
+      x => features.amplitude * Math.abs(Math.sin(2 * Math.PI * freq * x + sinFit.phase)) + features.offset,
+      '|Sinus| (Gleichrichter)',
+      formatRectified('sin', freq, sinFit.phase, features.amplitude, features.offset),
+      { type: 'abs_sin' }
+    );
+
+    // |cos|
+    evalAndScore(
+      x => features.amplitude * Math.abs(Math.cos(2 * Math.PI * freq * x + cosFit.phase)) + features.offset,
+      '|Cosinus| (Gleichrichter)',
+      formatRectified('cos', freq, cosFit.phase, features.amplitude, features.offset),
+      { type: 'abs_cos' }
+    );
+
+    // Square wave: sign(sin)
+    evalAndScore(
+      x => features.amplitude * Math.sign(Math.sin(2 * Math.PI * freq * x + sinFit.phase)) + features.offset,
+      'Rechtecksignal',
+      formatSquare(freq, sinFit.phase, features.amplitude, features.offset),
+      { type: 'square' }
+    );
+
+    // Triangle wave
+    evalAndScore(
+      x => {
+        const t = (2 * Math.PI * freq * x + sinFit.phase) / (2 * Math.PI);
+        const frac = t - Math.floor(t);
+        const tri = 4 * Math.abs(frac - 0.5) - 1;
+        return features.amplitude * tri + features.offset;
+      },
+      'Dreiecksignal',
+      formatTriangle(freq, sinFit.phase, features.amplitude, features.offset),
+      { type: 'triangle' }
+    );
+
+    // Sawtooth
+    evalAndScore(
+      x => {
+        const t = (2 * Math.PI * freq * x + sinFit.phase) / (2 * Math.PI);
+        const frac = t - Math.floor(t);
+        return features.amplitude * (2 * frac - 1) + features.offset;
+      },
+      'Sägezahn',
+      formatSawtooth(freq, sinFit.phase, features.amplitude, features.offset),
+      { type: 'sawtooth' }
+    );
+
+    // tanh(sin) — soft clipping
+    evalAndScore(
+      x => features.amplitude * Math.tanh(2 * Math.sin(2 * Math.PI * freq * x + sinFit.phase)) + features.offset,
+      'tanh(sin) — weiches Clipping',
+      formatTanhSin(freq, sinFit.phase, features.amplitude, features.offset),
+      { type: 'tanh_sin' }
+    );
+  }
+
+  // ── Non-periodic: Polynomials ──
+  if (!features.isPeriodic) {
+    // Linear: y = ax + b
+    const linA = ys[ys.length-1] - ys[0];
+    const linB = ys[0];
+    evalAndScore(
+      x => linA * x + linB,
+      'Linear',
+      formatPoly([linA, linB]),
+      { type: 'linear' }
+    );
+
+    // Quadratic: fit 3 points
+    if (ys.length > 5) {
+      const i0 = 0, i1 = Math.floor(ys.length/2), i2 = ys.length-1;
+      const x0 = xs[i0], x1 = xs[i1], x2 = xs[i2];
+      const y0 = ys[i0], y1 = ys[i1], y2 = ys[i2];
+      const denom = (x0-x1)*(x0-x2)*(x1-x2);
+      if (Math.abs(denom) > 1e-10) {
+        const a = (y0*(x1-x2) + y1*(x2-x0) + y2*(x0-x1)) / denom;
+        const b = (y0*(x2*x2-x1*x1) + y1*(x0*x0-x2*x2) + y2*(x1*x1-x0*x0)) / denom;
+        const c = (y0*(x1*x2*(x1-x2)) + y1*(x0*x2*(x2-x0)) + y2*(x0*x1*(x0-x1))) / denom;
+        // Wait, that formula for c is wrong. Let me use a simpler approach.
+      }
+      // Simpler: fit using least squares for quadratic
+      const coeffs = fitPoly(xs, ys, 2);
+      if (coeffs) {
+        evalAndScore(
+          x => coeffs[0]*x*x + coeffs[1]*x + coeffs[2],
+          'Quadratisch',
+          formatPoly(coeffs),
+          { type: 'quadratic' }
+        );
+      }
+    }
+
+    // Cubic
+    if (ys.length > 10) {
+      const coeffs = fitPoly(xs, ys, 3);
+      if (coeffs) {
+        evalAndScore(
+          x => coeffs[0]*x*x*x + coeffs[1]*x*x + coeffs[2]*x + coeffs[3],
+          'Kubisch',
+          formatPoly(coeffs),
+          { type: 'cubic' }
+        );
+      }
+    }
+
+    // Exponential: y = a * e^(bx) + c
+    const expFit = fitExponential(xs, ys);
+    if (expFit) {
+      evalAndScore(
+        x => expFit.a * Math.exp(expFit.b * x) + expFit.c,
+        'Exponentiell',
+        formatExponential(expFit),
+        { type: 'exponential' }
+      );
+    }
+
+    // Logarithmic: y = a * ln(bx + c) + d
+    const logFit = fitLogarithmic(xs, ys);
+    if (logFit) {
+      evalAndScore(
+        x => logFit.a * Math.log(Math.max(0.001, logFit.b * x + logFit.c)) + logFit.d,
+        'Logarithmisch',
+        formatLogarithmic(logFit),
+        { type: 'logarithmic' }
+      );
+    }
+  }
+
+  // Sort by error
+  candidates.sort((a, b) => a.err - b.err);
+  return candidates;
+}
+
+// ─── Polynomial Fitting (least squares) ───
+function fitPoly(xs, ys, degree) {
+  const n = xs.length;
+  const m = degree + 1;
+  // Build normal equations: (X^T X) a = X^T y
+  const XTX = Array.from({length: m}, () => new Float64Array(m));
+  const XTy = new Float64Array(m);
+
+  for (let i = 0; i < n; i++) {
+    const xi = xs[i];
+    const powers = [1];
+    for (let p = 1; p < m; p++) powers.push(powers[p-1] * xi);
+    for (let r = 0; r < m; r++) {
+      XTy[r] += powers[r] * ys[i];
+      for (let c = 0; c < m; c++) {
+        XTX[r][c] += powers[r] * powers[c];
+      }
+    }
+  }
+
+  // Solve with Gauss elimination
+  return solveLinearSystem(XTX, XTy);
+}
+
+function solveLinearSystem(A, b) {
+  const n = b.length;
+  // Augment
+  const M = A.map((row, i) => [...row, b[i]]);
+
+  for (let col = 0; col < n; col++) {
+    // Pivot
+    let maxRow = col;
+    for (let row = col + 1; row < n; row++) {
+      if (Math.abs(M[row][col]) > Math.abs(M[maxRow][col])) maxRow = row;
+    }
+    [M[col], M[maxRow]] = [M[maxRow], M[col]];
+    if (Math.abs(M[col][col]) < 1e-12) return null;
+
+    for (let row = col + 1; row < n; row++) {
+      const factor = M[row][col] / M[col][col];
+      for (let j = col; j <= n; j++) M[row][j] -= factor * M[col][j];
+    }
+  }
+
+  // Back-substitute
+  const x = new Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    x[i] = M[i][n];
+    for (let j = i + 1; j < n; j++) x[i] -= M[i][j] * x[j];
+    x[i] /= M[i][i];
+  }
+  return x;
+}
+
+// ─── Exponential Fit: y = a*e^(bx) + c ───
+function fitExponential(xs, ys) {
+  // Simple approach: use 3 points
+  const i0 = 0, i1 = Math.floor(xs.length/3), i2 = Math.floor(2*xs.length/3);
+  const x0 = xs[i0], x1 = xs[i1], x2 = xs[i2];
+  const y0 = ys[i0], y1 = ys[i1], y2 = ys[i2];
+
+  // Try several offsets c to linearize
+  for (let cOff = -2; cOff <= 2; cOff += 0.2) {
+    const ln1 = Math.log(Math.abs(y1 - cOff) + 1e-10);
+    const ln2 = Math.log(Math.abs(y2 - cOff) + 1e-10);
+    const ln0 = Math.log(Math.abs(y0 - cOff) + 1e-10);
+
+    if (!isFinite(ln0) || !isFinite(ln1) || !isFinite(ln2)) continue;
+
+    // Linear fit to (x, ln(y-c))
+    const b = ((ln1 - ln0) * (x2 - x0) - (ln2 - ln0) * (x1 - x0));
+    const bDenom = ((x1 - x0) * (x2 - x0) * (x1 - x2));
+    if (Math.abs(bDenom) < 1e-10) continue;
+    const bVal = -b / bDenom;
+
+    const a = Math.exp(ln0 - bVal * x0);
+
+    // Score
+    let err = 0;
+    for (let i = 0; i < xs.length; i++) {
+      const pred = a * Math.exp(bVal * xs[i]) + cOff;
+      err += (pred - ys[i]) ** 2;
+    }
+    err = Math.sqrt(err / xs.length);
+
+    // Check if it looks exponential (not too sinusoidal)
+    if (Math.abs(bVal) > 0.1 && isFinite(a) && isFinite(bVal)) {
+      return { a, b: bVal, c: cOff, err };
+    }
+  }
+  return null;
+}
+
+// ─── Logarithmic Fit: y = a * ln(bx + c) + d ───
+function fitLogarithmic(xs, ys) {
+  // Simple: y = a * ln(x + c) + d, fit from endpoints
+  if (xs[0] < 0.01) return null;
+  const y0 = ys[0], y1 = ys[Math.floor(ys.length/2)], y2 = ys[ys.length-1];
+  const x0 = xs[0], x1 = xs[Math.floor(xs.length/2)], x2 = xs[xs.length-1];
+
+  // y = a * ln(x) + d → linear in ln(x)
+  const ln0 = Math.log(x0 + 0.01), ln1 = Math.log(x1 + 0.01), ln2 = Math.log(x2 + 0.01);
+  const a = (y2 - y0) / (ln2 - ln0 + 1e-10);
+  const d = y0 - a * ln0;
+
+  if (!isFinite(a) || !isFinite(d)) return null;
+
+  let err = 0;
+  for (let i = 0; i < xs.length; i++) {
+    const pred = a * Math.log(xs[i] + 0.01) + d;
+    err += (pred - ys[i]) ** 2;
+  }
+  err = Math.sqrt(err / xs.length);
+
+  return { a, b: 1, c: 0.01, d, err };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FORMATTING — LaTeX Output
+// ═══════════════════════════════════════════════════════════════
+
+function fmtNum(n, decimals = 2) {
+  if (Math.abs(n) < 0.001) return '0';
+  if (Math.abs(n - Math.round(n)) < 0.01) return Math.round(n).toString();
+  return n.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+function fmtCoeff(n, first = false) {
+  if (Math.abs(n - 1) < 0.01 && !first) return '';
+  if (Math.abs(n + 1) < 0.01 && !first) return '-';
+  return fmtNum(n);
+}
+
+function formatSinus(type, freq, phase, amp, offset) {
+  const omega = freq * 2 * Math.PI;
+  let inner = '';
+
+  if (Math.abs(omega - 1) < 0.05) inner = 'x';
+  else inner = fmtNum(omega, 1) + 'x';
+
+  if (Math.abs(phase) > 0.05) {
+    const sign = phase > 0 ? ' + ' : ' - ';
+    inner += sign + fmtNum(Math.abs(phase), 1);
+  }
+
+  let latex = '';
+  if (Math.abs(amp - 1) > 0.01) latex += fmtNum(amp, 1) + ' \\cdot ';
+  latex += `\\${type}\\!\\left(${inner}\\right)`;
+
+  if (Math.abs(offset) > 0.01) {
+    latex += (offset > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(offset), 1);
+  }
+
+  if (Math.abs(amp - 1) < 0.01 && Math.abs(offset) < 0.01) {
+    // bare sin/cos
+  }
+
+  return latex;
+}
+
+function formatRectified(type, freq, phase, amp, offset) {
+  const omega = freq * 2 * Math.PI;
+  let inner = Math.abs(omega - 1) < 0.05 ? 'x' : fmtNum(omega, 1) + 'x';
+  if (Math.abs(phase) > 0.05) {
+    inner += (phase > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(phase), 1);
+  }
+  let latex = '';
+  if (Math.abs(amp - 1) > 0.01) latex += fmtNum(amp, 1) + ' \\cdot ';
+  latex += `\\left|\\${type}\\!\\left(${inner}\\right)\\right|`;
+  if (Math.abs(offset) > 0.01) latex += (offset > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(offset), 1);
+  return latex;
+}
+
+function formatSquare(freq, phase, amp, offset) {
+  const omega = freq * 2 * Math.PI;
+  let inner = Math.abs(omega - 1) < 0.05 ? 'x' : fmtNum(omega, 1) + 'x';
+  if (Math.abs(phase) > 0.05) {
+    inner += (phase > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(phase), 1);
+  }
+  let latex = '';
+  if (Math.abs(amp - 1) > 0.01) latex += fmtNum(amp, 1);
+  else latex += '1';
+  latex += ` \\cdot \\mathrm{sgn}\\!\\left(\\sin\\!\\left(${inner}\\right)\\right)`;
+  if (Math.abs(offset) > 0.01) latex += (offset > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(offset), 1);
+  return latex;
+}
+
+function formatTriangle(freq, phase, amp, offset) {
+  const omega = freq * 2 * Math.PI;
+  let inner = Math.abs(omega - 1) < 0.05 ? 'x' : fmtNum(omega, 1) + 'x';
+  if (Math.abs(phase) > 0.05) {
+    inner += (phase > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(phase), 1);
+  }
+  let latex = fmtCoeff(amp, true);
+  latex += `\\triangle\\!\\left(${inner}\\right)`;
+  if (Math.abs(offset) > 0.01) latex += (offset > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(offset), 1);
+  return latex;
+}
+
+function formatSawtooth(freq, phase, amp, offset) {
+  const omega = freq * 2 * Math.PI;
+  let inner = Math.abs(omega - 1) < 0.05 ? 'x' : fmtNum(omega, 1) + 'x';
+  if (Math.abs(phase) > 0.05) {
+    inner += (phase > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(phase), 1);
+  }
+  let latex = fmtCoeff(amp, true);
+  latex += `\\mathrm{saw}\\!\\left(${inner}\\right)`;
+  if (Math.abs(offset) > 0.01) latex += (offset > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(offset), 1);
+  return latex;
+}
+
+function formatTanhSin(freq, phase, amp, offset) {
+  const omega = freq * 2 * Math.PI;
+  let inner = Math.abs(omega - 1) < 0.05 ? 'x' : fmtNum(omega, 1) + 'x';
+  if (Math.abs(phase) > 0.05) {
+    inner += (phase > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(phase), 1);
+  }
+  let latex = fmtCoeff(amp, true);
+  latex += `\\tanh\\!\\left(\\sin\\!\\left(${inner}\\right)\\right)`;
+  if (Math.abs(offset) > 0.01) latex += (offset > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(offset), 1);
+  return latex;
+}
+
+function formatPoly(coeffs) {
+  // coeffs: [an, ..., a1, a0] for degree n
+  const deg = coeffs.length - 1;
+  let latex = '';
+  for (let i = 0; i <= deg; i++) {
+    const c = coeffs[i];
+    const power = deg - i;
+    if (Math.abs(c) < 0.001) continue;
+
+    if (latex !== '') {
+      latex += c > 0 ? ' + ' : ' - ';
+    } else if (c < 0) {
+      latex += '-';
+    }
+
+    const absC = Math.abs(c);
+    if (power === 0) {
+      latex += fmtNum(absC);
+    } else if (power === 1) {
+      latex += (Math.abs(absC - 1) < 0.01 ? '' : fmtNum(absC)) + 'x';
+    } else {
+      latex += (Math.abs(absC - 1) < 0.01 ? '' : fmtNum(absC)) + 'x^{' + power + '}';
+    }
+  }
+  return latex || '0';
+}
+
+function formatExponential(fit) {
+  let latex = '';
+  if (Math.abs(fit.a - 1) > 0.01) latex += fmtNum(fit.a, 2) + ' \\cdot ';
+  latex += `e^{${fmtNum(fit.b, 2)}x}`;
+  if (Math.abs(fit.c) > 0.01) latex += (fit.c > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(fit.c), 2);
+  return latex;
+}
+
+function formatLogarithmic(fit) {
+  let latex = '';
+  if (Math.abs(fit.a - 1) > 0.01) latex += fmtNum(fit.a, 2) + ' \\cdot ';
+  latex += `\\ln\\!\\left(x\\right)`;
+  if (Math.abs(fit.d) > 0.01) latex += (fit.d > 0 ? ' + ' : ' - ') + fmtNum(Math.abs(fit.d), 2);
+  return latex;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CAS INTEGRATION (Algebrite)
+// ═══════════════════════════════════════════════════════════════
+
+function casAnalyze(candidate) {
+  const results = [];
+
+  try {
+    // Basic simplification
+    if (candidate.label === 'Sinus' || candidate.label === 'Cosinus') {
+      const type = candidate.params.type;
+      const freq = candidate.params.freq * 2 * Math.PI;
+      const phase = candidate.params.phase || 0;
+      const amp = candidate.params.amp;
+      const offset = candidate.params.offset;
+
+      // Trig identity suggestions
+      if (type === 'sin' && Math.abs(phase) < 0.05) {
+        results.push({
+          label: 'Identität',
+          desc: 'sin²(x) + cos²(x) = 1',
+          latex: '\\sin^2(x) + \\cos^2(x) = 1'
+        });
+      }
+
+      // Amplitude-Phase form
+      if (Math.abs(phase) > 0.05) {
+        results.push({
+          label: 'Phasenform',
+          desc: `A·${type}(ωx + φ) + d`,
+          latex: `A = ${fmtNum(amp, 2)},\\; \\omega = ${fmtNum(freq, 2)},\\; \\varphi = ${fmtNum(phase, 2)},\\; d = ${fmtNum(offset, 2)}`
+        });
+      }
+
+      // Period
+      const period = candidate.params.freq > 0 ? (2 * Math.PI / freq) : 0;
+      if (period > 0) {
+        results.push({
+          label: 'Periode',
+          desc: `T = ${fmtNum(period, 3)}`,
+          latex: `T = \\frac{2\\pi}{\\omega} = \\frac{2\\pi}{${fmtNum(freq, 2)}} \\approx ${fmtNum(period, 3)}`
+        });
+      }
+    }
+
+    if (candidate.label === '|Sinus| (Gleichrichter)' || candidate.label === '|Cosinus| (Gleichrichter)') {
+      results.push({
+        label: 'Gleichrichter',
+        desc: 'Gleichrichtung = Betrag der Sinusfunktion',
+        latex: '|\\sin(x)| = \\sqrt{\\sin^2(x)} = \\frac{1 - \\cos(2x)}{2}'
+      });
+      results.push({
+        label: 'Fourier-Reihe',
+        desc: 'Gleichrichtete Sinuswelle',
+        latex: '|\\sin(x)| = \\frac{2}{\\pi} - \\frac{4}{\\pi}\\sum_{n=1}^{\\infty}\\frac{\\cos(2nx)}{4n^2 - 1}'
+      });
+    }
+
+    if (candidate.label === 'Rechtecksignal') {
+      results.push({
+        label: 'Fourier-Reihe',
+        desc: 'Rechtecksignal (ungerade Harmonische)',
+        latex: '\\mathrm{sgn}(\\sin(x)) = \\frac{4}{\\pi}\\sum_{n=0}^{\\infty}\\frac{\\sin((2n+1)x)}{2n+1}'
+      });
+    }
+
+    if (candidate.label === 'Dreiecksignal') {
+      results.push({
+        label: 'Fourier-Reihe',
+        desc: 'Dreiecksignal',
+        latex: '\\triangle(x) = \\frac{8}{\\pi^2}\\sum_{n=0}^{\\infty}\\frac{(-1)^n \\sin((2n+1)x)}{(2n+1)^2}'
+      });
+    }
+
+    if (candidate.params.type === 'exponential') {
+      const f = candidate.params;
+      results.push({
+        label: 'Ableitung',
+        desc: 'Ableitung der Exponentialfunktion',
+        latex: `\\frac{d}{dx}\\left[${fmtNum(f.a,2)}\\,e^{${fmtNum(f.b,2)}x}\\right] = ${fmtNum(f.a * f.b, 2)}\\,e^{${fmtNum(f.b,2)}x}`
+      });
+      results.push({
+        label: 'Integral',
+        desc: 'Stammfunktion',
+        latex: `\\int ${fmtNum(f.a,2)}\\,e^{${fmtNum(f.b,2)}x}\\,dx = ${fmtNum(f.a/f.b, 2)}\\,e^{${fmtNum(f.b,2)}x} + C`
+      });
+    }
+
+    if (candidate.params.type === 'quadratic') {
+      results.push({
+        label: 'Ableitung',
+        desc: 'Ableitung',
+        latex: `\\frac{d}{dx}f(x) = f'(x)`
+      });
+    }
+
+  } catch (e) {
+    // CAS error — ignore
+  }
+
+  return results;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RECOGNITION PIPELINE
+// ═══════════════════════════════════════════════════════════════
+
+function recognize() {
+  const pts = normalizePoints();
+  if (!pts) return;
+
+  const features = detectFeatures(pts);
+  const candidates = generateTemplates(pts, features);
+
+  // Take top 8
+  const top = candidates.slice(0, 8);
+
+  document.getElementById('statPts').textContent = strokes.reduce((s, st) => s + st.points.length, 0);
+  if (top.length > 0) {
+    document.getElementById('statMatch').textContent = top[0].label;
+  }
+
+  renderResults(top, features);
+}
+
+function renderResults(candidates, features) {
+  const container = document.getElementById('results');
+  if (candidates.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="big-icon">🤔</div>
+        <h3>Keine Funktion erkannt</h3>
+        <p>Versuche, eine klarere Kurve zu zeichnen.</p>
+      </div>`;
+    return;
+  }
+
+  // Find best error for scaling
+  const maxErr = Math.max(...candidates.map(c => c.err));
+  const minErr = candidates[0].err;
+
+  let html = '';
+  candidates.forEach((c, i) => {
+    const matchPct = Math.max(0, Math.min(100, 100 * (1 - (c.err - minErr) / (maxErr - minErr + 0.001))));
+    const barColor = i === 0 ? '#238636' : '#58a6ff';
+    const isBest = i === 0;
+
+    // Run CAS analysis
+    const casResults = casAnalyze(c);
+
+    let casHtml = '';
+    if (casResults.length > 0) {
+      casHtml = '<div style="margin-top:8px; padding-top:8px; border-top:1px solid #21262d;">';
+      for (const r of casResults) {
+        casHtml += `<div style="margin-bottom:6px;">
+          <span style="font-size:10px; color:#8b949e; text-transform:uppercase;">${r.label}</span>
+          <div class="result-formula" style="font-size:12px; margin:2px 0;" data-latex="${escapeAttr(r.latex)}"></div>
+        </div>`;
+      }
+      casHtml += '</div>';
+    }
+
+    html += `
+      <div class="result-card ${isBest ? 'best' : ''}">
+        <div class="result-rank">
+          <span>${c.label}</span>
+          ${isBest ? '<span class="badge">Bester Fit</span>' : ''}
+        </div>
+        <div class="result-formula" data-latex="${escapeAttr(c.latex)}"></div>
+        <div class="match-bar">
+          <div class="match-fill" style="width:${matchPct}%; background:${barColor}"></div>
+        </div>
+        <div class="result-meta">
+          <span>📊 ${(100 - c.err * 100).toFixed(1)}% Treffer</span>
+          <span>📈 ${features.peaks} Max / ${features.valleys} Min</span>
+          ${features.isPeriodic ? `<span>🔄 T≈${fmtNum(features.period * (features.crossings.length > 2 ? 1 : 1), 2)}</span>` : ''}
+        </div>
+        <div class="result-latex" onclick="copyLatex(this)">${escapeHtml(c.latex)}</div>
+        ${casHtml}
+      </div>`;
+  });
+
+  container.innerHTML = html;
+
+  // Render KaTeX
+  requestAnimationFrame(() => {
+    container.querySelectorAll('[data-latex]').forEach(el => {
+      try {
+        katex.render(el.getAttribute('data-latex'), el, {
+          throwOnError: false, displayMode: false,
+          macros: { '\\mathrm{sgn}': '\\operatorname{sgn}', '\\triangle': '\\mathbin{\\triangle}' }
+        });
+      } catch (e) {
+        el.textContent = el.getAttribute('data-latex');
+      }
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function escapeAttr(s) {
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Copy latex to clipboard
+window.copyLatex = function(el) {
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    el.style.borderColor = '#238636';
+    setTimeout(() => el.style.borderColor = 'transparent', 1000);
+  });
+};
+
+// ─── Init ───
+resize();
+
+})();
+</script>
+</body>
+</html>

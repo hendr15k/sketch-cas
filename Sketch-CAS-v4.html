@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Sketch → CAS v4</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.0/lib/browser/math.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#c9d1d9}
+.app{display:grid;grid-template-rows:auto 1fr auto;height:100vh;height:100dvh}
+header{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#161b22;border-bottom:1px solid #30363d}
+header h1{font-size:16px;font-weight:700;color:#58a6ff;white-space:nowrap}
+header .sub{font-size:10px;color:#8b949e}
+.bg{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+.b{padding:6px 10px;border:1px solid #30363d;border-radius:5px;background:#21262d;color:#c9d1d9;font-size:11px;cursor:pointer;transition:all .12s;user-select:none;white-space:nowrap}
+.b:hover{background:#30363d}.b:active{transform:scale(.95)}
+.b.on{background:#1f6feb33;border-color:#1f6feb;color:#58a6ff}
+.b.red{border-color:#f85149;color:#f85149}.b.red:hover{background:#f8514922}
+.b.grn{background:#238636;border-color:#238636;color:#fff}
+.main{display:grid;grid-template-columns:1fr 400px;overflow:hidden}
+.cw{position:relative;overflow:hidden;background:#0d1117;border-right:1px solid #30363d}
+#dc{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.ao{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none}
+.pnl{display:flex;flex-direction:column;background:#161b22;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid #30363d;overflow-x:auto}
+.tab{flex:1;padding:7px 4px;text-align:center;font-size:11px;font-weight:600;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent;transition:all .12s;white-space:nowrap}
+.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.tp{flex:1;overflow-y:auto;padding:8px;display:none}.tp.on{display:block}
+.card{background:#0d1117;border:1px solid #30363d;border-radius:7px;padding:10px;margin-bottom:6px}
+.card.best{border-color:#238636}.card.cas{border-color:#f0883e}
+.cr{font-size:10px;color:#8b949e;display:flex;justify-content:space-between;margin-bottom:3px}
+.badge{background:#238636;color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600}
+.badge.orange{background:#f0883e}.badge.blue{background:#1f6feb}
+.cf{font-size:14px;margin:5px 0;min-height:24px}
+.mb{height:2px;background:#21262d;border-radius:1px;margin-top:3px;overflow:hidden}
+.mf{height:100%;border-radius:1px;transition:width .3s}
+.cm{display:flex;gap:6px;margin-top:4px;font-size:9px;color:#8b949e;flex-wrap:wrap}
+.cl{font-size:10px;color:#8b949e;font-family:monospace;word-break:break-all;background:#161b22;padding:4px 6px;border-radius:3px;margin-top:4px;cursor:pointer;border:1px solid transparent;white-space:pre-wrap}
+.cl:hover{border-color:#30363d}
+.ci{margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #21262d}
+.ci:last-child{border-bottom:none}
+.cil{font-size:9px;color:#f0883e;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.civ{font-size:12px;margin:1px 0}
+.civ .katex-display{margin:2px 0 !important}
+.slider-row{display:flex;align-items:center;gap:8px;margin:3px 0}
+.slider-row label{font-size:11px;color:#8b949e;min-width:16px;text-align:right;font-weight:600}
+.slider-row input[type=range]{flex:1;height:4px;-webkit-appearance:none;background:#30363d;border-radius:2px;outline:none}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#58a6ff;border-radius:50%;cursor:pointer;border:2px solid #0d1117}
+.slider-row .sv{font-size:10px;color:#c9d1d9;min-width:36px;text-align:right;font-family:monospace}
+.math-input-wrap{display:flex;gap:4px;margin-bottom:6px}
+.math-input{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:5px;padding:7px 10px;color:#c9d1d9;font-family:monospace;font-size:13px;outline:none}
+.math-input:focus{border-color:#58a6ff}.math-input::placeholder{color:#484f58}
+.es{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:140px;color:#484f58;text-align:center;padding:14px}
+.es .bi{font-size:32px;margin-bottom:6px}.es h3{font-size:13px;color:#8b949e;margin-bottom:4px}.es p{font-size:11px;line-height:1.5;max-width:220px}
+.bode-canvas{width:100%;height:150px;background:#0d1117;border:1px solid #30363d;border-radius:5px}
+.toast{position:fixed;bottom:50px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:6px 16px;border-radius:7px;font-size:12px;font-weight:600;z-index:100;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+footer{display:flex;align-items:center;gap:10px;padding:5px 12px;background:#161b22;border-top:1px solid #30363d;font-size:10px;color:#8b949e}
+.st{display:flex;gap:12px}.sv2{color:#c9d1d9;font-weight:600}
+.cas-input{display:flex;gap:4px;margin-bottom:6px}
+.cas-input input{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:5px;padding:6px 8px;color:#c9d1d9;font-family:monospace;font-size:12px;outline:none}
+.cas-input input:focus{border-color:#f0883e}
+.cas-btns{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.cas-btns .b{font-size:10px;padding:4px 8px}
+@media(max-width:900px){.main{grid-template-columns:1fr;grid-template-rows:1fr auto}.pnl{max-height:50vh;border-top:1px solid #30363d;border-right:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div><h1>✏️ Sketch → CAS</h1><div class="sub">v4 — Algebrite + math.js</div></div>
+  <div class="bg">
+    <button class="b" id="bUndo" title="Undo">↩</button>
+    <button class="b" id="bRedo" title="Redo">↪</button>
+    <button class="b on" id="bGrid" title="Gitter">⊞</button>
+    <button class="b on" id="bOvl" title="Overlay">◎</button>
+    <button class="b" id="bSound" title="Ton">🔊</button>
+    <button class="b" id="bExport" title="PNG">💾</button>
+    <button class="b red" id="bClear" title="Alles löschen">✕</button>
+  </div>
+</header>
+<div class="main">
+  <div class="cw" id="cw"><canvas id="dc"></canvas><canvas class="ao" id="ac"></canvas></div>
+  <div class="pnl">
+    <div class="tabs">
+      <div class="tab active" data-t="res">🧮 Erkennung</div>
+      <div class="tab" data-t="cas">⚡ CAS</div>
+      <div class="tab" data-t="inp">⌨️ Eingabe</div>
+      <div class="tab" data-t="bode">📊 Bode</div>
+      <div class="tab" data-t="hist">🕐</div>
+    </div>
+    <div class="tp on" id="tRes"><div class="es"><div class="bi">📈</div><h3>Zeichne eine Funktion</h3><p>Stift oder Finger. Erkennung + CAS automatisch.</p></div></div>
+    <div class="tp" id="tCas"><div class="es"><div class="bi">⚡</div><h3>Wähle eine Funktion oben</h3><p>Algebrite CAS zeigt dann: Ableitung, Integral, Laplace, Taylor…</p></div></div>
+    <div class="tp" id="tInp">
+      <div class="card"><div class="cr"><span>Formel eingeben</span><span class="badge orange">CAS</span></div>
+        <div class="cas-input"><input id="casIn" placeholder="z.B. sin(x)^2 + cos(x)^2"></div>
+        <div class="cas-btns">
+          <button class="b" onclick="casEval('simplify')">Vereinfachen</button>
+          <button class="b" onclick="casEval('diff')">Ableitung</button>
+          <button class="b" onclick="casEval('integrate')">Integral</button>
+          <button class="b" onclick="casEval('taylor')">Taylor (n=5)</button>
+          <button class="b" onclick="casEval('laplace')">Laplace</button>
+          <button class="b" onclick="casEval('plot')">Plot</button>
+        </div>
+        <div id="casResult"></div>
+      </div>
+      <div class="card"><div class="cr"><span>Gleichung lösen</span><span class="badge blue">Solver</span></div>
+        <div class="cas-input"><input id="eqIn" placeholder="z.B. x^2 - 4 = 0"></div>
+        <button class="b" onclick="solveEq()" style="margin-bottom:6px">Lösen</button>
+        <div id="eqResult"></div>
+      </div>
+    </div>
+    <div class="tp" id="tBode"><div class="es"><div class="bi">📊</div><h3>Bode-Darstellung</h3><p>Periodische oder Exp.-Funktion erkennen.</p></div></div>
+    <div class="tp" id="tHist"></div>
+  </div>
+</div>
+<footer>
+  <div class="st"><span>Pkt: <span class="sv2" id="sP">0</span></span><span>Best: <span class="sv2" id="sM">—</span></span><span>Fit: <span class="sv2" id="sF">—</span></span></div>
+  <div style="margin-left:auto;font-size:9px">Algebrite CAS · math.js</div>
+</footer>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+(function(){
+/* ===== GLOBALS ===== */
+var canvas=document.getElementById("dc"),ctx=canvas.getContext("2d");
+var ac=document.getElementById("ac"),ax=ac.getContext("2d"),cwEl=document.getElementById("cw");
+var W,H,showGrid=true,showOvl=true;
+var strokes=[],undoS=[],redoS=[],curS=null,isDraw=false;
+var best=null,ovlP=null,custP=null;
+var hist=JSON.parse(localStorage.getItem("scH4")||"[]");
+var audioCtx=null;
+
+/* ===== CANVAS ===== */
+function resize(){
+  var d=devicePixelRatio||1,r=cwEl.getBoundingClientRect();W=r.width;H=r.height;
+  [canvas,ac].forEach(function(c){c.width=W*d;c.height=H*d;c.style.width=W+"px";c.style.height=H+"px";c.getContext("2d").setTransform(d,0,0,d,0,0)});
+  drawAx();redraw();
+}
+window.addEventListener("resize",resize);
+function drawAx(){
+  ax.clearRect(0,0,W,H);if(!showGrid)return;
+  ax.strokeStyle="#30363d";ax.lineWidth=1;
+  for(var s=50;s<W;s+=50){ax.beginPath();ax.moveTo(s,0);ax.lineTo(s,H);ax.stroke()}
+  for(var s=50;s<H;s+=50){ax.beginPath();ax.moveTo(0,s);ax.lineTo(W,s);ax.stroke()}
+  ax.strokeStyle="#484f58";ax.lineWidth=1.5;
+  ax.beginPath();ax.moveTo(0,H/2);ax.lineTo(W,H/2);ax.stroke();
+  ax.beginPath();ax.moveTo(W/2,0);ax.lineTo(W/2,H);ax.stroke();
+  ax.fillStyle="#6e7681";ax.font="9px monospace";
+  ax.fillText("x",W-12,H/2-6);ax.fillText("y",W/2+6,12);
+  var step=50;
+  for(var i=-Math.floor(W/(2*step));i<=Math.floor(W/(2*step));i++){if(!i)continue;ax.fillText(""+i,W/2+i*step-3,H/2+12)}
+  for(var i=-Math.floor(H/(2*step));i<=Math.floor(H/(2*step));i++){if(!i)continue;ax.fillText(""+i,W/2+5,H/2-i*step+3)}
+}
+function redraw(){ctx.clearRect(0,0,W,H);strokes.forEach(drawS);if(curS)drawS(curS);if(showOvl){if(ovlP)drawOv(ovlP,"#f0883e");if(custP)drawOv(custP,"#da3688")}}
+function drawS(s){if(s.points.length<2)return;ctx.strokeStyle=s.color;ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(s.points[0].x,s.points[0].y);
+  for(var i=1;i<s.points.length;i++){var p=s.points[i];ctx.lineWidth=(p.pressure!==undefined)?Math.max(1,s.width*(.3+.7*p.pressure)):s.width;
+  if(i<s.points.length-1){var n=s.points[i+1];ctx.quadraticCurveTo(p.x,p.y,(p.x+n.x)/2,(p.y+n.y)/2)}else ctx.lineTo(p.x,p.y)}ctx.stroke()}
+function nx(n){return n*W}function ny(n){return H/2-n*(H/2-30)}
+function drawOv(pts,color){ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(nx(pts[0].x),ny(pts[0].y));
+  for(var i=1;i<pts.length;i++)ctx.lineTo(nx(pts[i].x),ny(pts[i].y));ctx.stroke();ctx.setLineDash([])}
+
+/* ===== POINTER ===== */
+function gp(e){var r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,pressure:e.pressure||.5}}
+canvas.addEventListener("pointerdown",function(e){if(e.pointerType==="pen"&&e.button===5)return;e.preventDefault();canvas.setPointerCapture(e.pointerId);isDraw=true;
+  undoS.push(JSON.parse(JSON.stringify(strokes)));redoS=[];if(undoS.length>100)undoS.shift();curS={points:[gp(e)],color:"#58a6ff",width:2.5}});
+canvas.addEventListener("pointermove",function(e){if(!isDraw||!curS)return;e.preventDefault();curS.points.push(gp(e));redraw();drawS(curS)});
+canvas.addEventListener("pointerup",function(){if(!isDraw||!curS)return;isDraw=false;strokes.push(curS);curS=null;redraw();scheduleR()});
+canvas.addEventListener("pointercancel",function(){isDraw=false;curS=null});
+canvas.addEventListener("touchstart",function(e){e.preventDefault()},{passive:false});
+canvas.addEventListener("touchmove",function(e){e.preventDefault()},{passive:false});
+
+/* ===== UI ===== */
+function toast(m){var t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},1500)}
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function updS(p,m,f){document.getElementById("sP").textContent=p;document.getElementById("sM").textContent=m;document.getElementById("sF").textContent=f}
+function eH(icon,title,desc){return '<div class="es"><div class="bi">'+icon+"</div><h3>"+title+"</h3><p>"+desc+"</p></div>"}
+function K(el,text,display){try{katex.render(text,el,{throwOnError:false,displayMode:!!display})}catch(e){el.textContent=text}}
+
+document.getElementById("bUndo").onclick=function(){if(!undoS.length)return;redoS.push(JSON.parse(JSON.stringify(strokes)));strokes=undoS.pop();ovlP=null;custP=null;best=null;redraw();scheduleR()};
+document.getElementById("bRedo").onclick=function(){if(!redoS.length)return;undoS.push(JSON.parse(JSON.stringify(strokes)));strokes=redoS.pop();redraw();scheduleR()};
+document.getElementById("bGrid").onclick=function(){showGrid=!showGrid;this.classList.toggle("on");drawAx();redraw()};
+document.getElementById("bOvl").onclick=function(){showOvl=!showOvl;this.classList.toggle("on");redraw()};
+document.getElementById("bClear").onclick=function(){undoS.push(JSON.parse(JSON.stringify(strokes)));strokes=[];ovlP=null;custP=null;best=null;redoS=[];redraw();updS(0,"—","—");
+  document.getElementById("tRes").innerHTML=eH("📈","Zeichne eine Funktion","Stift oder Finger.");
+  document.getElementById("tCas").innerHTML=eH("⚡","Wähle eine Funktion","CAS zeigt dann alle Operationen.");
+  document.getElementById("tBode").innerHTML=eH("📊","Bode","Periodische Funktion erkennen.");};
+document.querySelectorAll(".tab").forEach(function(t){t.onclick=function(){
+  document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("active")});t.classList.add("active");
+  ["tRes","tCas","tInp","tBode","tHist"].forEach(function(id){document.getElementById(id).classList.remove("on")});
+  var map={res:"tRes",cas:"tCas",inp:"tInp",bode:"tBode",hist:"tHist"};document.getElementById(map[t.dataset.t]).classList.add("on")}});
+
+/* ===== ALGEBRITE CAS ===== */
+window.casEval=function(op){
+  var raw=document.getElementById("casIn").value.trim();if(!raw){toast("Formel eingeben!");return}
+  var el=document.getElementById("casResult");
+  try{
+    var expr=raw.replace(/\*\*/g,"^"); // algebrite uses ^ not **
+    var result,latex="";
+    switch(op){
+      case"simplify":result=Algebrite.simplify(expr).toString();latex=algebriteToLatex(result);break;
+      case"diff":result=Algebrite.derivative(expr,"x").toString();latex="\\frac{d}{dx}\\left("+algebriteToLatex(raw)+"\\right) = "+algebriteToLatex(result);break;
+      case"integrate":result=Algebrite.integral(expr,"x").toString();latex="\\int "+algebriteToLatex(raw)+"\\,dx = "+algebriteToLatex(result)+"+C";break;
+      case"taylor":result=Algebrite.taylor(expr,"x",5).toString();latex="T_5(x) = "+algebriteToLatex(result);break;
+      case"laplace":
+        // Manual Laplace mapping since Algebrite doesn't have built-in
+        var lp=manualLaplace(expr);
+        latex="\\mathcal{L}\\{"+algebriteToLatex(raw)+"\\} = "+lp;result=latex;break;
+      case"plot":
+        // Plot the expression
+        try{var fn=makeNumFn(expr);var pts=[];for(var i=0;i<400;i++){var x=(i/399)*10-5;var y=fn(x);pts.push({x:(i/399),y:isFinite(y)?Math.max(-1.2,Math.min(1.2,y/3)):0})}
+          custP=pts;redraw();toast("Geplottet!");return}catch(e2){toast("Plot-Fehler: "+e2.message);return}
+    }
+    el.innerHTML='<div class="card cas"><div class="cr"><span>'+op.toUpperCase()+'</span><span class="badge orange">Algebrite</span></div><div class="civ" id="casLatex"></div><div class="cl">'+esc(result)+'</div></div>';
+    K(document.getElementById("casLatex"),latex,true);
+  }catch(e){el.innerHTML='<div style="color:#f85149;font-size:11px">Fehler: '+esc(e.message)+"</div>"}
+};
+
+function algebriteToLatex(s){
+  if(!s)return"";
+  // Convert Algebrite output to KaTeX-compatible LaTeX
+  return s
+    .replace(/\*\*/g,"^")
+    .replace(/sqrt\(([^)]+)\)/g,"\\sqrt{$1}")
+    .replace(/sin\(/g,"\\sin(").replace(/cos\(/g,"\\cos(").replace(/tan\(/g,"\\tan(")
+    .replace(/asin\(/g,"\\arcsin(").replace(/acos\(/g,"\\arccos(").replace(/atan\(/g,"\\arctan(")
+    .replace(/sinh\(/g,"\\sinh(").replace(/cosh\(/g,"\\cosh(").replace(/tanh\(/g,"\\tanh(")
+    .replace(/log\(/g,"\\ln(").replace(/exp\(/g,"e^{").replace(/pi/g,"\\pi")
+    .replace(/\//g," \\cdot \\frac{1}{") // rough fraction handling
+    .replace(/(\d)([a-z(])/g,"$1\\cdot $2");
+}
+
+function manualLaplace(expr){
+  var e=expr.toLowerCase().replace(/\s+/g,"");
+  // Match common patterns
+  if(e==="sin(t)"||e==="sin(x)")return"\\frac{1}{s^2+1}";
+  if(e==="cos(t)"||e==="cos(x)")return"\\frac{s}{s^2+1}";
+  if(e==="exp(-t)"||e==="exp(-x)"||e==="e^(-t)"||e==="e^(-x)")return"\\frac{1}{s+1}";
+  if(e==="1"||e==="1(t)")return"\\frac{1}{s}";
+  if(e==="t"||e==="x")return"\\frac{1}{s^2}";
+  // Try numeric pattern for a*sin(bt)
+  var sinMatch=e.match(/^(\d*\.?\d*)\*?sin\((\d*\.?\d*)\*?[tx]\)$/);
+  if(sinMatch){var a=sinMatch[1]||"1",b=sinMatch[2]||"1";return"\\frac{"+a+"\\cdot "+b+"}{s^2+"+b+"^2}"}
+  var cosMatch=e.match(/^(\d*\.?\d*)\*?cos\((\d*\.?\d*)\*?[tx]\)$/);
+  if(cosMatch){var a=cosMatch[1]||"1",b=cosMatch[2]||"1";return"\\frac{"+a+"\\cdot s}{s^2+"+b+"^2}"}
+  var expMatch=e.match(/^(\d*\.?\d*)\*?exp\(-(\d*\.?\d*)\*?[tx]\)$/);
+  if(expMatch){var a=expMatch[1]||"1",b=expMatch[2]||"1";return"\\frac{"+a+"}{s+"+b+"}"}
+  // Generic: try to use math.js to evaluate at symbolic points
+  return"\\text{(numeric: }\\mathcal{L}\\{f(t)\\}\\text{)}";
+}
+
+function makeNumFn(expr){
+  var prepared=expr.replace(/\^/g,"**");
+  var fn=new Function("x","return "+prepared.replace(/\b(sin|cos|tan|abs|sqrt|exp|log|asin|acos|atan|sinh|cosh|tanh)\b/g,"Math.$1").replace(/\bpi\b/g,"Math.PI").replace(/\be\b/g,"Math.E"));
+  // Test it
+  fn(0);fn(1);return fn;
+}
+
+/* ===== EQUATION SOLVER ===== */
+window.solveEq=function(){
+  var raw=document.getElementById("eqIn").value.trim();if(!raw){toast("Gleichung eingeben!");return}
+  var el=document.getElementById("eqResult");
+  try{
+    var parts=raw.split("=");var lhs=parts[0].trim(),rhs=(parts[1]||"0").trim();
+    var expr=lhs+"-("+rhs+")";
+    // Use Algebrite to find zeros
+    var solution=Algebrite.roots(expr).toString();
+    el.innerHTML='<div class="card"><div class="cr"><span>Lösung</span><span class="badge blue">Solver</span></div><div class="civ" id="eqLatex"></div><div class="cl">'+esc(solution)+'</div></div>';
+    var lt=algebriteToLatex(solution);
+    K(document.getElementById("eqLatex"),"x = "+lt,false);
+  }catch(e){
+    // Fallback: numeric solve
+    try{
+      var parts=raw.split("=");var lhs=parts[0].trim(),rhs=(parts[1]||"0").trim();
+      var expr=lhs+"-("+rhs+")";
+      var fn=makeNumFn(expr);
+      var roots=bisect(fn,-20,20,100);
+      var lt="x \\approx "+roots.map(function(r){return r.toFixed(4)}).join(",\\; ");
+      el.innerHTML='<div class="card"><div class="cr"><span>Lösung (numerisch)</span><span class="badge blue">Bisection</span></div><div class="civ" id="eqLatex2"></div></div>';
+      K(document.getElementById("eqLatex2"),lt,false);
+    }catch(e2){el.innerHTML='<div style="color:#f85149;font-size:11px">Fehler: '+esc(e2.message)+"</div>"}
+  }
+};
+
+function bisect(fn,a,b,N){
+  var roots=[];var step=(b-a)/N;
+  for(var i=0;i<N;i++){
+    var x1=a+i*step,x2=x1+step;
+    var y1=fn(x1),y2=fn(x2);
+    if(isFinite(y1)&&isFinite(y2)&&y1*y2<=0){
+      // Bisection
+      for(var j=0;j<50;j++){var xm=(x1+x2)/2;var ym=fn(xm);if(Math.abs(ym)<1e-10)break;if(fn(x1)*ym<0)x2=xm;else x1=xm}
+      roots.push((x1+x2)/2);
+    }
+  }
+  return roots;
+}
+
+/* ===== RECOGNITION ===== */
+var recogT=null;
+function scheduleR(){clearTimeout(recogT);recogT=setTimeout(recognize,350)}
+
+function nPts(){
+  var all=[];strokes.forEach(function(s){all=all.concat(s.points)});
+  if(all.length<10)return null;
+  var xs=all.map(function(p){return p.x}),ys=all.map(function(p){return p.y});
+  var xMn=Math.min.apply(null,xs),xMx=Math.max.apply(null,xs),yMn=Math.min.apply(null,ys),yMx=Math.max.apply(null,ys);
+  var xR=xMx-xMn||1,yR=yMx-yMn||1;
+  all=all.map(function(p){return{x:(p.x-xMn)/xR,y:-(((p.y-yMn)/yR)*2-1)}}).sort(function(a,b){return a.x-b.x});
+  var N=400,res=[];
+  for(var i=0;i<N;i++){var tx=i/(N-1),idx=0;while(idx<all.length-1&&all[idx+1].x<tx)idx++;
+    if(idx>=all.length-1)res.push({x:tx,y:all[all.length-1].y});
+    else{var dt=(all[idx+1].x-all[idx].x)>1e-6?(tx-all[idx].x)/(all[idx+1].x-all[idx].x):0;res.push({x:tx,y:all[idx].y+dt*(all[idx+1].y-all[idx].y)})}}
+  var sm=res.slice();for(var i=2;i<res.length-2;i++)sm[i].y=.0625*res[i-2].y+.25*res[i-1].y+.375*res[i].y+.25*res[i+1].y+.0625*res[i+2].y;
+  return sm;
+}
+
+function getFeat(pts){
+  var ys=pts.map(function(p){return p.y});var yMn=Math.min.apply(null,ys),yMx=Math.max.apply(null,ys);
+  var amp=(yMx-yMn)/2,off=(yMx+yMn)/2,mean=off,cr=[];
+  for(var i=1;i<ys.length;i++){if((ys[i-1]-mean)*(ys[i]-mean)<0)cr.push((i-1+(mean-ys[i-1])/(ys[i]-ys[i-1]))/(ys.length-1))}
+  var period=0,isPer=false;
+  if(cr.length>=4){var d=[];for(var i=2;i<cr.length;i++)d.push(cr[i]-cr[i-2]);var avg=d.reduce(function(a,b){return a+b},0)/d.length;
+    var v=d.reduce(function(a,b){return a+(b-avg)*(b-avg)},0)/d.length;if(v<.01&&avg>.02){period=avg;isPer=true}}
+  var pk=0,vl=0;
+  for(var i=2;i<ys.length-2;i++){if(ys[i]>ys[i-1]&&ys[i]>ys[i+1]&&ys[i]>ys[i-2]&&ys[i]>ys[i+2])pk++;if(ys[i]<ys[i-1]&&ys[i]<ys[i+1]&&ys[i]<ys[i-2]&&ys[i]<ys[i+2])vl++}
+  var pkV=[],vlV=[];
+  for(var i=2;i<ys.length-2;i++){if(ys[i]>ys[i-1]&&ys[i]>ys[i+1])pkV.push(ys[i]);if(ys[i]<ys[i-1]&&ys[i]<ys[i+1])vlV.push(ys[i])}
+  var isDamp=false;
+  if(pkV.length>=2&&pkV.every(function(v,i){return !i||v<=pkV[i-1]+.01})&&vlV.every(function(v,i){return !i||v>=vlV[i-1]-.01}))isDamp=true;
+  return{amp:amp,off:off,period:period,isPer:isPer,pk:pk,vl:vl,pkV:pkV,vlV:vlV,isDamp:isDamp};
+}
+function rmse(a,b){var s=0,n=Math.min(a.length,b.length);for(var i=0;i<n;i++)s+=(a[i]-b[i])*(a[i]-b[i]);return Math.sqrt(s/n)}
+
+/* ===== TEMPLATES ===== */
+function genT(pts,f){
+  var xs=pts.map(function(p){return p.x}),ys=pts.map(function(p){return p.y});
+  var c=[],freq=f.period>0?1/f.period:1,om=2*Math.PI*freq;
+  function add(g,l,lt,p){var t=xs.map(g);var e=rmse(ys,t);c.push({label:l,latex:lt,err:e,params:Object.assign({amp:f.amp,freq:freq,offset:f.off},p||{})})}
+
+  if(f.isPer){
+    var bsp=0,bse=1e9,bcp=0,bce=1e9;
+    for(var p=0;p<Math.PI*2;p+=.03){var t=xs.map(function(x){return Math.sin(om*x+p)});var e=rmse(ys,t);if(e<bse){bse=e;bsp=p}}
+    for(var p=0;p<Math.PI*2;p+=.03){var t=xs.map(function(x){return Math.cos(om*x+p)});var e=rmse(ys,t);if(e<bce){bce=e;bcp=p}}
+    add(function(x){return f.amp*Math.sin(om*x+bsp)+f.off},"Sinus",mkLat("sin",om,bsp,f.amp,f.off),{type:"sin",phase:bsp});
+    add(function(x){return f.amp*Math.cos(om*x+bcp)+f.off},"Cosinus",mkLat("cos",om,bcp,f.amp,f.off),{type:"cos",phase:bcp});
+    add(function(x){return f.amp*Math.abs(Math.sin(om*x+bsp))+f.off},"|Sinus|",mkLat("abs_sin",om,bsp,f.amp,f.off),{type:"abs_sin"});
+    add(function(x){return f.amp*Math.sign(Math.sin(om*x+bsp))+f.off},"Rechteck",mkLat("sgn",om,bsp,f.amp,f.off),{type:"square"});
+    add(function(x){var t=(om*x+bsp)/(2*Math.PI);return f.amp*(4*Math.abs(t-Math.floor(t+.5))-1)+f.off},"Dreieck",mkLat("tri",om,bsp,f.amp,f.off),{type:"triangle"});
+    add(function(x){var t=(om*x+bsp)/(2*Math.PI);return f.amp*(2*(t-Math.floor(t))-1)+f.off},"Saegezahn",mkLat("saw",om,bsp,f.amp,f.off),{type:"saw"});
+    add(function(x){var v=om*(x-.5)+.001;return f.amp*Math.sin(v)/v+f.off},"sinc(x)",mkLat("sinc",om,0,f.amp,f.off),{type:"sinc"});
+    if(f.isDamp){
+      var dec=Math.log(Math.max(.01,Math.abs(f.pkV[0]-f.off)+.01))/Math.max(.01,f.period*(f.pkV.length-1||1));
+      add(function(x){return f.amp*Math.exp(-Math.abs(dec)*2*x)*Math.sin(om*x+bsp)+f.off},"Gedaempft",mkLat("dmp",om,bsp,f.amp,f.off,{d:Math.abs(dec*2)}),{type:"damped"});
+    }
+  }
+  if(!f.isPer){
+    add(function(x){return f.amp*2*x+f.off-f.amp},"Linear",mkLat("lin",0,0,f.amp*2,f.off-f.amp),{type:"linear"});
+    [2,3,4].forEach(function(d){var cc=fitPoly(xs,ys,d);if(cc){var lbl=["","Linear","Quadratisch","Kubisch","Quartisch"][d];
+      add(function(x){var r=0;for(var i=0;i<=d;i++)r+=cc[i]*Math.pow(x,d-i);return r},lbl,mkLatPoly(cc),{type:"poly"+d})}});
+    var ef=fitExp(xs,ys);if(ef)add(function(x){return ef.a*Math.exp(ef.b*x)+ef.c},"Exponentiell",mkLat("exp",0,0,ef.a,ef.c,{b:ef.b}),{type:"exponential",fA:ef.a,fB:ef.b,fC:ef.c});
+    if(xs[0]>.01){var lA=(ys[ys.length-1]-ys[0])/(Math.log(xs[xs.length-1]+.01)-Math.log(xs[0]+.01)+1e-10);var lD=ys[0]-lA*Math.log(xs[0]+.01);
+      add(function(x){return lA*Math.log(x+.01)+lD},"Logarithmisch",mkLat("log",0,0,lA,lD),{type:"logarithmic"})}
+    var mi=Math.floor(ys.length/2);var b4=ys.slice(0,mi).reduce(function(a,b){return a+b},0)/mi;var af=ys.slice(mi).reduce(function(a,b){return a+b},0)/(ys.length-mi);
+    if(Math.abs(af-b4)>.5*f.amp)add(function(x){return((af-b4)/2)*Math.sign(x-.5)+(af+b4)/2},"Heaviside",mkLat("hv",0,0,(af-b4)/2,(af+b4)/2),{type:"heaviside"});
+  }
+  c.sort(function(a,b){return a.err-b.err});return c;
+}
+
+/* ===== LATEX BUILDERS ===== */
+function F(n){if(Math.abs(n)<.001)return"0";if(Math.abs(n-Math.round(n))<.01)return""+Math.round(n);return n.toFixed(2).replace(/0+$/,"").replace(/\.$/,"")}
+function mkLat(type,om,ph,a,o,extra){
+  var inn=Math.abs(om-1)<.1?"x":F(om)+"x";
+  if(Math.abs(ph)>.05)inn+=(ph>0?" + ":" - ")+F(Math.abs(ph));
+  var r="";
+  switch(type){
+    case"sin":r=(Math.abs(a-1)>.01?F(a)+"\\cdot ":"")+"\\sin\\!\\left("+inn+"\\right)";break;
+    case"cos":r=(Math.abs(a-1)>.01?F(a)+"\\cdot ":"")+"\\cos\\!\\left("+inn+"\\right)";break;
+    case"abs_sin":r=(Math.abs(a-1)>.01?F(a)+"\\cdot ":"")+"\\left|\\sin\\!\\left("+inn+"\\right)\\right|";break;
+    case"sgn":r=F(a)+"\\,\\mathrm{sgn}(\\sin("+inn+"))";break;
+    case"tri":r=F(a)+"\\,\\triangle("+inn+")";break;
+    case"saw":r=F(a)+"\\,\\mathrm{saw}("+inn+")";break;
+    case"sinc":r=(Math.abs(a-1)>.01?F(a)+"\\cdot ":"")+"\\mathrm{sinc}("+F(om,2)+"\\,x)";break;
+    case"dmp":r=F(a)+"\\,e^{-"+F(extra.d,2)+"t}\\sin("+inn+")";break;
+    case"lin":r=F(a)+"\\,x";if(Math.abs(o)>.01)r+=(o>0?" + ":" - ")+F(Math.abs(o));return r;
+    case"exp":r=(Math.abs(a-1)>.01?F(a,2)+"\\cdot ":"")+"e^{"+F(extra.b||1,2)+"x}";if(Math.abs(o)>.01)r+=(o>0?" + ":" - ")+F(Math.abs(o),2);return r;
+    case"log":r=(Math.abs(a-1)>.01?F(a,2)+"\\cdot ":"")+"\\ln(x)";if(Math.abs(o)>.01)r+=(o>0?" + ":" - ")+F(Math.abs(o),2);return r;
+    case"hv":r=F(a)+"\\,H(x)";if(Math.abs(o)>.01)r+=(o>0?" + ":" - ")+F(Math.abs(o));return r;
+  }
+  if(Math.abs(o)>.01&&type!=="lin")r+=(o>0?" + ":" - ")+F(Math.abs(o));
+  return r;
+}
+function mkLatPoly(c){var d=c.length-1,r="";for(var i=0;i<=d;i++){var v=c[i],p=d-i;if(Math.abs(v)<.001)continue;if(r!=="")r+=v>0?" + ":" - ";else if(v<0)r+="-";var av=Math.abs(v);
+  if(p===0)r+=F(av);else if(p===1)r+=(Math.abs(av-1)<.01?"":F(av))+"x";else r+=(Math.abs(av-1)<.01?"":F(av))+"x^{"+p+"}"}return r||"0"}
+
+/* ===== NUMERIC EVAL ===== */
+function evalT(x,c){
+  var a=c.params.amp,f=c.params.freq,o=c.params.offset,om=2*Math.PI*f,p=c.params.phase||0,t=c.params.type;
+  switch(t){case"sin":return a*Math.sin(om*x+p)+o;case"cos":return a*Math.cos(om*x+p)+o;
+    case"abs_sin":return a*Math.abs(Math.sin(om*x+p))+o;case"square":return a*Math.sign(Math.sin(om*x+p))+o;
+    case"triangle":var tt=(om*x+p)/(2*Math.PI);return a*(4*Math.abs(tt-Math.floor(tt+.5))-1)+o;
+    case"saw":var tt=(om*x+p)/(2*Math.PI);return a*(2*(tt-Math.floor(tt))-1)+o;
+    case"heaviside":return a*Math.sign(x-.5)+o;case"sinc":var v=om*(x-.5)+.001;return a*Math.sin(v)/v+o;
+    case"damped":return a*Math.exp(-f*2*x)*Math.sin(om*x+p)+o;
+    case"exponential":return a*Math.exp((c.params.fB||1)*x)+o;default:return 0}
+}
+
+function fitPoly(xs,ys,d){var n=xs.length,m=d+1;var A=[];for(var r=0;r<m;r++){A[r]=[];for(var c=0;c<m;c++)A[r][c]=0}var b=[];for(var r=0;r<m;r++)b[r]=0;
+  for(var i=0;i<n;i++){var p=[1];for(var j=1;j<m;j++)p.push(p[j-1]*xs[i]);for(var r=0;r<m;r++){b[r]+=p[r]*ys[i];for(var c=0;c<m;c++)A[r][c]+=p[r]*p[c]}}
+  var M=[];for(var r=0;r<m;r++){M[r]=A[r].slice();M[r].push(b[r])}
+  for(var c=0;c<m;c++){var mx=c;for(var r=c+1;r<m;r++)if(Math.abs(M[r][c])>Math.abs(M[mx][c]))mx=r;var tmp=M[c];M[c]=M[mx];M[mx]=tmp;
+    if(Math.abs(M[c][c])<1e-12)return null;for(var r=c+1;r<m;r++){var f=M[r][c]/M[c][c];for(var j=c;j<=m;j++)M[r][j]-=f*M[c][j]}}
+  var x=[];for(var i=0;i<m;i++)x[i]=0;for(var i=m-1;i>=0;i--){x[i]=M[i][m];for(var j=i+1;j<m;j++)x[i]-=M[i][j]*x[j];x[i]/=M[i][i]}return x}
+
+function fitExp(xs,ys){for(var c=-2;c<=2;c+=.15){var ln=[];var ok=true;
+  for(var i=0;i<xs.length;i++){var v=Math.log(Math.abs(ys[i]-c)+1e-10);if(!isFinite(v)){ok=false;break}ln.push(v)}if(!ok)continue;
+  var n=xs.length,sx=0,sy=0,sxx=0,sxy=0;for(var i=0;i<n;i++){sx+=xs[i];sy+=ln[i];sxx+=xs[i]*xs[i];sxy+=xs[i]*ln[i]}
+  var dn=n*sxx-sx*sx;if(Math.abs(dn)<1e-10)continue;var bv=(n*sxy-sx*sy)/dn,a=Math.exp((sy-bv*sx)/n);
+  var err=0;for(var i=0;i<n;i++)err+=(a*Math.exp(bv*xs[i])+c-ys[i])*(a*Math.exp(bv*xs[i])+c-ys[i]);err=Math.sqrt(err/n);
+  if(Math.abs(bv)>.05&&isFinite(a)&&isFinite(bv))return{a:a,b:bv,c:c,err:err}}return null}
+
+/* ===== RECOGNIZE ===== */
+function recognize(){
+  var pts=nPts();if(!pts)return;var f=getFeat(pts);
+  var cands=genT(pts,f).slice(0,6);if(!cands.length)return;
+  best=cands[0];var xs=pts.map(function(p){return p.x});
+  ovlP=xs.map(function(x){return{x:x,y:evalT(x,best)}});custP=null;
+  var tp=strokes.reduce(function(s,st){return s+st.points.length},0);
+  var pct=Math.max(0,Math.min(100,100*(1-best.err))).toFixed(1);
+  updS(tp,best.label,pct+"%");renderRes(cands,f);renderCAS(best);drawBode(best);addH(best);redraw();
+}
+
+function renderRes(cands,f){
+  var el=document.getElementById("tRes"),mx=Math.max.apply(null,cands.map(function(c){return c.err})),mn=cands[0].err;
+  var h="";cands.forEach(function(c,i){
+    var pct=Math.max(0,Math.min(100,100*(1-(c.err-mn)/(mx-mn+.001))));
+    var cls=i===0?"best":"";
+    var badge=i===0?'<span class="badge">Best</span>':"";
+    var bgColor=i===0?"#238636":"#58a6ff";
+    h+='<div class="card '+cls+'" onclick="window._casTab()">';
+    h+='<div class="cr"><span>'+c.label+'</span>'+badge+'</div>';
+    h+='<div class="cf" data-latex="'+esc(c.latex)+'"></div>';
+    h+='<div class="mb"><div class="mf" style="width:'+pct+'%;background:'+bgColor+'"></div></div>';
+    h+='<div class="cm"><span>Fit: '+(100-c.err*100).toFixed(1)+'%</span></div>';
+    h+='<div class="cl" onclick="event.stopPropagation();cpT(this)">'+esc(c.latex)+'</div>';
+    h+='</div>';
+  });el.innerHTML=h;renderK(el);
+}
+
+/* ===== CAS PANEL (real Algebrite) ===== */
+function renderCAS(c){
+  var el=document.getElementById("tCas");
+  var items=[];
+  // Build symbolic expression from recognized function
+  var symExpr=getSymExpr(c);
+  if(!symExpr){el.innerHTML=eH("⚡","CAS nicht verfügbar","Für diesen Typ.");return}
+
+  try{
+    // 1. Original
+    items.push({l:"Funktion",lt:symExpr});
+    // 2. Simplify
+    try{var simp=Algebrite.simplify(symExpr).toString();items.push({l:"Vereinfacht",lt:algebriteToLatex(simp)})}
+    catch(e){}
+    // 3. Derivative
+    try{var diff=Algebrite.derivative(symExpr,"x").toString();items.push({l:"Ableitung f'(x)",lt:algebriteToLatex(diff)})}
+    catch(e){}
+    // 4. Second derivative
+    try{var diff2=Algebrite.derivative(Algebrite.derivative(symExpr,"x"),"x").toString();items.push({l:"2. Ableitung f''(x)",lt:algebriteToLatex(diff2)})}
+    catch(e){}
+    // 5. Integral
+    try{var integ=Algebrite.integral(symExpr,"x").toString();items.push({l:"Stammfunktion",lt:"\\int "+algebriteToLatex(symExpr)+"\\,dx = "+algebriteToLatex(integ)+"+C"})}
+    catch(e){}
+    // 6. Taylor series
+    try{var tay=Algebrite.taylor(symExpr,"x",5).toString();items.push({l:"Taylor-Reihe (n=5)",lt:"T_5(x)="+algebriteToLatex(tay)})}
+    catch(e){}
+    // 7. Evaluate at x=0
+    try{var val0=Algebrite.eval(symExpr,"x","0").toString();items.push({l:"Wert bei x=0",lt:"f(0)="+algebriteToLatex(val0)})}
+    catch(e){}
+    // 8. Laplace (manual)
+    var lp=manualLaplace(c.params.type);
+    if(lp)items.push({l:"Laplace-Transformation",lt:"\\mathcal{L}\\{f(t)\\}="+lp});
+    // 9. Bode info for periodic
+    if(c.params.freq){
+      var om=F(c.params.freq*2*Math.PI);
+      items.push({l:"Frequenzanalyse",lt:"\\omega="+om+"\\,\\mathrm{rad/s},\\;f="+F(c.params.freq)+"\\,\\mathrm{Hz},\\;T="+F(1/c.params.freq,3)+"\\,\\mathrm{s"});
+    }
+  }catch(e){items.push({l:"Fehler",lt:"\\text{"+esc(e.message)+"}"})}
+
+  var h='<div class="card best"><div class="cr"><span>'+c.label+'</span><span class="badge orange">Algebrite CAS</span></div><div class="cf" data-latex="'+esc(c.latex)+'"></div></div>';
+  items.forEach(function(it){h+='<div class="ci"><div class="cil">'+it.l+'</div><div class="civ" data-latex="'+esc(it.lt)+'"></div></div>'});
+  el.innerHTML=h;renderK(el);
+}
+
+function getSymExpr(c){
+  // Build a CAS-compatible symbolic expression
+  var p=c.params,t=p.type,a=p.amp,f=p.freq,o=p.offset,ph=p.phase||0;
+  switch(t){
+    case"sin":return F(a,4)+"*sin("+F(2*Math.PI*f,4)+"*x"+(Math.abs(ph)>.05?"+"+F(ph,4):"")+")"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    case"cos":return F(a,4)+"*cos("+F(2*Math.PI*f,4)+"*x"+(Math.abs(ph)>.05?"+"+F(ph,4):"")+")"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    case"linear":return F(a*2,4)+"*x+"+F(o,4);
+    case"exponential":return F(a,4)+"*exp("+F(p.fB||1,4)+"*x)"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    case"heaviside":return F(a,4)+"*(x>0?1:0)"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    case"abs_sin":return F(a,4)+"*abs(sin("+F(2*Math.PI*f,4)+"*x))"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    case"logarithmic":return F(a,4)+"*log(x)"+(Math.abs(o)>.05?"+"+F(o,4):"");
+    default:return null;
+  }
+}
+
+function manualLaplace(type){
+  var map={sin:"\\frac{\\omega}{s^2+\\omega^2}",cos:"\\frac{s}{s^2+\\omega^2}",abs_sin:"\\frac{2}{\\pi s}+\\text{Reihen}",
+    square:"\\frac{4}{\\pi}\\sum\\frac{\\omega}{s^2+(2n+1)^2\\omega^2}",sinc:"\\mathrm{rect}(\\omega/2\\omega_0)",
+    damped:"\\frac{\\omega}{(s+\\alpha)^2+\\omega^2}",heaviside:"\\frac{1}{s}",linear:"\\frac{a}{s^2}",
+    exponential:"\\frac{a}{s-b}",logarithmic:"-\\frac{\\gamma+\\ln s}{s}"};
+  return map[type]||null;
+}
+
+function renderK(el){requestAnimationFrame(function(){el.querySelectorAll("[data-latex]").forEach(function(e){
+  try{katex.render(e.getAttribute("data-latex"),e,{throwOnError:false,displayMode:false})}catch(er){e.textContent=e.getAttribute("data-latex")}})})}
+window.cpT=function(el){navigator.clipboard.writeText(el.textContent||el.getAttribute("data-latex")||"").then(function(){toast("Kopiert!")})};
+window._casTab=function(){document.querySelectorAll(".tab")[1].click()};
+
+/* ===== BODE ===== */
+function drawBode(c){
+  var el=document.getElementById("tBode");
+  el.innerHTML='<div class="card best"><div class="cr"><span>Frequenzgang</span><span class="badge">Bode</span></div><canvas class="bode-canvas" id="bodeMag"></canvas><div style="text-align:center;font-size:9px;color:#8b949e;margin:2px 0">|H(j omega)| dB</div><canvas class="bode-canvas" id="bodePhase" style="margin-top:4px"></canvas><div style="text-align:center;font-size:9px;color:#8b949e">Phase (Grad)</div></div>';
+  var t=c.params.type,freq=c.params.freq||1,amp=c.params.amp||1,om0=2*Math.PI*freq;
+  requestAnimationFrame(function(){
+    var magC=document.getElementById("bodeMag"),phC=document.getElementById("bodePhase");if(!magC||!phC)return;
+    [magC,phC].forEach(function(cv){var d=devicePixelRatio||1;var r=cv.getBoundingClientRect();cv.width=r.width*d;cv.height=r.height*d;cv.style.width=r.width+"px";cv.style.height=r.height+"px";cv.getContext("2d").setTransform(d,0,0,d,0,0)});
+    var W2=magC.getBoundingClientRect().width,H2=magC.getBoundingClientRect().height;
+    var magCtx=magC.getContext("2d"),phCtx=phC.getContext("2d");
+    [magCtx,phCtx].forEach(function(c2){c2.clearRect(0,0,W2,H2);c2.fillStyle="#0d1117";c2.fillRect(0,0,W2,H2);
+      c2.strokeStyle="#21262d";c2.lineWidth=.5;for(var i=0;i<=6;i++){var x=i/6*W2;c2.beginPath();c2.moveTo(x,0);c2.lineTo(x,H2);c2.stroke()}
+      for(var i=0;i<=4;i++){var y=i/4*H2;c2.beginPath();c2.moveTo(0,y);c2.lineTo(W2,y);c2.stroke()}});
+    var N=200,fMin=.01,fMax=100,magData=[],phData=[];
+    for(var i=0;i<N;i++){var logF=Math.log10(fMin)+i/(N-1)*(Math.log10(fMax)-Math.log10(fMin));var f=Math.pow(10,logF),w=2*Math.PI*f,mag,phase;
+      if(t==="sin"||t==="cos"||t==="triangle"||t==="saw"){mag=amp/Math.sqrt(Math.pow(w*w-om0*om0,2)+Math.pow(w*om0*.5,2)+.001);phase=-Math.atan2(w*om0*.5,w*w-om0*om0)*180/Math.PI}
+      else if(t==="exponential"||t==="heaviside"){var tau=1/freq;mag=amp/Math.sqrt(1+Math.pow(w*tau,2));phase=-Math.atan(w*tau)*180/Math.PI}
+      else if(t==="damped"){var z=.3;mag=amp*om0*om0/Math.sqrt(Math.pow(om0*om0-w*w,2)+Math.pow(2*z*om0*w,2)+.001);phase=-Math.atan2(2*z*om0*w,om0*om0-w*w)*180/Math.PI}
+      else{mag=amp/(1+w/om0);phase=-Math.atan(w/om0)*180/Math.PI}magData.push(mag);phData.push(phase)}
+    var maxDB=20*Math.log10(Math.max.apply(null,magData)+.001),minDB=Math.min(-40,maxDB-60);
+    magCtx.strokeStyle="#58a6ff";magCtx.lineWidth=1.5;magCtx.beginPath();
+    for(var i=0;i<N;i++){var x=i/(N-1)*W2;var db=20*Math.log10(magData[i]+.001);var y=H2-(db-minDB)/(maxDB-minDB+1)*H2;i===0?magCtx.moveTo(x,y):magCtx.lineTo(x,y)}magCtx.stroke();
+    phCtx.strokeStyle="#f0883e";phCtx.lineWidth=1.5;phCtx.beginPath();
+    for(var i=0;i<N;i++){var x=i/(N-1)*W2;var y=H2/2-phData[i]/180*H2/2;i===0?phCtx.moveTo(x,y):phCtx.lineTo(x,y)}phCtx.stroke();
+    magCtx.fillStyle="#6e7681";magCtx.font="8px monospace";
+    [0.01,0.1,1,10,100].forEach(function(f){var x=(Math.log10(f)-Math.log10(fMin))/(Math.log10(fMax)-Math.log10(fMin))*W2;magCtx.fillText(f>=1?""+f:f.toFixed(2),x-8,H2-2);phCtx.fillText(f>=1?""+f:f.toFixed(2),x-8,H2-2)});
+  });
+}
+
+/* ===== AUDIO ===== */
+document.getElementById("bSound").onclick=function(){
+  if(!best){toast("Erst Funktion erkennen!");return}
+  try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    var sr=audioCtx.sampleRate,dur=2,buf=audioCtx.createBuffer(1,sr*dur,sr),d=buf.getChannelData(0);
+    var p=best.params,amp=p.amp||1,freq=p.freq||1,off=p.offset||0,ph=p.phase||0,om=2*Math.PI*freq;
+    for(var i=0;i<d.length;i++){var x=i/sr,y=0;switch(p.type){
+      case"sin":y=amp*Math.sin(om*x+ph)+off;break;case"cos":y=amp*Math.cos(om*x+ph)+off;break;
+      case"abs_sin":y=amp*Math.abs(Math.sin(om*x+ph))+off;break;case"square":y=amp*Math.sign(Math.sin(om*x+ph))+off;break;
+      case"triangle":var tt=(om*x+ph)/(2*Math.PI);y=amp*(4*Math.abs(tt-Math.floor(tt+.5))-1)+off;break;
+      case"saw":var tt=(om*x+ph)/(2*Math.PI);y=amp*(2*(tt-Math.floor(tt))-1)+off;break;
+      case"damped":y=amp*Math.exp(-freq*x)*Math.sin(om*x+ph)+off;break;
+      case"exponential":y=amp*Math.exp((p.fB||1)*x)+off;break;case"heaviside":y=amp*Math.sign(x-.5)+off;break;
+      default:y=amp*Math.sin(om*x+ph)+off}d[i]=Math.max(-1,Math.min(1,y*.3))}
+    var src=audioCtx.createBufferSource();src.buffer=buf;var fade=audioCtx.createGain();src.connect(fade);fade.connect(audioCtx.destination);
+    fade.gain.setValueAtTime(0,audioCtx.currentTime);fade.gain.linearRampToValueAtTime(1,audioCtx.currentTime+.05);
+    fade.gain.setValueAtTime(1,audioCtx.currentTime+dur-.1);fade.gain.linearRampToValueAtTime(0,audioCtx.currentTime+dur);
+    src.start();src.stop(audioCtx.currentTime+dur);toast("Spiele: "+best.label)}catch(e){toast("Audio: "+e.message)}
+};
+
+/* ===== PNG EXPORT ===== */
+document.getElementById("bExport").onclick=function(){
+  var tmp=document.createElement("canvas");tmp.width=canvas.width;tmp.height=canvas.height;
+  var tc=tmp.getContext("2d");tc.fillStyle="#0d1117";tc.fillRect(0,0,tmp.width,tmp.height);tc.drawImage(ac,0,0);tc.drawImage(canvas,0,0);
+  tmp.toBlob(function(blob){var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download="sketch-cas.png";a.click();URL.revokeObjectURL(url);toast("PNG exportiert!")});
+};
+
+/* ===== HISTORY ===== */
+function addH(c){var now=new Date(),time=("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2);
+  hist.unshift({label:c.label,latex:c.latex,time:time});if(hist.length>50)hist=hist.slice(0,50);
+  localStorage.setItem("scH4",JSON.stringify(hist));renderH()}
+function renderH(){var el=document.getElementById("tHist");
+  if(!hist.length){el.innerHTML=eH("🕐","Leerer Verlauf","Erkennungen werden gespeichert.");return}
+  var h="";hist.forEach(function(x){h+='<div class="card" style="cursor:pointer"><div style="display:flex;justify-content:space-between"><span style="font-size:11px">'+x.label+'</span><span style="font-size:9px;color:#8b949e">'+x.time+"</span></div></div>"});el.innerHTML=h}
+renderH();
+
+resize();
+})();
+</script>
+</body>
+</html>

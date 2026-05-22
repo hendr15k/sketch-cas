@@ -1,0 +1,7 @@
+services:
+  sketch-cas:
+    build: .
+    container_name: sketch-cas
+    ports:
+      - "3141:3141"
+    restart: unless-stopped
