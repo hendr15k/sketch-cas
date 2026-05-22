@@ -1,3 +1,4 @@
-training-data/
-*.mem
-*.wasm
+node_modules/
+dist/
+*.local
+.env
