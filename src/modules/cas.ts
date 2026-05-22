@@ -108,8 +108,8 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
     case 'solve': {
       const eq = e.replace(/=/g, '-').replace(/==/g, '-');
       try {
-        const sol = nerdamer.solveEquations(eq);
-        const lt = 'x \\in \\{' + sol.map((v: { toString(): string }) => exprToLatex(v.toString())).join(',\\;') + '\\}';
+        const sol = nerdamer.solveEquations(eq) as unknown as { [key: string]: { toString(): string } };
+        const lt = 'x \\in \\{' + Object.values(sol).map((v) => exprToLatex(v.toString())).join(',\\;') + '\\}';
         return { latex: lt, raw: sol.toString() };
       } catch {
         return { latex: '\\text{(nicht lösbar)}', raw: 'error' };
@@ -153,10 +153,10 @@ export function loadGiac(): void {
   }
 
   // Giac uses Emscripten Module pattern — set up the global Module config
-  (window as Record<string, unknown>)['Module'] = {
+  (window as unknown as Record<string, unknown>)['Module'] = {
     noInitialRun: true,
     onRuntimeInitialized() {
-      const mod = (window as Record<string, unknown>)['Module'] as {
+      const mod = (window as unknown as Record<string, { cwrap: (name: string, ret: string, args: string[]) => (s: string) => string }>)['Module'] as {
         cwrap: (name: string, ret: string, args: string[]) => (s: string) => string;
       };
       caseval = mod.cwrap('caseval', 'string', ['string']);
