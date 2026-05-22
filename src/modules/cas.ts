@@ -108,8 +108,16 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
     case 'solve': {
       const eq = e.replace(/=/g, '-').replace(/==/g, '-');
       try {
-        const sol = nerdamer.solveEquations(eq) as unknown as { [key: string]: { toString(): string } };
-        const lt = 'x \\in \\{' + Object.values(sol).map((v) => exprToLatex(v.toString())).join(',\\;') + '\\}';
+        const sol = nerdamer.solveEquations(eq) as unknown as {
+          [key: string]: { toString(): string };
+        };
+        const lt =
+          'x \\in \\{' +
+          Object.values(sol)
+            .map((v) => exprToLatex(v.toString()))
+            .join(',\\;') +
+          '\\}';
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         return { latex: lt, raw: sol.toString() };
       } catch {
         return { latex: '\\text{(nicht lösbar)}', raw: 'error' };
@@ -156,7 +164,12 @@ export function loadGiac(): void {
   (window as unknown as Record<string, unknown>)['Module'] = {
     noInitialRun: true,
     onRuntimeInitialized() {
-      const mod = (window as unknown as Record<string, { cwrap: (name: string, ret: string, args: string[]) => (s: string) => string }>)['Module'] as {
+      const mod = (
+        window as unknown as Record<
+          string,
+          { cwrap: (name: string, ret: string, args: string[]) => (s: string) => string }
+        >
+      )['Module'] as {
         cwrap: (name: string, ret: string, args: string[]) => (s: string) => string;
       };
       caseval = mod.cwrap('caseval', 'string', ['string']);
@@ -173,7 +186,8 @@ export function loadGiac(): void {
     },
     setStatus(s: string) {
       if (s && s.indexOf('/') === -1 && s !== 'All downloads complete.') {
-        if (statusEl) statusEl.innerHTML = '<span style="color:var(--color-accent-pink)">⏳ ' + s + '</span>';
+        if (statusEl)
+          statusEl.innerHTML = '<span style="color:var(--color-accent-pink)">⏳ ' + s + '</span>';
       }
     },
   };
