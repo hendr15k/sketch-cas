@@ -152,10 +152,11 @@ export function matchTrainingExamples(
   const matches: TrainingMatch[] = [];
   for (const ex of examples) {
     if (!ex.normalizedPoints || ex.normalizedPoints.length < 2) continue;
-    const err = rmse(
-      pts.map((p) => p.y),
-      ex.normalizedPoints.map((p) => p.y),
-    );
+    // Compare both X and Y alignment for proper path matching
+    const N = Math.min(pts.length, ex.normalizedPoints.length);
+    const srcY = pts.slice(0, N).map((p) => p.y);
+    const tgtY = ex.normalizedPoints.slice(0, N).map((p) => p.y);
+    const err = rmse(srcY, tgtY);
     matches.push({ example: ex, rmse: err });
   }
 

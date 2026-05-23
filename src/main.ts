@@ -97,10 +97,12 @@ function recognize(): void {
     const bestMatch = trainMatches[0]!;
     const matchType = bestMatch.example.matchedType;
     // Boost the matching template type
-    if (matchType) {
+    // trace examples have 'trace_sin' prefix, strip it for comparison
+    const templateType = matchType.startsWith('trace_') ? matchType.slice(6) : matchType;
+    if (templateType) {
       for (const c of cands) {
         const cType = (c.params['type'] as string) || '';
-        if (cType === matchType) {
+        if (cType === templateType) {
           c.err *= 0.3; // Strong boost from training data
           break;
         }
@@ -376,7 +378,12 @@ function evalPlot(expr: string): void {
 }
 
 function makeNumFn(expr: string): (x: number) => number {
-  const prepared = expr.replace(/\^/g, '**');
+  const prepared = expr
+    .replace(/\^/g, '**')
+    // Implicit multiplication: 2x -> 2*x, 3sin -> 3*sin, x2 -> x*2
+    .replace(/(\d)([a-zA-Z(])/g, '$1*$2')
+    .replace(/(\))(\d)/g, '$1*$2')
+    .replace(/(\))(\()/g, '$1*$2');
   // eslint-disable-next-line @typescript-eslint/no-implied-eval
   const fn = new Function(
     'x',
@@ -1057,7 +1064,7 @@ function startTracing(type: string, label: string, _latex: string): void {
         y = Math.abs(Math.sin(2 * Math.PI * x));
         break;
       case 'heaviside':
-        y = x >= 0.45 && x <= 0.55 ? 1 : x < 0.45 ? -1 : 1;
+        y = x < 0.5 ? -1 : 1;
         break;
       default:
         y = Math.sin(2 * Math.PI * x);
