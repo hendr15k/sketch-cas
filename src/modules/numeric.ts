@@ -43,9 +43,7 @@ export function evalTemplate(
       return amp * Math.sign(x) + offset;
     case 'damped':
       return (
-        amp *
-        Math.exp(-((p['decay'] as number) ?? freq * 2) * x) *
-        Math.sin(omega * x + phase) +
+        amp * Math.exp(-((p['decay'] as number) ?? freq * 2) * x) * Math.sin(omega * x + phase) +
         offset
       );
     case 'linear':
