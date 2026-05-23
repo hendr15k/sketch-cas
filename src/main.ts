@@ -117,8 +117,10 @@ function recognize(): void {
   ovlP = xs.map((x) => ({ x, y: evalTemplate(x, best!) }));
   custP = null;
 
+  // Score display uses raw RMSE (not composite) for user-friendly percentage
+  const rawErr = (best.params['rawErr'] as number) ?? best.err;
   const tp = strokes.reduce((s, st) => s + st.points.length, 0);
-  const pct = Math.max(0, Math.min(100, 100 * (1 - best.err))).toFixed(1);
+  const pct = Math.max(0, Math.min(100, 100 * (1 - rawErr * 3))).toFixed(1);
   updateScore('' + tp, best.label, pct + '%');
 
   renderRes(cands, trainMatches);
@@ -378,23 +380,19 @@ function evalPlot(expr: string): void {
 }
 
 function makeNumFn(expr: string): (x: number) => number {
-  // Convert ^ to Math.pow to avoid unary-minus precedence issues with **
   const prepared = expr
-    // x^2 -> Math.pow(x, 2) — avoid ** precedence issues
+    // Step 1: Replace function names and constants FIRST (before Math.pow)
+    .replace(/\b(sin|cos|tan|abs|sqrt|exp|log|asin|acos|atan|sinh|cosh|tanh)\b/g, 'Math.$1')
+    .replace(/\bpi\b/g, 'Math.PI')
+    .replace(/\be\b/g, 'Math.E')
+    // Step 2: Convert ^ to Math.pow — avoids unary-minus precedence issues with **
     .replace(/([a-zA-Z0-9._)]+)\^([a-zA-Z0-9.(]+)/g, 'Math.pow($1,$2)')
-    // Implicit multiplication: 2x -> 2*x, 3sin -> 3*sin
+    // Step 3: Implicit multiplication: 2x -> 2*x, 3Math.sin -> 3*Math.sin
     .replace(/(\d)([a-zA-Z(])/g, '$1*$2')
     .replace(/(\))(\d)/g, '$1*$2')
     .replace(/(\))(\()/g, '$1*$2');
   // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const fn = new Function(
-    'x',
-    'return ' +
-      prepared
-        .replace(/\b(sin|cos|tan|abs|sqrt|exp|log|asin|acos|atan|sinh|cosh|tanh)\b/g, 'Math.$1')
-        .replace(/\bpi\b/g, 'Math.PI')
-        .replace(/\be\b/g, 'Math.E'),
-  ) as (x: number) => number;
+  const fn = new Function('x', 'return ' + prepared) as (x: number) => number;
   fn(0);
   fn(1);
   return fn;

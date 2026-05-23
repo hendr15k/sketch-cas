@@ -67,6 +67,7 @@ export function normalizeAndResample(strokes: { points: Point[] }[]): Point[] | 
 
 /**
  * Extract features from normalized points for template matching.
+ * Enhanced with derivative-based features for better discrimination.
  */
 export function getFeatures(pts: Point[]): Features {
   const ys = pts.map((p) => p.y);
@@ -75,7 +76,7 @@ export function getFeatures(pts: Point[]): Features {
   const amp = (yMax - yMin) / 2;
   const off = (yMax + yMin) / 2;
 
-  // Find zero crossings
+  // Find zero crossings (relative to midpoint)
   const crossings: number[] = [];
   for (let i = 1; i < ys.length; i++) {
     if ((ys[i - 1]! - off) * (ys[i]! - off) < 0) {
@@ -123,7 +124,7 @@ export function getFeatures(pts: Point[]): Features {
     if (pkDec && vlInc) isDamp = true;
   }
 
-  return { amp, off, period, isPer, pk, vl, pkV, vlV, isDamp };
+  return { amp, off, period, isPer, crossings: crossings.length, pk, vl, pkV, vlV, isDamp };
 }
 
 export interface LabeledExample {
@@ -152,7 +153,6 @@ export function matchTrainingExamples(
   const matches: TrainingMatch[] = [];
   for (const ex of examples) {
     if (!ex.normalizedPoints || ex.normalizedPoints.length < 2) continue;
-    // Compare both X and Y alignment for proper path matching
     const N = Math.min(pts.length, ex.normalizedPoints.length);
     const srcY = pts.slice(0, N).map((p) => p.y);
     const tgtY = ex.normalizedPoints.slice(0, N).map((p) => p.y);

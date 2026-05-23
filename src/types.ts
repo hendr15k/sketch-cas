@@ -41,6 +41,7 @@ export interface Features {
   off: number;
   period: number;
   isPer: boolean;
+  crossings: number;
   pk: number;
   vl: number;
   pkV: number[];
