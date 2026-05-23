@@ -21,7 +21,14 @@ import { generateTemplates } from './modules/templates';
 import { evalTemplate } from './modules/numeric';
 import { toast, esc, copyToClipboard, updateScore, emptyState, renderKaTeX } from './modules/ui';
 import { exprToLatex } from './modules/latex';
-import { runCas, hasAlgebrite, hasNerdamer, hasXcas, setupGiacAutoload, getSymExpr } from './modules/cas';
+import {
+  runCas,
+  hasAlgebrite,
+  hasNerdamer,
+  hasXcas,
+  setupGiacAutoload,
+  getSymExpr,
+} from './modules/cas';
 import { drawBode } from './modules/bode';
 import type { TemplateCandidate, CasOperation } from './types';
 
@@ -56,9 +63,14 @@ function recognize(): void {
 
   // Training boost: compare against stored labeled examples
   const allExamples = [
-    ...trainData.targets.filter((t) => t.normalizedPoints?.length > 2).map((t) => ({
-      id: t.id, label: t.label, normalizedPoints: t.normalizedPoints, matchedType: t.matchedType || '',
-    })),
+    ...trainData.targets
+      .filter((t) => t.normalizedPoints?.length > 2)
+      .map((t) => ({
+        id: t.id,
+        label: t.label,
+        normalizedPoints: t.normalizedPoints,
+        matchedType: t.matchedType || '',
+      })),
     ...trainData.corrections,
   ];
   const trainMatches = matchTrainingExamples(pts, allExamples);
@@ -95,7 +107,10 @@ function recognize(): void {
   addH(best);
 }
 
-function renderRes(cands: TemplateCandidate[], trainMatches?: { example: { label: string; matchedType: string }; rmse: number }[]): void {
+function renderRes(
+  cands: TemplateCandidate[],
+  trainMatches?: { example: { label: string; matchedType: string }; rmse: number }[],
+): void {
   const el = document.getElementById('tRes');
   if (!el) return;
 
@@ -124,7 +139,7 @@ function renderRes(cands: TemplateCandidate[], trainMatches?: { example: { label
     h += `<div class="cm"><span>Fit: ${(100 - c.err * 100).toFixed(1)}%</span></div>`;
     h += `<div class="cl" onclick="event.stopPropagation();window.cpT(this)">${esc(c.latex)}</div>`;
     if (i === 0) {
-      h += `<div style="margin-top:6px;text-align:center"><button class="b btn-correct" data-type="${esc(c.params['type'] as string || '')}" data-label="${esc(c.label)}">📝 Korrigieren</button></div>`;
+      h += `<div style="margin-top:6px;text-align:center"><button class="b btn-correct" data-type="${esc((c.params['type'] as string) || '')}" data-label="${esc(c.label)}">📝 Korrigieren</button></div>`;
     }
     h += '</div>';
   });
@@ -198,7 +213,20 @@ function addH(c: TemplateCandidate): void {
 
 function openCorrectionDialog(matchedType: string, currentLabel: string): void {
   // Build a correction dialog
-  const labels = ['sin(x)', 'cos(x)', 'tan(x)', 'x²', 'x³', 'x', '1/x', 'eˣ', 'ln(x)', '|x|', 'Heaviside(x)', 'Dämpfte Sinus'];
+  const labels = [
+    'sin(x)',
+    'cos(x)',
+    'tan(x)',
+    'x²',
+    'x³',
+    'x',
+    '1/x',
+    'eˣ',
+    'ln(x)',
+    '|x|',
+    'Heaviside(x)',
+    'Dämpfte Sinus',
+  ];
   let h = `<div style="position:fixed;inset:0;background:#000a;z-index:9999;display:flex;align-items:center;justify-content:center" id="corrDlg">`;
   h += `<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;max-width:320px;width:90%">`;
   h += `<div style="font-size:13px;font-weight:600;color:#e6edf3;margin-bottom:8px">📝 Erkennung korrigieren</div>`;
@@ -476,7 +504,13 @@ interface TrainAttempt {
 interface TrainData {
   targets: TrainTarget[];
   attempts: TrainAttempt[];
-  corrections: { id: string; timestamp: number; label: string; normalizedPoints: { x: number; y: number }[]; matchedType: string }[];
+  corrections: {
+    id: string;
+    timestamp: number;
+    label: string;
+    normalizedPoints: { x: number; y: number }[];
+    matchedType: string;
+  }[];
 }
 
 let trainData: TrainData = { targets: [], attempts: [], corrections: [] };
@@ -831,7 +865,10 @@ function trainMode(mode: 'record' | 'practice' | 'stats'): void {
     }
 
     if (trainData.corrections.length > 0) {
-      h += '<div class="card"><div class="cr"><span>Korrekturen</span><span class="badge blue">' + trainData.corrections.length + '</span></div>';
+      h +=
+        '<div class="card"><div class="cr"><span>Korrekturen</span><span class="badge blue">' +
+        trainData.corrections.length +
+        '</span></div>';
       trainData.corrections.forEach((c) => {
         const d = new Date(c.timestamp);
         const ts = d.toLocaleDateString('de-DE');
