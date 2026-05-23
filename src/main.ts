@@ -979,10 +979,10 @@ function setupUIHandlers(): void {
   // CAS input buttons
   const casOps = ['simplify', 'diff', 'integrate', 'taylor', 'laplace', 'solve', 'plot'];
   casOps.forEach((op) => {
-    const btn = document.querySelector<HTMLElement>(`button[onclick="multiCasEval('${op}')"]`);
+    const btn = document.querySelector<HTMLElement>(`button[data-cas-op="${op}"]`);
     if (btn) {
       btn.replaceWith(btn.cloneNode(true));
-      const newBtn = document.querySelector<HTMLElement>(`button[onclick="multiCasEval('${op}')"]`);
+      const newBtn = document.querySelector<HTMLElement>(`button[data-cas-op="${op}"]`);
       if (newBtn) {
         newBtn.addEventListener('click', () => {
           const raw = (document.getElementById('casIn') as HTMLInputElement)?.value.trim();
@@ -997,11 +997,11 @@ function setupUIHandlers(): void {
   });
 
   // Fix solve equation button
-  const eqBtn = document.querySelector<HTMLElement>('button[onclick="multiSolveEq()"]');
+  const eqBtn = document.getElementById('btnSolveEq');
   if (eqBtn) {
-    eqBtn.replaceWith(eqBtn.cloneNode(true));
-    const newBtn = document.querySelector<HTMLElement>('button[onclick="multiSolveEq()"]');
-    newBtn?.addEventListener('click', multiSolveEq);
+    const newBtn = eqBtn.cloneNode(true) as HTMLElement;
+    eqBtn.replaceWith(newBtn);
+    newBtn.addEventListener('click', multiSolveEq);
   }
 
   // CAS auto-load
