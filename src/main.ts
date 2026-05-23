@@ -248,6 +248,7 @@ function evalPlot(expr: string): void {
     custP = pts;
     const state = getState();
     state.customPoints = pts;
+    redraw();
     toast('Geplottet!');
   } catch (e) {
     toast('Plot-Fehler: ' + (e as Error).message);
