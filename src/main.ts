@@ -1046,13 +1046,6 @@ g['__sk'] = {
       return true;
     }
   },
-  get showGrid() {
-    try {
-      return getState().showGrid;
-    } catch {
-      return true;
-    }
-  },
   get selEng() {
     return selectedEngine;
   },
