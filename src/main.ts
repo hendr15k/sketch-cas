@@ -113,13 +113,23 @@ function recognize(): void {
 
   best = cands[0]!;
 
-  console.log('[DEBUG] ALL candidates:');
-  cands.forEach((c, i) => {
+  console.log('[DEBUG] ALL candidates (' + cands.length + '):');
+  for (let i = 0; i < cands.length; i++) {
+    const c = cands[i]!;
     const rawErr = (c.params['rawErr'] as number) ?? c.err;
     console.log(
-      `  ${i}: ${c.label} | composite=${c.err.toFixed(4)} | rawErr=${rawErr.toFixed(4)} | type=${c.params['type'] || '?'}`,
+      '  ' +
+        i +
+        ': ' +
+        c.label +
+        ' | composite=' +
+        c.err.toFixed(4) +
+        ' | rawErr=' +
+        rawErr.toFixed(4) +
+        ' | type=' +
+        (c.params['type'] || '?'),
     );
-  });
+  }
 
   const xs = pts.map((p) => p.x);
   ovlP = xs.map((x) => ({ x, y: evalTemplate(x, best!) }));
