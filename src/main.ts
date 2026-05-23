@@ -269,7 +269,9 @@ function openCorrectionDialog(matchedType: string, currentLabel: string): void {
   };
 
   document.getElementById('corrSave')?.addEventListener('click', doSave);
-  document.getElementById('corrCancel')?.addEventListener('click', () => { dlg.remove(); });
+  document.getElementById('corrCancel')?.addEventListener('click', () => {
+    dlg.remove();
+  });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') doSave();
     if (e.key === 'Escape') dlg.remove();
@@ -320,8 +322,12 @@ function renderH(): void {
       const inp = document.getElementById('casIn') as HTMLInputElement | null;
       if (inp) {
         inp.value = entry.latex;
-        document.querySelectorAll<HTMLElement>('.tab').forEach((x) => { x.classList.remove('active'); });
-        document.querySelectorAll<HTMLElement>('.tp').forEach((x) => { x.classList.remove('on'); });
+        document.querySelectorAll<HTMLElement>('.tab').forEach((x) => {
+          x.classList.remove('active');
+        });
+        document.querySelectorAll<HTMLElement>('.tp').forEach((x) => {
+          x.classList.remove('on');
+        });
         const inpTab = document.querySelector<HTMLElement>('[data-t="inp"]');
         inpTab?.classList.add('active');
         document.getElementById('tInp')?.classList.add('on');
