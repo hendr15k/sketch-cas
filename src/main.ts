@@ -378,9 +378,11 @@ function evalPlot(expr: string): void {
 }
 
 function makeNumFn(expr: string): (x: number) => number {
+  // Convert ^ to Math.pow to avoid unary-minus precedence issues with **
   const prepared = expr
-    .replace(/\^/g, '**')
-    // Implicit multiplication: 2x -> 2*x, 3sin -> 3*sin, x2 -> x*2
+    // x^2 -> Math.pow(x, 2) — avoid ** precedence issues
+    .replace(/([a-zA-Z0-9._)]+)\^([a-zA-Z0-9.(]+)/g, 'Math.pow($1,$2)')
+    // Implicit multiplication: 2x -> 2*x, 3sin -> 3*sin
     .replace(/(\d)([a-zA-Z(])/g, '$1*$2')
     .replace(/(\))(\d)/g, '$1*$2')
     .replace(/(\))(\()/g, '$1*$2');
