@@ -216,6 +216,12 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     const labels = ['Linear', 'Linear', 'Quadratisch', 'Kubisch', 'Quartisch'];
     for (const degree of [2, 3, 4]) {
       const cc = fitPolynomial(xs, ys, degree);
+      console.log(
+        '[DEBUG] poly' + degree + ':',
+        cc ? 'ok (' + cc.length + ' coeffs)' : 'NULL',
+        'xs.length=' + xs.length,
+        'ys.length=' + ys.length,
+      );
       if (cc) {
         add(
           (x) => {
