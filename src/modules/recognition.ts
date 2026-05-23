@@ -124,7 +124,32 @@ export function getFeatures(pts: Point[]): Features {
     if (pkDec && vlInc) isDamp = true;
   }
 
-  return { amp, off, period, isPer, crossings: crossings.length, pk, vl, pkV, vlV, isDamp };
+  // Curvature variance: low = parabola (constant 2nd deriv), high = sinusoidal (oscillating 2nd deriv)
+  let curvatureVar = 0;
+  if (ys.length > 4) {
+    const d2: number[] = [];
+    for (let i = 2; i < ys.length - 2; i++) {
+      d2.push(ys[i + 1]! - 2 * ys[i]! + ys[i - 1]!);
+    }
+    if (d2.length > 2) {
+      const mean = d2.reduce((a, b) => a + b, 0) / d2.length;
+      curvatureVar = d2.reduce((a, b) => a + (b - mean) * (b - mean), 0) / d2.length;
+    }
+  }
+
+  return {
+    amp,
+    off,
+    period,
+    isPer,
+    crossings: crossings.length,
+    pk,
+    vl,
+    pkV,
+    vlV,
+    isDamp,
+    curvatureVar,
+  };
 }
 
 export interface LabeledExample {

@@ -47,6 +47,7 @@ export interface Features {
   pkV: number[];
   vlV: number[];
   isDamp: boolean;
+  curvatureVar: number; // variance of 2nd derivative: low=parabola, high=sin
 }
 
 export interface TemplateCandidate {

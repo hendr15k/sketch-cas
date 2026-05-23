@@ -28,53 +28,57 @@ const COMPLEXITY: Record<string, number> = {
 // Feature consistency factors (lower = better fit for this type)
 function featureFactor(type: string, f: Features): number {
   const totalExtrema = f.pk + f.vl;
+  const highCurv = f.curvatureVar > 0.01; // oscillating 2nd derivative → sin-like
+  const lowCurv = f.curvatureVar < 0.001; // constant 2nd derivative → polynomial-like
 
   switch (type) {
     case 'sin':
     case 'cos':
-      // Bonus for periodic, penalty if clearly not periodic
-      if (f.isPer) return 0.7;
-      if (totalExtrema >= 2 && f.crossings >= 3) return 0.85;
-      if (totalExtrema <= 1) return 1.4; // barely oscillating
-      return 1.1;
-
-    case 'abs_sin':
-      if (f.isPer && totalExtrema >= 2) return 0.8;
-      return 1.3;
-
-    case 'square':
-      if (f.isPer && totalExtrema >= 2) return 0.85;
-      return 1.3;
-
-    case 'linear':
-      // Bonus for monotonic, penalty for many extrema
-      if (totalExtrema === 0) return 0.75;
-      if (totalExtrema === 1) return 1.0;
-      return 1.4;
-
-    case 'poly2':
-      // Bonus for exactly 1 extremum (parabola vertex)
-      if (totalExtrema === 1) return 0.8;
-      if (totalExtrema === 0) return 1.1;
-      return 1.3;
-
-    case 'poly3':
-      if (totalExtrema === 2) return 0.9;
-      return 1.2;
-
-    case 'poly4':
-      if (totalExtrema >= 2) return 1.0;
-      return 1.3;
-
-    case 'exponential':
-      // Bonus for monotonic, strong penalty if oscillating
-      if (totalExtrema === 0) return 0.75;
-      if (totalExtrema === 1) return 1.0;
+      if (f.isPer) return 0.65; // strong bonus: clear periodic
+      if (totalExtrema >= 3) return 0.8; // many oscillations → sin likely
+      if (totalExtrema === 2 && f.crossings >= 3) return 0.85;
+      if (totalExtrema <= 1 && lowCurv) return 4.0; // parabola-like → definitely NOT sin
+      if (totalExtrema <= 1) return 2.5; // no oscillation → unlikely sin
+      if (totalExtrema === 1 && highCurv) return 1.2; // single peak with curvature → maybe
       return 1.5;
 
+    case 'abs_sin':
+      if (f.isPer && totalExtrema >= 2) return 0.75;
+      return 2.0;
+
+    case 'square':
+      if (f.isPer && totalExtrema >= 2) return 0.8;
+      return 2.0;
+
+    case 'linear':
+      if (totalExtrema === 0) return 0.65; // strong bonus: no extrema
+      if (totalExtrema === 1) return 1.2;
+      return 2.5;
+
+    case 'poly2':
+      if (totalExtrema === 1 && lowCurv) return 0.6; // parabola match: 1 extremum + constant curvature
+      if (totalExtrema === 1) return 0.75;
+      if (totalExtrema === 0) return 1.3;
+      return 1.8;
+
+    case 'poly3':
+      if (totalExtrema === 2) return 0.8;
+      if (totalExtrema === 1 && highCurv) return 0.9; // single extremum with inflection
+      return 1.5;
+
+    case 'poly4':
+      if (totalExtrema >= 2) return 0.9;
+      return 1.5;
+
+    case 'exponential':
+      if (totalExtrema === 0 && lowCurv) return 0.6; // monotonic + no curvature changes
+      if (totalExtrema === 0) return 0.75;
+      if (totalExtrema === 1) return 1.2;
+      return 3.0; // exponential should NEVER oscillate
+
     case 'damped':
-      if (f.isDamp) return 0.8;
-      return 1.3;
+      if (f.isDamp) return 0.7;
+      return 2.0;
 
     default:
       return 1.0;
