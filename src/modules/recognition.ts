@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { Point, Features } from '../types';
+import { rmse } from './numeric';
 
 /**
  * Normalize and resample points from raw strokes.
@@ -123,4 +124,41 @@ export function getFeatures(pts: Point[]): Features {
   }
 
   return { amp, off, period, isPer, pk, vl, pkV, vlV, isDamp };
+}
+
+export interface LabeledExample {
+  id: string;
+  label: string;
+  normalizedPoints: Point[];
+  matchedType: string;
+}
+
+export interface TrainingMatch {
+  example: LabeledExample;
+  rmse: number;
+}
+
+/**
+ * Compare current drawing against stored labeled examples.
+ * Returns matches sorted by RMSE (best first).
+ */
+export function matchTrainingExamples(
+  pts: Point[],
+  examples: LabeledExample[],
+  maxResults = 3,
+): TrainingMatch[] {
+  if (examples.length === 0) return [];
+
+  const matches: TrainingMatch[] = [];
+  for (const ex of examples) {
+    if (!ex.normalizedPoints || ex.normalizedPoints.length < 2) continue;
+    const err = rmse(
+      pts.map((p) => p.y),
+      ex.normalizedPoints.map((p) => p.y),
+    );
+    matches.push({ example: ex, rmse: err });
+  }
+
+  matches.sort((a, b) => a.rmse - b.rmse);
+  return matches.slice(0, maxResults);
 }

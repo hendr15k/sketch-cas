@@ -16,12 +16,12 @@ import {
   getAllPoints,
   redraw,
 } from './modules/canvas';
-import { normalizeAndResample, getFeatures } from './modules/recognition';
+import { normalizeAndResample, getFeatures, matchTrainingExamples } from './modules/recognition';
 import { generateTemplates } from './modules/templates';
 import { evalTemplate } from './modules/numeric';
-import { toast, copyToClipboard, updateScore, emptyState, renderKaTeX } from './modules/ui';
+import { toast, esc, copyToClipboard, updateScore, emptyState, renderKaTeX } from './modules/ui';
 import { exprToLatex } from './modules/latex';
-import { runCas, hasAlgebrite, hasNerdamer, hasXcas, setupGiacAutoload } from './modules/cas';
+import { runCas, hasAlgebrite, hasNerdamer, hasXcas, setupGiacAutoload, getSymExpr } from './modules/cas';
 import { drawBode } from './modules/bode';
 import type { TemplateCandidate, CasOperation } from './types';
 
@@ -34,6 +34,7 @@ const hist = JSON.parse(localStorage.getItem('scH5') || '[]') as {
   label: string;
   latex: string;
   time: string;
+  matchedType?: string;
 }[];
 
 // ---- Recognition ----
@@ -53,6 +54,31 @@ function recognize(): void {
   const cands = generateTemplates(pts, f);
   if (!cands.length) return;
 
+  // Training boost: compare against stored labeled examples
+  const allExamples = [
+    ...trainData.targets.filter((t) => t.normalizedPoints?.length > 2).map((t) => ({
+      id: t.id, label: t.label, normalizedPoints: t.normalizedPoints, matchedType: t.matchedType || '',
+    })),
+    ...trainData.corrections,
+  ];
+  const trainMatches = matchTrainingExamples(pts, allExamples);
+
+  if (trainMatches.length > 0 && trainMatches[0]!.rmse < 0.15) {
+    const bestMatch = trainMatches[0]!;
+    const matchType = bestMatch.example.matchedType;
+    // Boost the matching template type
+    if (matchType) {
+      for (const c of cands) {
+        const cType = (c.params['type'] as string) || '';
+        if (cType === matchType) {
+          c.err *= 0.3; // Strong boost from training data
+          break;
+        }
+      }
+      cands.sort((a, b) => a.err - b.err);
+    }
+  }
+
   best = cands[0]!;
 
   const xs = pts.map((p) => p.x);
@@ -63,20 +89,28 @@ function recognize(): void {
   const pct = Math.max(0, Math.min(100, 100 * (1 - best.err))).toFixed(1);
   updateScore('' + tp, best.label, pct + '%');
 
-  renderRes(cands);
+  renderRes(cands, trainMatches);
   renderCAS(best);
   drawBode(best);
   addH(best);
 }
 
-function renderRes(cands: TemplateCandidate[]): void {
+function renderRes(cands: TemplateCandidate[], trainMatches?: { example: { label: string; matchedType: string }; rmse: number }[]): void {
   const el = document.getElementById('tRes');
   if (!el) return;
 
   const mx = Math.max(...cands.map((c) => c.err));
   const mn = cands[0]!.err;
 
-  let h = '';
+  // Training match badge
+  let trainBadge = '';
+  if (trainMatches && trainMatches.length > 0 && trainMatches[0]!.rmse < 0.15) {
+    const tm = trainMatches[0]!;
+    const simPct = Math.round((1 - tm.rmse) * 100);
+    trainBadge = `<div style="margin:6px 0;padding:6px 8px;background:#23863622;border:1px solid #238636;border-radius:5px;font-size:10px;color:#238636;text-align:center">🎯 Training: ${esc(tm.example.label)} (${simPct}% Ähnlichkeit)</div>`;
+  }
+
+  let h = trainBadge;
   cands.slice(0, 6).forEach((c, i) => {
     const pct = Math.max(0, Math.min(100, 100 * (1 - (c.err - mn) / (mx - mn + 0.001))));
     const cls = i === 0 ? 'best' : '';
@@ -89,15 +123,22 @@ function renderRes(cands: TemplateCandidate[]): void {
     h += `<div class="mb"><div class="mf" style="width:${pct}%;background:${bgColor}"></div></div>`;
     h += `<div class="cm"><span>Fit: ${(100 - c.err * 100).toFixed(1)}%</span></div>`;
     h += `<div class="cl" onclick="event.stopPropagation();window.cpT(this)">${esc(c.latex)}</div>`;
+    if (i === 0) {
+      h += `<div style="margin-top:6px;text-align:center"><button class="b btn-correct" data-type="${esc(c.params['type'] as string || '')}" data-label="${esc(c.label)}">📝 Korrigieren</button></div>`;
+    }
     h += '</div>';
   });
 
   el.innerHTML = h;
   renderKaTeX(el);
-}
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Attach correction handlers
+  el.querySelectorAll<HTMLElement>('.btn-correct').forEach((btn) => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      openCorrectionDialog(btn.dataset['type'] || '', btn.dataset['label'] || '');
+    });
+  });
 }
 
 function renderCAS(c: TemplateCandidate): void {
@@ -145,78 +186,89 @@ function renderCAS(c: TemplateCandidate): void {
   renderKaTeX(el);
 }
 
-function getSymExpr(c: { params: Record<string, number | string> }): string | null {
-  const p = c.params;
-  const t = p['type'] as string;
-  const a = (p['amp'] as number) || 0;
-  const f = (p['freq'] as number) || 1;
-  const o = (p['offset'] as number) || 0;
-  const ph = (p['phase'] as number) || 0;
-
-  const fmt = (n: number, dp?: number): string => {
-    if (Math.abs(n) < 0.001) return '0';
-    if (dp === undefined && Math.abs(n - Math.round(n)) < 0.01) return '' + Math.round(n);
-    return n
-      .toFixed(dp || 2)
-      .replace(/0+$/, '')
-      .replace(/\.$/, '');
-  };
-
-  switch (t) {
-    case 'sin':
-      return (
-        fmt(a, 4) +
-        '*sin(' +
-        fmt(2 * Math.PI * f, 4) +
-        '*x' +
-        (Math.abs(ph) > 0.05 ? '+' + fmt(ph, 4) : '') +
-        ')' +
-        (Math.abs(o) > 0.05 ? '+' + fmt(o, 4) : '')
-      );
-    case 'cos':
-      return (
-        fmt(a, 4) +
-        '*cos(' +
-        fmt(2 * Math.PI * f, 4) +
-        '*x' +
-        (Math.abs(ph) > 0.05 ? '+' + fmt(ph, 4) : '') +
-        ')' +
-        (Math.abs(o) > 0.05 ? '+' + fmt(o, 4) : '')
-      );
-    case 'linear':
-      return fmt(a * 2, 4) + '*x+' + fmt(o, 4);
-    case 'exponential':
-      return (
-        fmt(a, 4) +
-        '*exp(' +
-        fmt((p['fB'] as number) || 1, 4) +
-        '*x)' +
-        (Math.abs(o) > 0.05 ? '+' + fmt(o, 4) : '')
-      );
-    case 'abs_sin':
-      return (
-        fmt(a, 4) +
-        '*abs(sin(' +
-        fmt(2 * Math.PI * f, 4) +
-        '*x))' +
-        (Math.abs(o) > 0.05 ? '+' + fmt(o, 4) : '')
-      );
-    case 'damped':
-      return fmt(a, 4) + '*exp(-' + fmt(f * 2, 4) + '*x)*sin(' + fmt(2 * Math.PI * f, 4) + '*x)';
-    case 'heaviside':
-      return fmt(a, 4) + '*(x>0?1:0)' + (Math.abs(o) > 0.05 ? '+' + fmt(o, 4) : '');
-    default:
-      return null;
-  }
-}
-
 function addH(c: TemplateCandidate): void {
   const now = new Date();
   const time = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
-  hist.unshift({ label: c.label, latex: c.latex, time });
+  const matchedType = (c.params['type'] as string) || '';
+  hist.unshift({ label: c.label, latex: c.latex, time, matchedType });
   if (hist.length > 50) hist.splice(50);
   localStorage.setItem('scH5', JSON.stringify(hist));
   renderH();
+}
+
+function openCorrectionDialog(matchedType: string, currentLabel: string): void {
+  // Build a correction dialog
+  const labels = ['sin(x)', 'cos(x)', 'tan(x)', 'x²', 'x³', 'x', '1/x', 'eˣ', 'ln(x)', '|x|', 'Heaviside(x)', 'Dämpfte Sinus'];
+  let h = `<div style="position:fixed;inset:0;background:#000a;z-index:9999;display:flex;align-items:center;justify-content:center" id="corrDlg">`;
+  h += `<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;max-width:320px;width:90%">`;
+  h += `<div style="font-size:13px;font-weight:600;color:#e6edf3;margin-bottom:8px">📝 Erkennung korrigieren</div>`;
+  h += `<div style="font-size:10px;color:#8b949e;margin-bottom:10px">Aktuell erkannt als: <b>${esc(currentLabel)}</b></div>`;
+  h += `<div style="font-size:10px;color:#c9d1d9;margin-bottom:6px">Schnellauswahl:</div>`;
+  h += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px" id="corrQuick">`;
+  labels.forEach((l) => {
+    h += `<button class="b" style="font-size:9px;padding:3px 6px;background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;cursor:pointer" data-v="${esc(l)}">${esc(l)}</button>`;
+  });
+  h += `</div>`;
+  h += `<input id="corrInput" type="text" placeholder="Oder eingeben: sin(x)" style="width:100%;padding:6px 8px;background:#0d1117;border:1px solid #30363d;border-radius:5px;color:#e6edf3;font-size:12px;margin-bottom:10px" value="">`;
+  h += `<div style="display:flex;gap:6px">`;
+  h += `<button class="b" style="flex:1;background:#238636;color:#fff;border:none;padding:6px;border-radius:5px;cursor:pointer;font-size:11px" id="corrSave">Speichern</button>`;
+  h += `<button class="b" style="flex:1;background:#21262d;color:#8b949e;border:1px solid #30363d;padding:6px;border-radius:5px;cursor:pointer;font-size:11px" id="corrCancel">Abbrechen</button>`;
+  h += `</div>`;
+  h += `</div></div>`;
+
+  document.body.insertAdjacentHTML('beforeend', h);
+
+  const dlg = document.getElementById('corrDlg')!;
+  const input = document.getElementById('corrInput') as HTMLInputElement;
+
+  // Quick selection buttons
+  dlg.querySelectorAll<HTMLElement>('[data-v]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      input.value = btn.dataset['v']!;
+      input.focus();
+    });
+  });
+
+  // Save handler
+  const doSave = () => {
+    const label = input.value.trim();
+    if (!label) {
+      toast('Bezeichnung eingeben!');
+      return;
+    }
+    saveCorrection(label, matchedType);
+    dlg.remove();
+  };
+
+  document.getElementById('corrSave')?.addEventListener('click', doSave);
+  document.getElementById('corrCancel')?.addEventListener('click', () => dlg.remove());
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doSave();
+    if (e.key === 'Escape') dlg.remove();
+  });
+  dlg.addEventListener('click', (e) => {
+    if (e.target === dlg) dlg.remove();
+  });
+
+  input.focus();
+}
+
+function saveCorrection(label: string, matchedType: string): void {
+  const pts = normalizeAndResample(getState().strokes);
+  if (!pts || pts.length < 2) {
+    toast('Keine Zeichnung vorhanden!');
+    return;
+  }
+
+  trainData.corrections.push({
+    id: genId(),
+    timestamp: Date.now(),
+    label,
+    normalizedPoints: pts,
+    matchedType,
+  });
+  saveTrainData();
+  toast('✅ Korrektur gespeichert: ' + label);
 }
 
 function renderH(): void {
@@ -229,10 +281,26 @@ function renderH(): void {
   }
 
   let h = '';
-  hist.forEach((x) => {
-    h += `<div class="card" style="cursor:pointer"><div style="display:flex;justify-content:space-between"><span style="font-size:11px">${esc(x.label)}</span><span style="font-size:9px;color:#8b949e">${esc(x.time)}</span></div></div>`;
+  hist.forEach((x, i) => {
+    h += `<div class="card" style="cursor:pointer" data-hi="${i}"><div style="display:flex;justify-content:space-between"><span style="font-size:11px">${esc(x.label)}</span><span style="font-size:9px;color:#8b949e">${esc(x.time)}</span></div><div class="cl" style="font-size:9px;margin-top:2px">${esc(x.latex)}</div></div>`;
   });
   el.innerHTML = h;
+  el.querySelectorAll<HTMLElement>('[data-hi]').forEach((card) => {
+    card.addEventListener('click', () => {
+      const entry = hist[Number(card.dataset['hi'])];
+      if (!entry) return;
+      const inp = document.getElementById('casIn') as HTMLInputElement | null;
+      if (inp) {
+        inp.value = entry.latex;
+        document.querySelectorAll<HTMLElement>('.tab').forEach((x) => x.classList.remove('active'));
+        document.querySelectorAll<HTMLElement>('.tp').forEach((x) => x.classList.remove('on'));
+        const inpTab = document.querySelector<HTMLElement>('[data-t="inp"]');
+        inpTab?.classList.add('active');
+        document.getElementById('tInp')?.classList.add('on');
+        toast('Formel geladen: ' + entry.label);
+      }
+    });
+  });
 }
 
 // ---- CAS Input Tab ----
@@ -395,6 +463,7 @@ interface TrainTarget {
   }[];
   normalizedPoints: { x: number; y: number }[];
   difficulty: string;
+  matchedType?: string;
 }
 
 interface TrainAttempt {
@@ -407,9 +476,10 @@ interface TrainAttempt {
 interface TrainData {
   targets: TrainTarget[];
   attempts: TrainAttempt[];
+  corrections: { id: string; timestamp: number; label: string; normalizedPoints: { x: number; y: number }[]; matchedType: string }[];
 }
 
-let trainData: TrainData = { targets: [], attempts: [] };
+let trainData: TrainData = { targets: [], attempts: [], corrections: [] };
 let trainCurrentMode: 'record' | 'practice' | 'stats' = 'record';
 let practiceActive = false;
 let activeTargetId: string | null = null;
@@ -421,9 +491,10 @@ function loadTrainData(): void {
   } catch {
     /* ignore */
   }
-  if (!trainData) trainData = { targets: [], attempts: [] };
+  if (!trainData) trainData = { targets: [], attempts: [], corrections: [] };
   if (!trainData.targets) trainData.targets = [];
   if (!trainData.attempts) trainData.attempts = [];
+  if (!trainData.corrections) trainData.corrections = [];
 }
 
 function saveTrainData(): void {
@@ -522,6 +593,7 @@ function saveTrainingTarget(): void {
     return;
   }
 
+  const matchedType = best ? (best.params['type'] as string) || '' : '';
   const target: TrainTarget = {
     id: genId(),
     timestamp: Date.now(),
@@ -529,6 +601,7 @@ function saveTrainingTarget(): void {
     strokes: structuredClone(getState().strokes),
     normalizedPoints: normPts(allPts),
     difficulty: calcDifficulty(allPts),
+    matchedType,
   };
 
   trainData.targets.push(target);
@@ -742,7 +815,7 @@ function trainMode(mode: 'record' | 'practice' | 'stats'): void {
     h += `<div class="card"><div style="font-size:9px;color:#8b949e">Ø Score</div><div class="sv2">${avgScore}%</div></div>`;
     h += '</div><div class="tr-stat">';
     h += `<div class="card"><div style="font-size:9px;color:#8b949e">Bestes Ergebnis</div><div class="sv2" style="color:#238636">${bestScore}%</div></div>`;
-    h += `<div class="card"><div style="font-size:9px;color:#8b949e">Fortschritt</div><div class="sv2" style="font-size:11px">${totalAttempts > 0 ? avgScore + '% Ø' : '—'}</div></div>`;
+    h += `<div class="card"><div style="font-size:9px;color:#8b949e">Korrekturen</div><div class="sv2" style="color:#58a6ff">${trainData.corrections.length}</div></div>`;
     h += '</div>';
 
     if (totalTargets > 0) {
@@ -753,6 +826,16 @@ function trainMode(mode: 'record' | 'practice' | 'stats'): void {
         const avg = ta ? Math.round(ta.scores.reduce((s, v) => s + v, 0) / cnt) : 0;
         const bst = ta ? Math.max(...ta.scores) : 0;
         h += `<div class="tr-target"><div><div class="lbl">${esc(t.label)}</div><div class="sub">Ø ${avg}% · Best: ${bst}% · ${cnt} Versuche</div></div></div>`;
+      });
+      h += '</div>';
+    }
+
+    if (trainData.corrections.length > 0) {
+      h += '<div class="card"><div class="cr"><span>Korrekturen</span><span class="badge blue">' + trainData.corrections.length + '</span></div>';
+      trainData.corrections.forEach((c) => {
+        const d = new Date(c.timestamp);
+        const ts = d.toLocaleDateString('de-DE');
+        h += `<div class="tr-target"><div><div class="lbl">📝 ${esc(c.label)}</div><div class="sub">Typ: ${esc(c.matchedType)} · ${ts}</div></div></div>`;
       });
       h += '</div>';
     }
@@ -786,7 +869,7 @@ function trainMode(mode: 'record' | 'practice' | 'stats'): void {
   document.getElementById('btnExportTrain')?.addEventListener('click', exportTrainingData);
   document.getElementById('btnClearTrain')?.addEventListener('click', () => {
     if (confirm('Alle Trainingsdaten löschen?')) {
-      trainData = { targets: [], attempts: [] };
+      trainData = { targets: [], attempts: [], corrections: [] };
       saveTrainData();
       trainMode('stats');
       toast('Gelöscht!');
@@ -943,6 +1026,7 @@ function setupUIHandlers(): void {
   document.getElementById('bExport')?.addEventListener('click', exportPNG);
 
   // Tabs
+  let trainInitialized = false;
   document.querySelectorAll<HTMLElement>('.tab').forEach((t) => {
     t.addEventListener('click', () => {
       document.querySelectorAll<HTMLElement>('.tab').forEach((x) => {
@@ -962,6 +1046,10 @@ function setupUIHandlers(): void {
       };
       const targetId = map[t.dataset['t'] || ''];
       if (targetId) document.getElementById(targetId)?.classList.add('on');
+      if (t.dataset['t'] === 'train' && !trainInitialized) {
+        trainInitialized = true;
+        trainMode('record');
+      }
     });
   });
 
@@ -1069,7 +1157,6 @@ function init(): void {
   initCanvas();
   setStrokeCompleteCallback(scheduleR);
   loadTrainData();
-  trainMode('record');
   setupUIHandlers();
   renderH();
 }

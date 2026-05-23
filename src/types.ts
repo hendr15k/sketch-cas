@@ -62,6 +62,7 @@ export interface TrainingTarget {
   strokes: Stroke[];
   normalizedPoints: Point[];
   difficulty: string;
+  matchedType?: string;
 }
 
 export interface TrainingAttempt {
@@ -71,9 +72,18 @@ export interface TrainingAttempt {
   strokes: Stroke[];
 }
 
+export interface LabeledExample {
+  id: string;
+  timestamp: number;
+  label: string;
+  normalizedPoints: Point[];
+  matchedType: string;
+}
+
 export interface TrainingData {
   targets: TrainingTarget[];
   attempts: TrainingAttempt[];
+  corrections: LabeledExample[];
 }
 
 export interface HistoryEntry {
