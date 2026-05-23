@@ -22,6 +22,9 @@ export interface CanvasState {
   isDrawing: boolean;
   overlayPoints: Point[] | null;
   customPoints: Point[] | null;
+  traceTarget: Point[] | null;
+  traceType: string | null;
+  traceLabel: string | null;
   best: TemplateCandidate | null;
 }
 
@@ -55,6 +58,9 @@ export function initCanvas(): CanvasState {
     isDrawing: false,
     overlayPoints: null,
     customPoints: null,
+    traceTarget: null,
+    traceType: null,
+    traceLabel: null,
     best: null,
   };
 
@@ -252,6 +258,21 @@ function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
   ctx.stroke();
 }
 
+function drawTraceTarget(points: Point[]): void {
+  if (!state || points.length < 2) return;
+  const { mainCtx: ctx } = state;
+  ctx.strokeStyle = 'rgba(88,166,255,0.35)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.moveTo(nx(points[0]!.x), ny(points[0]!.y));
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(nx(points[i]!.x), ny(points[i]!.y));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
 function drawOverlayPath(points: Point[], color: string): void {
   if (!state || points.length < 2) return;
   const { mainCtx: ctx } = state;
@@ -278,6 +299,8 @@ export function redraw(): void {
     drawStroke(ctx, s);
   });
   if (state.currentStroke) drawStroke(ctx, state.currentStroke);
+  // Trace target (light blue dashed reference)
+  if (state.traceTarget) drawTraceTarget(state.traceTarget);
   if (state.showOverlay) {
     if (state.overlayPoints) drawOverlayPath(state.overlayPoints, '#f0883e');
     if (state.customPoints) drawOverlayPath(state.customPoints, '#da3688');

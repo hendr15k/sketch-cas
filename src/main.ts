@@ -46,6 +46,24 @@ const hist = JSON.parse(localStorage.getItem('scH5') || '[]') as {
 
 // ---- Recognition ----
 function scheduleR(): void {
+  const state = getState();
+
+  // If in tracing mode, save the drawing as a trace example
+  if (state.traceTarget && state.traceType && state.traceLabel) {
+    const userPts = normalizeAndResample(state.strokes);
+    if (userPts && userPts.length >= 5) {
+      saveTraceExample(userPts, state.traceType, state.traceLabel);
+      // Keep the trace target visible, just clear user strokes
+      state.strokes = [];
+      state.undoStack = [];
+      state.redoStack = [];
+      state.overlayPoints = null;
+      state.customPoints = null;
+      redraw();
+      return;
+    }
+  }
+
   setTimeout(recognize, 350);
 }
 
@@ -520,7 +538,7 @@ interface TrainData {
 }
 
 let trainData: TrainData = { targets: [], attempts: [], corrections: [] };
-let trainCurrentMode: 'record' | 'practice' | 'stats' = 'record';
+let trainCurrentMode: 'record' | 'practice' | 'trace' | 'stats' = 'record';
 let practiceActive = false;
 let activeTargetId: string | null = null;
 
@@ -780,7 +798,7 @@ function renderTrainingList(): void {
   trainMode(trainCurrentMode);
 }
 
-function trainMode(mode: 'record' | 'practice' | 'stats'): void {
+function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
   const el = document.getElementById('tTrain');
   if (!el) return;
   trainCurrentMode = mode;
@@ -788,6 +806,7 @@ function trainMode(mode: 'record' | 'practice' | 'stats'): void {
   const modeBtns = [
     { m: 'record', l: '📝 Aufzeichnen' },
     { m: 'practice', l: '🎯 Üben' },
+    { m: 'trace', l: '🖊 Nachzeichnen' },
     { m: 'stats', l: '📊 Statistik' },
   ];
 
@@ -833,6 +852,86 @@ function trainMode(mode: 'record' | 'practice' | 'stats'): void {
       h += '</div>';
     }
     h += '</div>';
+  } else if (mode === 'trace') {
+    const traceFns = [
+      { type: 'sin', label: 'sin(x)', latex: 'sin(x)' },
+      { type: 'cos', label: 'cos(x)', latex: 'cos(x)' },
+      { type: 'linear', label: 'x', latex: 'x' },
+      { type: 'exponential', label: 'eˣ', latex: 'exp(x)' },
+      { type: 'abs_sin', label: '|sin(x)|', latex: 'abs(sin(x))' },
+      { type: 'heaviside', label: 'Heaviside(x)', latex: '(x>0?1:0)' },
+    ];
+
+    const tracingActive = !!getState().traceTarget;
+    const tracingLabel = getState().traceLabel || '';
+
+    if (tracingActive) {
+      h += '<div class="card" style="border-color:#58a6ff">';
+      h +=
+        '<div class="cr"><span>🖊 Aktives Nachzeichnen</span><span class="badge blue">Trace</span></div>';
+      h += '<div style="text-align:center;padding:12px">';
+      h += '<div style="font-size:20px;margin-bottom:8px">✏️</div>';
+      h +=
+        '<div style="font-size:13px;color:#e6edf3;font-weight:600">Zeichne über: ' +
+        esc(tracingLabel) +
+        '</div>';
+      h +=
+        '<div style="font-size:10px;color:#8b949e;margin:6px 0">Male die Funktion auf dem Canvas nach</div>';
+      h += '<button class="b red" id="btnStopTrace" style="margin-top:8px">⏹ Stopp</button>';
+      h += '</div></div>';
+    } else {
+      h +=
+        '<div class="card"><div class="cr"><span>Funktion wählen</span><span class="badge">Nachzeichnen</span></div>';
+      h +=
+        '<div style="font-size:10px;color:#8b949e;margin-bottom:8px">Wähle eine Funktion, die auf dem Canvas erscheint. Zeichne sie nach — dein Zeichnung wird automatisch als Trainingsbeispiel gespeichert.</div>';
+      h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+      traceFns.forEach((fn) => {
+        h +=
+          '<button class="b btn-trace-fn" data-fn-type="' +
+          fn.type +
+          '" data-fn-label="' +
+          fn.label +
+          '" data-fn-latex="' +
+          fn.latex +
+          '" style="flex:1;min-width:80px;text-align:center;padding:8px;font-size:11px">' +
+          fn.label +
+          '</button>';
+      });
+      h += '</div></div>';
+
+      // Show saved trace examples count
+      const traceExamples = trainData.corrections.filter((c) =>
+        c.matchedType.startsWith('trace_'),
+      ).length;
+      h +=
+        '<div class="card"><div class="cr"><span>Gespeicherte Nachzeichnungen</span><span class="badge blue">' +
+        traceExamples +
+        '</span></div>';
+      if (traceExamples === 0) {
+        h +=
+          '<div style="text-align:center;padding:8px;color:#484f58;font-size:11px">Noch keine Nachzeichnungen gespeichert.</div>';
+      } else {
+        // Group by type
+        const grouped: Record<string, number> = {};
+        trainData.corrections
+          .filter((c) => c.matchedType.startsWith('trace_'))
+          .forEach((c) => {
+            const t = c.matchedType.replace('trace_', '');
+            grouped[t] = (grouped[t] || 0) + 1;
+          });
+        h += '<div style="padding:4px 0">';
+        Object.entries(grouped).forEach(([t, cnt]) => {
+          h +=
+            '<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:10px;color:#c9d1d9"><span>' +
+            esc(t) +
+            '</span><span>' +
+            cnt +
+            '×</span></div>';
+        });
+        h += '</div>';
+      }
+      h += '</div>';
+    }
   } else if (mode === 'stats') {
     const totalTargets = trainData.targets.length;
     const totalAttempts = trainData.attempts.length;
@@ -892,7 +991,7 @@ function trainMode(mode: 'record' | 'practice' | 'stats'): void {
   // Attach event listeners
   el.querySelectorAll<HTMLElement>('[data-tr-mode]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      trainMode(btn.dataset['trMode'] as 'record' | 'practice' | 'stats');
+      trainMode(btn.dataset['trMode'] as 'record' | 'practice' | 'trace' | 'stats');
     });
   });
 
@@ -918,6 +1017,97 @@ function trainMode(mode: 'record' | 'practice' | 'stats'): void {
       toast('Gelöscht!');
     }
   });
+
+  // Trace mode handlers
+  el.querySelectorAll<HTMLElement>('.btn-trace-fn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      startTracing(btn.dataset['fnType']!, btn.dataset['fnLabel']!, btn.dataset['fnLatex']!);
+    });
+  });
+
+  document.getElementById('btnStopTrace')?.addEventListener('click', () => {
+    stopTracing();
+  });
+}
+
+// ---- Trace Training ----
+function startTracing(type: string, label: string, _latex: string): void {
+  const state = getState();
+
+  // Generate reference points for this function type
+  const refPts: { x: number; y: number }[] = [];
+  const N = 200;
+  for (let i = 0; i < N; i++) {
+    const x = i / (N - 1);
+    let y = 0;
+    switch (type) {
+      case 'sin':
+        y = Math.sin(2 * Math.PI * x);
+        break;
+      case 'cos':
+        y = Math.cos(2 * Math.PI * x);
+        break;
+      case 'linear':
+        y = 2 * x - 1;
+        break;
+      case 'exponential':
+        y = Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2));
+        break;
+      case 'abs_sin':
+        y = Math.abs(Math.sin(2 * Math.PI * x));
+        break;
+      case 'heaviside':
+        y = x >= 0.45 && x <= 0.55 ? 1 : x < 0.45 ? -1 : 1;
+        break;
+      default:
+        y = Math.sin(2 * Math.PI * x);
+    }
+    refPts.push({ x, y: Math.max(-1, Math.min(1, y)) });
+  }
+
+  state.traceTarget = refPts;
+  state.traceType = type;
+  state.traceLabel = label;
+
+  // Clear any existing strokes for fresh tracing
+  state.strokes = [];
+  state.undoStack = [];
+  state.redoStack = [];
+  state.overlayPoints = null;
+  state.customPoints = null;
+  redraw();
+
+  toast('🖊 Zeichne über: ' + label);
+  trainMode('trace');
+}
+
+function stopTracing(): void {
+  const state = getState();
+  state.traceTarget = null;
+  state.traceType = null;
+  state.traceLabel = null;
+  state.strokes = [];
+  state.undoStack = [];
+  state.redoStack = [];
+  redraw();
+  trainMode('trace');
+  toast('Nachzeichnen beendet');
+}
+
+function saveTraceExample(
+  userPts: { x: number; y: number }[],
+  traceType: string,
+  traceLabel: string,
+): void {
+  trainData.corrections.push({
+    id: genId(),
+    timestamp: Date.now(),
+    label: traceLabel,
+    normalizedPoints: userPts,
+    matchedType: 'trace_' + traceType,
+  });
+  saveTrainData();
+  toast('✅ Nachzeichnung gespeichert: ' + traceLabel);
 }
 
 function exportTrainingData(): void {
