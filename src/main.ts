@@ -121,7 +121,14 @@ function recognize(): void {
     const matchType = bestMatch.example.matchedType;
     // Boost the matching template type — scale with match quality
     // trace examples have 'trace_sin' prefix, strip it for comparison
-    const templateType = matchType.startsWith('trace_') ? matchType.slice(6) : matchType;
+    // Also map trace-specific names to template candidate types
+    const TRACE_TYPE_MAP: Record<string, string> = {
+      trace_inv_x: 'reciprocal',
+      trace_ln: 'logarithmic',
+      trace_heaviside: 'square',
+    };
+    const rawType = matchType.startsWith('trace_') ? matchType.slice(6) : matchType;
+    const templateType = TRACE_TYPE_MAP[matchType] ?? rawType;
     if (templateType) {
       // Boost strength: RMSE 0 → 0.1 (very strong), RMSE 0.15 → 0.5 (moderate)
       const boostFactor = 0.1 + (bestMatch.rmse / 0.15) * 0.4;
