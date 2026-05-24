@@ -91,7 +91,13 @@ export function getSeedExamples(): LabeledExample[] {
   }
 
   // === Exponential ===
-  addSeed('eˣ', 'trace_exponential', (x) => Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2)), 0, 1);
+  addSeed(
+    'eˣ',
+    'trace_exponential',
+    (x) => Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2)),
+    0,
+    1,
+  );
 
   // === |sin(x)| ===
   addSeed('|Sinus|', 'trace_abs_sin', (x) => Math.abs(Math.sin(2 * Math.PI * x)), 0, 1);
@@ -103,22 +109,40 @@ export function getSeedExamples(): LabeledExample[] {
   addSeed('Gedaempft', 'trace_damped', (x) => Math.exp(-3 * x) * Math.sin(4 * Math.PI * x), 0, 1);
 
   // === Tan ===
-  addSeed('Tan', 'trace_tan', (x) => {
-    const v = Math.tan(Math.PI * (x - 0.5));
-    return isFinite(v) ? Math.max(-1, Math.min(1, v / 5)) : 0;
-  }, 0, 1);
+  addSeed(
+    'Tan',
+    'trace_tan',
+    (x) => {
+      const v = Math.tan(Math.PI * (x - 0.5));
+      return isFinite(v) ? Math.max(-1, Math.min(1, v / 5)) : 0;
+    },
+    0,
+    1,
+  );
 
   // === 1/x ===
-  addSeed('1/x', 'trace_inv_x', (x) => {
-    const v = (x - 0.5) * 6;
-    return v !== 0 ? Math.max(-1, Math.min(1, 1 / v)) : 0;
-  }, 0, 1);
+  addSeed(
+    '1/x',
+    'trace_inv_x',
+    (x) => {
+      const v = (x - 0.5) * 6;
+      return v !== 0 ? Math.max(-1, Math.min(1, 1 / v)) : 0;
+    },
+    0,
+    1,
+  );
 
   // === ln(x) ===
-  addSeed('ln(x)', 'trace_ln', (x) => {
-    const v = Math.log((x - 0.5) * 6 + 3);
-    return isFinite(v) ? Math.max(-1, Math.min(1, v / 3)) : 0;
-  }, 0, 1);
+  addSeed(
+    'ln(x)',
+    'trace_ln',
+    (x) => {
+      const v = Math.log((x - 0.5) * 6 + 3);
+      return isFinite(v) ? Math.max(-1, Math.min(1, v / 3)) : 0;
+    },
+    0,
+    1,
+  );
 
   return seeds;
 }
