@@ -120,8 +120,14 @@ function recognize(): void {
     const bestMatch = trainMatches[0]!;
     const matchType = bestMatch.example.matchedType;
     // Boost the matching template type — scale with match quality
-    // strip 'trace_' and 'auto_' prefixes for template type lookup
-    const templateType = matchType.startsWith('trace_') ? matchType.slice(6) : matchType.startsWith('auto_') ? matchType.slice(5) : matchType;
+    // strip 'trace_' and 'auto_' prefixes, map trace-specific names to template types
+    const TRACE_TYPE_MAP: Record<string, string> = {
+      trace_inv_x: 'reciprocal',
+      trace_ln: 'logarithmic',
+      trace_heaviside: 'square',
+    };
+    const rawType = matchType.startsWith('trace_') ? matchType.slice(6) : matchType.startsWith('auto_') ? matchType.slice(5) : matchType;
+    const templateType = TRACE_TYPE_MAP[matchType] ?? rawType;
     if (templateType) {
       // Boost strength: RMSE 0 → 0.1 (very strong), RMSE 0.15 → 0.5 (moderate)
       const boostFactor = 0.1 + (bestMatch.rmse / 0.15) * 0.4;

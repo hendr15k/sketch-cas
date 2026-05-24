@@ -63,27 +63,27 @@ export function getSeedExamples(): LabeledExample[] {
   }
 
   // === Sinus variants ===
-  addSeed('Sinus', 'trace_sin', (x) => Math.sin(2 * Math.PI * x), 0, 1);
-  addSeed('Sinus', 'trace_sin', (x) => Math.sin(2 * Math.PI * x + 0.3), 0, 1);
-  addSeed('Sinus', 'trace_sin', (x) => Math.sin(2 * Math.PI * x + 0.7), 0, 1);
+  addSeed('Sinus', 'sin', (x) => Math.sin(2 * Math.PI * x), 0, 1);
+  addSeed('Sinus', 'sin', (x) => Math.sin(2 * Math.PI * x + 0.3), 0, 1);
+  addSeed('Sinus', 'sin', (x) => Math.sin(2 * Math.PI * x + 0.7), 0, 1);
 
   // === Cosinus variants ===
-  addSeed('Cosinus', 'trace_cos', (x) => Math.cos(2 * Math.PI * x), 0, 1);
-  addSeed('Cosinus', 'trace_cos', (x) => Math.cos(2 * Math.PI * x + 0.5), 0, 1);
+  addSeed('Cosinus', 'cos', (x) => Math.cos(2 * Math.PI * x), 0, 1);
+  addSeed('Cosinus', 'cos', (x) => Math.cos(2 * Math.PI * x + 0.5), 0, 1);
 
   // === Linear ===
-  addSeed('Linear', 'trace_linear', (x) => 2 * x - 1, 0, 1);
-  addSeed('Linear', 'trace_linear', (x) => -2 * x + 1, 0, 1);
+  addSeed('Linear', 'linear', (x) => 2 * x - 1, 0, 1);
+  addSeed('Linear', 'linear', (x) => -2 * x + 1, 0, 1);
 
   // === x² ===
-  addSeed('x²', 'trace_poly2', (x) => (x - 0.5) * (x - 0.5) * 8 - 1, 0, 1);
+  addSeed('x²', 'poly2', (x) => (x - 0.5) * (x - 0.5) * 8 - 1, 0, 1);
 
   // === x³ — the main trained function (15 trace examples) ===
   // Include multiple variants with slight offsets to match real user drawings
   for (const phase of [0, 0.1, -0.1, 0.05, -0.05, 0.15, -0.15]) {
     addSeed(
       'x³',
-      'trace_poly3',
+      'poly3',
       (x) => (x - 0.5 + phase) * (x - 0.5 + phase) * (x - 0.5 + phase) * 16,
       0,
       1,
@@ -91,27 +91,18 @@ export function getSeedExamples(): LabeledExample[] {
   }
 
   // === Exponential ===
-  addSeed(
-    'eˣ',
-    'trace_exponential',
-    (x) => Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2)),
-    0,
-    1,
-  );
+  addSeed('eˣ', 'exponential', (x) => Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2)), 0, 1);
 
   // === |sin(x)| ===
-  addSeed('|Sinus|', 'trace_abs_sin', (x) => Math.abs(Math.sin(2 * Math.PI * x)), 0, 1);
-
-  // === Heaviside ===
-  addSeed('Heaviside', 'trace_heaviside', (x) => (x < 0.5 ? -1 : 1), 0, 1);
+  addSeed('|Sinus|', 'abs_sin', (x) => Math.abs(Math.sin(2 * Math.PI * x)), 0, 1);
 
   // === Damped oscillation ===
-  addSeed('Gedaempft', 'trace_damped', (x) => Math.exp(-3 * x) * Math.sin(4 * Math.PI * x), 0, 1);
+  addSeed('Gedaempft', 'damped', (x) => Math.exp(-3 * x) * Math.sin(4 * Math.PI * x), 0, 1);
 
   // === Tan ===
   addSeed(
     'Tan',
-    'trace_tan',
+    'tan',
     (x) => {
       const v = Math.tan(Math.PI * (x - 0.5));
       return isFinite(v) ? Math.max(-1, Math.min(1, v / 5)) : 0;
@@ -123,7 +114,7 @@ export function getSeedExamples(): LabeledExample[] {
   // === 1/x ===
   addSeed(
     '1/x',
-    'trace_inv_x',
+    'reciprocal',
     (x) => {
       const v = (x - 0.5) * 6;
       return v !== 0 ? Math.max(-1, Math.min(1, 1 / v)) : 0;
@@ -135,10 +126,22 @@ export function getSeedExamples(): LabeledExample[] {
   // === ln(x) ===
   addSeed(
     'ln(x)',
-    'trace_ln',
+    'logarithmic',
     (x) => {
       const v = Math.log((x - 0.5) * 6 + 3);
       return isFinite(v) ? Math.max(-1, Math.min(1, v / 3)) : 0;
+    },
+    0,
+    1,
+  );
+
+  // === sqrt(x) ===
+  addSeed(
+    '√x',
+    'sqrt',
+    (x) => {
+      const v = Math.sqrt(x);
+      return isFinite(v) ? Math.max(-1, Math.min(1, v * 2 - 1)) : 0;
     },
     0,
     1,
