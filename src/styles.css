@@ -60,7 +60,8 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
   font-family: 'Segoe UI', system-ui, sans-serif;

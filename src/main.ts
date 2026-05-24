@@ -157,7 +157,7 @@ function recognize(): void {
         ' p=' +
         (probs[i]! * 100).toFixed(1) +
         '% type=' +
-        String(c.params['type'] || '?'),
+        String(typeof c.params['type'] === 'string' ? c.params['type'] : '?'),
     );
   }
 
@@ -176,20 +176,39 @@ function recognize(): void {
   let autoSaved = false;
 
   if (bestProb >= AUTO_SAVE_THRESHOLD && !trainingBoostApplied) {
-    // Auto-save as training example (only if training boost didn't change the winner)
-    const autoLabel = best.label;
-    trainData.corrections.push({
-      id: genId(),
-      timestamp: Date.now(),
-      label: autoLabel,
-      normalizedPoints: pts,
-      matchedType: 'auto_' + matchType,
-    });
-    saveTrainData();
-    autoSaved = true;
-    console.log(
-      '[SELF-TRAIN] ✅ Auto-saved: ' + autoLabel + ' (p=' + (bestProb * 100).toFixed(1) + '%)',
-    );
+    // Skip auto-save for custom/unknown types (no template to boost)
+    if (!matchType || matchType === 'unknown') {
+      console.log('[SELF-TRAIN] ⏭ Skipped: no template type');
+    } else {
+      // Deduplication: only save if no existing example of this type has RMSE < 0.05
+      const existingSame = trainData.corrections.filter(
+        (c) => c.matchedType === 'auto_' + matchType,
+      );
+      const isDuplicate =
+        existingSame.length > 0 &&
+        existingSame.some((c) => {
+          const match = matchTrainingExamples(pts, [c]);
+          return match.length > 0 && match[0]!.rmse < 0.05;
+        });
+      if (isDuplicate) {
+        console.log('[SELF-TRAIN] ⏭ Skipped: duplicate of ' + matchType);
+      } else {
+        // Auto-save as training example (only if training boost didn't change the winner)
+        const autoLabel = best.label;
+        trainData.corrections.push({
+          id: genId(),
+          timestamp: Date.now(),
+          label: autoLabel,
+          normalizedPoints: pts,
+          matchedType: 'auto_' + matchType,
+        });
+        saveTrainData();
+        autoSaved = true;
+        console.log(
+          '[SELF-TRAIN] ✅ Auto-saved: ' + autoLabel + ' (p=' + (bestProb * 100).toFixed(1) + '%)',
+        );
+      }
+    }
   } else if (trainingBoostApplied) {
     console.log(
       '[SELF-TRAIN] ⏸️ Skipped auto-save (training boost changed winner to ' + best.label + ')',

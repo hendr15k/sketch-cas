@@ -40,7 +40,11 @@ console.log('\n=== CAS Engine Unit Tests ===\n');
 
 console.log('Algebrite:');
 test('simplify(x^2+2x+1)', () => Algebrite.simplify('x^2+2*x+1').toString());
-assertEq(Algebrite.simplify('x^2+2*x+1').toString(), 'x^2+2*x+1', 'simplify preserves canonical form');
+assertEq(
+  Algebrite.simplify('x^2+2*x+1').toString(),
+  'x^2+2*x+1',
+  'simplify preserves canonical form',
+);
 assertEq(Algebrite.simplify('sin(x)^2+cos(x)^2').toString(), '1', 'sin^2+cos^2=1');
 assertEq(Algebrite.factor('x^2-1').toString(), '(x-1)*(x+1)', 'factor produces factored form');
 test('derivative(x^3)', () => Algebrite.derivative('x^3', 'x').toString());
