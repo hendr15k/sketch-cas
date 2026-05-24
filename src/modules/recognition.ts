@@ -168,11 +168,7 @@ export interface TrainingMatch {
  * Resample y-values from one x-grid to another using linear interpolation.
  * Both grids are assumed to have x-values in [0,1].
  */
-function resampleY(
-  srcX: number[],
-  srcY: number[],
-  tgtX: number[],
-): number[] {
+function resampleY(srcX: number[], srcY: number[], tgtX: number[]): number[] {
   const result: number[] = [];
   for (const tx of tgtX) {
     // Find interpolation interval in src
