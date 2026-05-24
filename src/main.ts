@@ -120,8 +120,8 @@ function recognize(): void {
     const bestMatch = trainMatches[0]!;
     const matchType = bestMatch.example.matchedType;
     // Boost the matching template type — scale with match quality
-    // trace examples have 'trace_sin' prefix, strip it for comparison
-    const templateType = matchType.startsWith('trace_') ? matchType.slice(6) : matchType;
+    // strip 'trace_' and 'auto_' prefixes for template type lookup
+    const templateType = matchType.startsWith('trace_') ? matchType.slice(6) : matchType.startsWith('auto_') ? matchType.slice(5) : matchType;
     if (templateType) {
       // Boost strength: RMSE 0 → 0.1 (very strong), RMSE 0.15 → 0.5 (moderate)
       const boostFactor = 0.1 + (bestMatch.rmse / 0.15) * 0.4;
