@@ -119,14 +119,16 @@ function recognize(): void {
   if (trainMatches.length > 0 && trainMatches[0]!.rmse < 0.15) {
     const bestMatch = trainMatches[0]!;
     const matchType = bestMatch.example.matchedType;
-    // Boost the matching template type
+    // Boost the matching template type — scale with match quality
     // trace examples have 'trace_sin' prefix, strip it for comparison
     const templateType = matchType.startsWith('trace_') ? matchType.slice(6) : matchType;
     if (templateType) {
+      // Boost strength: RMSE 0 → 0.1 (very strong), RMSE 0.15 → 0.5 (moderate)
+      const boostFactor = 0.1 + (bestMatch.rmse / 0.15) * 0.4;
       for (const c of cands) {
         const cType = (c.params['type'] as string) || '';
         if (cType === templateType) {
-          c.err *= 0.3; // Strong boost from training data
+          c.err *= boostFactor; // Strong boost from training data
           break;
         }
       }
