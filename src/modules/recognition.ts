@@ -165,8 +165,34 @@ export interface TrainingMatch {
 }
 
 /**
+ * Resample y-values from one x-grid to another using linear interpolation.
+ * Both grids are assumed to have x-values in [0,1].
+ */
+function resampleY(
+  srcX: number[],
+  srcY: number[],
+  tgtX: number[],
+): number[] {
+  const result: number[] = [];
+  for (const tx of tgtX) {
+    // Find interpolation interval in src
+    let idx = 0;
+    while (idx < srcX.length - 1 && srcX[idx + 1]! < tx) idx++;
+    if (idx >= srcX.length - 1) {
+      result.push(srcY[srcY.length - 1]!);
+    } else {
+      const dx = srcX[idx + 1]! - srcX[idx]!;
+      const t = dx > 1e-6 ? (tx - srcX[idx]!) / dx : 0;
+      result.push(srcY[idx]! + t * (srcY[idx + 1]! - srcY[idx]!));
+    }
+  }
+  return result;
+}
+
+/**
  * Compare current drawing against stored labeled examples.
  * Returns matches sorted by RMSE (best first).
+ * Resamples examples to match the current drawing's x-grid.
  */
 export function matchTrainingExamples(
   pts: Point[],
@@ -175,13 +201,16 @@ export function matchTrainingExamples(
 ): TrainingMatch[] {
   if (examples.length === 0) return [];
 
+  const tgtX = pts.map((p) => p.x);
+  const tgtY = pts.map((p) => p.y);
   const matches: TrainingMatch[] = [];
   for (const ex of examples) {
     if (!ex.normalizedPoints || ex.normalizedPoints.length < 2) continue;
-    const N = Math.min(pts.length, ex.normalizedPoints.length);
-    const srcY = pts.slice(0, N).map((p) => p.y);
-    const tgtY = ex.normalizedPoints.slice(0, N).map((p) => p.y);
-    const err = rmse(srcY, tgtY);
+    const srcX = ex.normalizedPoints.map((p) => p.x);
+    const srcY = ex.normalizedPoints.map((p) => p.y);
+    // Resample example's y-values to current drawing's x-grid
+    const alignedY = resampleY(srcX, srcY, tgtX);
+    const err = rmse(tgtY, alignedY);
     matches.push({ example: ex, rmse: err });
   }
 

@@ -23,6 +23,10 @@ const COMPLEXITY: Record<string, number> = {
   poly4: 1.5,
   exponential: 1.2,
   damped: 1.25,
+  logarithmic: 1.1,
+  sqrt: 1.1,
+  reciprocal: 1.1,
+  tan: 1.1,
 };
 
 // Feature consistency factors (lower = better fit for this type)
@@ -80,6 +84,32 @@ function featureFactor(type: string, f: Features): number {
     case 'damped':
       if (f.isDamp) return 0.7;
       return 2.0;
+
+    case 'logarithmic':
+      // ln(x) is monotonically increasing, concave down, 0 extrema
+      if (totalExtrema === 0 && f.curvatureVar > 0.00001) return 0.7;
+      if (totalExtrema === 0) return 0.85;
+      if (totalExtrema === 1) return 1.3;
+      return 2.5;
+
+    case 'sqrt':
+      // sqrt(x) is monotonically increasing, concave down, 0 extrema
+      if (totalExtrema === 0 && f.curvatureVar > 0.00001) return 0.7;
+      if (totalExtrema === 0) return 0.85;
+      if (totalExtrema === 1) return 1.3;
+      return 2.5;
+
+    case 'reciprocal':
+      // 1/x is monotonically decreasing, 0 extrema
+      if (totalExtrema === 0) return 0.75;
+      if (totalExtrema === 1) return 1.3;
+      return 2.5;
+
+    case 'tan':
+      // tan has inflection points, may have crossings
+      if (f.isPer) return 1.0;
+      if (totalExtrema === 0 && f.crossings >= 1) return 0.9;
+      return 1.5;
 
     default:
       return 1.0;
@@ -223,7 +253,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
             (x) => {
               let r = 0;
               for (let i = 0; i <= degree; i++) {
-                r += cc[i]! * Math.pow(x, degree - i);
+                r += cc[i]! * Math.pow(x, i);
               }
               return r;
             },
@@ -247,6 +277,130 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         'Exponentiell',
         buildLatex('exp', 0, 0, ef.a, ef.c, { b: ef.b }),
         { type: 'exponential', fA: ef.a, fB: ef.b, fC: ef.c },
+      );
+    }
+  }
+
+  // === LOGARITHMIC CANDIDATE: y = a * ln(x + c) + off ===
+  {
+    // Brute-force search over (a, c) to minimize RMSE
+    let bestA = 1;
+    let bestC = 0.01;
+    let bestOff = 0;
+    let bestErr = Infinity;
+    for (const c of [0.01, 0.05, 0.1, 0.2, 0.5]) {
+      for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
+        const testYs = xs.map((x) => aMul * Math.log(x + c));
+        const testOff = ys.reduce((s, y, i) => s + (y - testYs[i]!), 0) / ys.length;
+        const shifted = testYs.map((v) => v + testOff);
+        const err = rmse(ys, shifted);
+        if (err < bestErr) {
+          bestErr = err;
+          bestA = aMul;
+          bestC = c;
+          bestOff = testOff;
+        }
+      }
+    }
+    if (bestErr < 2) {
+      // Sanity check
+      add(
+        (x) => bestA * Math.log(x + bestC) + bestOff,
+        'Logarithmisch',
+        buildLatex('ln', 0, 0, bestA, bestOff, { c: bestC }),
+        { type: 'logarithmic', fA: bestA, fC: bestC, offset: bestOff },
+      );
+    }
+  }
+
+  // === SQRT CANDIDATE: y = a * sqrt(x) + off ===
+  {
+    let bestA = 1;
+    let bestOff = 0;
+    let bestErr = Infinity;
+    for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
+      const testYs = xs.map((x) => aMul * Math.sqrt(Math.max(0, x)));
+      const testOff = ys.reduce((s, y, i) => s + (y - testYs[i]!), 0) / ys.length;
+      const shifted = testYs.map((v) => v + testOff);
+      const err = rmse(ys, shifted);
+      if (err < bestErr) {
+        bestErr = err;
+        bestA = aMul;
+        bestOff = testOff;
+      }
+    }
+    if (bestErr < 2) {
+      add(
+        (x) => bestA * Math.sqrt(Math.max(0, x)) + bestOff,
+        'Wurzelfunktion',
+        buildLatex('sqrt', 0, 0, bestA, bestOff),
+        { type: 'sqrt', fA: bestA, offset: bestOff },
+      );
+    }
+  }
+
+  // === RECIPROCAL CANDIDATE: y = a / (x + c) + off ===
+  {
+    let bestA = 1;
+    let bestC = 0.01;
+    let bestOff = 0;
+    let bestErr = Infinity;
+    for (const c of [0.01, 0.05, 0.1, 0.2, 0.5]) {
+      for (const aMul of [-2.0, -1.0, 1.0, 2.0]) {
+        const testYs = xs.map((x) => aMul / (x + c));
+        const testOff = ys.reduce((s, y, i) => s + (y - testYs[i]!), 0) / ys.length;
+        const shifted = testYs.map((v) => v + testOff);
+        const err = rmse(ys, shifted);
+        if (err < bestErr) {
+          bestErr = err;
+          bestA = aMul;
+          bestC = c;
+          bestOff = testOff;
+        }
+      }
+    }
+    if (bestErr < 2) {
+      add(
+        (x) => bestA / (x + bestC) + bestOff,
+        'Kehrwert',
+        buildLatex('recip', 0, 0, bestA, bestOff, { c: bestC }),
+        { type: 'reciprocal', fA: bestA, fC: bestC, offset: bestOff },
+      );
+    }
+  }
+
+  // === TAN CANDIDATE: y = amp * tan(omega * x + phase) + off ===
+  {
+    // Tan is periodic but with discontinuities; fit using brute-force phase search
+    let bestAmp = f.amp;
+    let bestPhase = 0;
+    let bestOff = f.off;
+    let bestErr = Infinity;
+    for (let p = 0; p < Math.PI; p += 0.1) {
+      for (const aMul of [0.5, 1.0, 2.0]) {
+        const testAmp = f.amp * aMul;
+        const test = xs.map((x) => {
+          const v = Math.tan(omega * x + p);
+          return testAmp * Math.max(-3, Math.min(3, v)) + f.off;
+        });
+        const err = rmse(ys, test);
+        if (err < bestErr) {
+          bestErr = err;
+          bestAmp = testAmp;
+          bestPhase = p;
+          bestOff = f.off;
+        }
+      }
+    }
+    if (bestErr < 2) {
+      add(
+        (x) => {
+          const v = Math.tan(omega * x + bestPhase);
+          return bestAmp * Math.max(-3, Math.min(3, v)) + bestOff;
+        },
+        'Tangens',
+        buildLatex('tan', omega, bestPhase, bestAmp, bestOff),
+        { type: 'tan', phase: bestPhase, amp: bestAmp, offset: bestOff },
       );
     }
   }
