@@ -132,15 +132,42 @@ function recognize(): void {
         ? matchType.slice(5)
         : matchType;
     const templateType = TRACE_TYPE_MAP[matchType] ?? rawType;
+    console.log(
+      '[TRAIN-BOOST] matchType=' +
+        matchType +
+        ' → templateType=' +
+        templateType +
+        ' rmse=' +
+        bestMatch.rmse.toFixed(4),
+    );
     if (templateType) {
       // Boost strength: RMSE 0 → 0.1 (very strong), RMSE 0.15 → 0.5 (moderate)
       const boostFactor = 0.1 + (bestMatch.rmse / 0.15) * 0.4;
+      let found = false;
       for (const c of cands) {
         const cType = (c.params['type'] as string) || '';
         if (cType === templateType) {
-          c.err *= boostFactor; // Strong boost from training data
+          console.log(
+            '[TRAIN-BOOST] ✅ Found candidate: ' +
+              c.label +
+              ' err=' +
+              c.err.toFixed(4) +
+              ' ×' +
+              boostFactor.toFixed(3),
+          );
+          c.err *= boostFactor;
+          found = true;
           break;
         }
+      }
+      if (!found) {
+        console.log(
+          '[TRAIN-BOOST] ❌ No candidate with type=' +
+            templateType +
+            ' (candidates: ' +
+            cands.map((c) => c.params['type']).join(', ') +
+            ')',
+        );
       }
       cands.sort((a, b) => a.err - b.err);
       // Check if training boost changed the winner

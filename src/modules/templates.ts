@@ -302,7 +302,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         }
       }
     }
-    if (bestErr < 2) {
+    if (bestErr < 3) {
       // Sanity check
       add(
         (x) => bestA * Math.log(x + bestC) + bestOff,
@@ -318,7 +318,9 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     let bestA = 1;
     let bestOff = 0;
     let bestErr = Infinity;
-    for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
+    // Wide amplitude range including negatives (inverted sqrt)
+    for (let aMul = -5; aMul <= 5; aMul += 0.25) {
+      if (aMul === 0) continue;
       const testYs = xs.map((x) => aMul * Math.sqrt(Math.max(0, x)));
       const testOff = ys.reduce((s, y, i) => s + (y - testYs[i]!), 0) / ys.length;
       const shifted = testYs.map((v) => v + testOff);
@@ -329,7 +331,15 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         bestOff = testOff;
       }
     }
-    if (bestErr < 2) {
+    console.log(
+      '[TEMPLATE] sqrt: err=' +
+        bestErr.toFixed(4) +
+        ' a=' +
+        bestA.toFixed(2) +
+        ' off=' +
+        bestOff.toFixed(2),
+    );
+    if (bestErr < 3) {
       add(
         (x) => bestA * Math.sqrt(Math.max(0, x)) + bestOff,
         'Wurzelfunktion',
@@ -359,7 +369,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         }
       }
     }
-    if (bestErr < 2) {
+    if (bestErr < 3) {
       add(
         (x) => bestA / (x + bestC) + bestOff,
         'Kehrwert',
@@ -392,7 +402,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         }
       }
     }
-    if (bestErr < 2) {
+    if (bestErr < 3) {
       add(
         (x) => {
           const v = Math.tan(omega * x + bestPhase);
