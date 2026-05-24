@@ -20,7 +20,7 @@ export function rmse(a: number[], b: number[]): number {
  */
 export function evalTemplate(
   x: number,
-  candidate: { params: Record<string, number | string> },
+  candidate: { params: Record<string, number | string | number[]> },
 ): number {
   const p = candidate.params;
   const amp = (p['amp'] as number) || 0;
@@ -50,6 +50,20 @@ export function evalTemplate(
       return amp * 2 * x + offset - amp;
     case 'exponential':
       return amp * Math.exp(((p['fB'] as number) || 1) * x) + offset;
+    case 'poly2':
+    case 'poly3':
+    case 'poly4': {
+      const coeffs = p['coeffs'] as unknown as number[] | undefined;
+      if (coeffs && coeffs.length > 0) {
+        let r = 0;
+        const degree = coeffs.length - 1;
+        for (let i = 0; i <= degree; i++) {
+          r += coeffs[i]! * Math.pow(x, degree - i);
+        }
+        return r;
+      }
+      return 0;
+    }
     default:
       return 0;
   }

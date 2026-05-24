@@ -100,7 +100,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     fn: (x: number) => number,
     label: string,
     latex: string,
-    params: Record<string, number | string> = {},
+    params: Record<string, number | string | number[]> = {},
     compositeOverride?: number,
   ): void {
     const t = xs.map(fn);
@@ -228,7 +228,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
             },
             labels[degree]!,
             buildLatexPoly(cc),
-            { type: 'poly' + degree },
+            { type: 'poly' + degree, coeffs: cc },
           );
         } catch (e) {
           console.log('[DEBUG] poly' + degree + ' add ERROR:', (e as Error).message);

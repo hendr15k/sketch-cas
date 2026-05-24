@@ -299,7 +299,7 @@ export function runCas(expr: string, op: CasOperation, selectedEngine: string): 
 }
 
 /** Get a symbolic expression string from a template candidate. */
-export function getSymExpr(c: { params: Record<string, number | string> }): string | null {
+export function getSymExpr(c: { params: Record<string, number | string | number[]> }): string | null {
   const p = c.params;
   const t = p['type'] as string;
   const a = (p['amp'] as number) || 0;

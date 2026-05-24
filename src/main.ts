@@ -30,12 +30,14 @@ import {
   getSymExpr,
 } from './modules/cas';
 import { drawBode } from './modules/bode';
+import { getSeedExamples } from './modules/seed-training';
 import type { TemplateCandidate, CasOperation } from './types';
 
 // ---- App State (mirrors what was in the inline script) ----
 let best: TemplateCandidate | null = null;
 let ovlP: { x: number; y: number }[] | null = null;
 let custP: { x: number; y: number }[] | null = null;
+let seedLoaded = false;
 
 const hist = JSON.parse(localStorage.getItem('scH5') || '[]') as {
   label: string;
@@ -197,11 +199,12 @@ function recognize(): void {
         .slice(0, 3)
         .map((c) => `${c.label} (${(probs[cands.indexOf(c)]! * 100).toFixed(0)}%)`)
         .join(', ');
+      const discardedLabel = cands[0]?.label || 'unbekannt';
       resEl.innerHTML = `<div style="margin:6px 0;padding:8px;background:#f8514922;border:1px solid #f85149;border-radius:5px;font-size:11px;color:#f85149;text-align:center">
         ⚠️ Zu unsicher — verworfen<br>
         <span style="font-size:9px;color:#8b949e">Beste Optionen: ${esc(topLabels)}</span>
       </div>
-      <div style="text-align:center;padding:8px"><button class="b btn-correct" data-type="${esc(matchType)}" data-label="${esc(best!.label)}">📝 Trotzdem korrigieren</button></div>`;
+      <div style="text-align:center;padding:8px"><button class="b btn-correct" data-type="${esc(matchType)}" data-label="${esc(discardedLabel)}">📝 Trotzdem korrigieren</button></div>`;
     }
     updateScore('' + tp, '⚠️ Unklar', (bestProb * 100).toFixed(0) + '%');
     return;
@@ -671,6 +674,26 @@ function loadTrainData(): void {
   if (!trainData.targets) trainData.targets = [];
   if (!trainData.attempts) trainData.attempts = [];
   if (!trainData.corrections) trainData.corrections = [];
+}
+
+/** Load pre-learned seed examples (only once per session). */
+function loadSeedData(): void {
+  if (seedLoaded) return;
+  seedLoaded = true;
+  // Check if seeds are already loaded (dedup by ID prefix)
+  const hasSeeds = trainData.corrections.some((c) => c.id.startsWith('seed_'));
+  if (hasSeeds) return;
+  const seeds = getSeedExamples();
+  for (const ex of seeds) {
+    trainData.corrections.push({
+      id: ex.id,
+      timestamp: Date.now() - 86400000,
+      label: ex.label,
+      normalizedPoints: ex.normalizedPoints,
+      matchedType: ex.matchedType,
+    });
+  }
+  saveTrainData();
 }
 
 function saveTrainData(): void {
@@ -1607,6 +1630,7 @@ function init(): void {
   initCanvas();
   setStrokeCompleteCallback(scheduleR);
   loadTrainData();
+  loadSeedData();
   setupUIHandlers();
   renderH();
 }
