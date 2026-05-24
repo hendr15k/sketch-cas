@@ -155,7 +155,7 @@ export function buildLatexPoly(coefficients: number[]): string {
   let result = '';
   for (let i = 0; i <= degree; i++) {
     const val = coefficients[i]!;
-    const power = degree - i;
+    const power = i;
     if (Math.abs(val) < 0.001) continue;
     if (result !== '') {
       result += val > 0 ? ' + ' : ' - ';

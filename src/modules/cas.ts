@@ -421,12 +421,16 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
         const val = coeffs[i]!;
         if (Math.abs(val) < 0.001) continue;
         const power = i;
-        if (power === 0) parts.push(F(Math.abs(val), 4));
-        else if (power === 1) parts.push(F(Math.abs(val), 4) + '*x');
-        else parts.push(F(Math.abs(val), 4) + '*x^' + power);
+        const absVal = Math.abs(val);
+        const sign = val >= 0 ? '+' : '-';
+        let term = '';
+        if (power === 0) term = F(absVal, 4);
+        else if (power === 1) term = F(absVal, 4) + '*x';
+        else term = F(absVal, 4) + '*x^' + power;
+        parts.push(sign + term);
       }
-      const polyStr = parts.join('+').replace(/\+-/g, '-');
-      return (coeffs[0]! < 0 && !polyStr.startsWith('-') ? '-' : '') + polyStr || '0';
+      const polyStr = parts.join('').replace(/^\+/, '') || '0';
+      return polyStr;
     }
     default:
       return null;
