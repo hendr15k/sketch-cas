@@ -47,6 +47,7 @@ const hist = JSON.parse(localStorage.getItem('scH5') || '[]') as {
 }[];
 
 // ---- Recognition ----
+let recognizeTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleR(): void {
   const state = getState();
 
@@ -66,7 +67,8 @@ function scheduleR(): void {
     }
   }
 
-  setTimeout(recognize, 350);
+  if (recognizeTimer) clearTimeout(recognizeTimer);
+  recognizeTimer = setTimeout(recognize, 350);
 }
 
 // ---- Self-Training Thresholds ----
@@ -1503,9 +1505,12 @@ function playAudio(): void {
         case 'damped':
           y = amp * Math.exp(-freq * x) * Math.sin(om * x + ph) + off;
           break;
-        case 'exponential':
-          y = amp * Math.exp(((p['fB'] as number) || 1) * x) + off;
+        case 'exponential': {
+          const aExp = (p['fA'] as number) || 1;
+          const cExp = (p['fC'] as number) || 0;
+          y = aExp * Math.exp(((p['fB'] as number) || 1) * x) + cExp;
           break;
+        }
         case 'heaviside':
           y = amp * Math.sign(x - 0.5) + off;
           break;

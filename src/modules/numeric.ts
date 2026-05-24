@@ -60,8 +60,11 @@ export function evalTemplate(x: number, candidate: { params: Record<string, unkn
       }
       return r;
     }
-    case 'exponential':
-      return amp * Math.exp(((p['fB'] as number) || 1) * x) + offset;
+    case 'exponential': {
+      const a = (p['fA'] as number) || 1;
+      const c = (p['fC'] as number) || 0;
+      return a * Math.exp(((p['fB'] as number) || 1) * x) + c;
+    }
     case 'logarithmic': {
       const a = (p['fA'] as number) || 1;
       const c = (p['fC'] as number) || 0.01;
@@ -181,6 +184,7 @@ export interface ExpFitResult {
  * Tries different vertical offsets c to linearize the problem.
  */
 export function fitExponential(xs: number[], ys: number[]): ExpFitResult | null {
+  let bestResult: ExpFitResult | null = null;
   for (let c = -2; c <= 2; c += 0.15) {
     const ln: number[] = [];
     let ok = true;
@@ -220,8 +224,10 @@ export function fitExponential(xs: number[], ys: number[]): ExpFitResult | null 
     err = Math.sqrt(err / n);
 
     if (Math.abs(b) > 0.05 && isFinite(a) && isFinite(b)) {
-      return { a, b, c, err };
+      if (!bestResult || err < bestResult.err) {
+        bestResult = { a, b, c, err };
+      }
     }
   }
-  return null;
+  return bestResult;
 }

@@ -78,8 +78,16 @@ export function getFeatures(pts: Point[]): Features {
 
   // Find zero crossings (relative to midpoint)
   const crossings: number[] = [];
+  const yRange = yMax - yMin || 1;
+  const nearZeroEps = yRange * 0.001; // 0.1% of range
   for (let i = 1; i < ys.length; i++) {
-    if ((ys[i - 1]! - off) * (ys[i]! - off) < 0) {
+    const a = ys[i - 1]! - off;
+    const b = ys[i]! - off;
+    const signChange = a * b < 0;
+    // Also detect crossing when a point is within epsilon of the midpoint
+    const aNear = Math.abs(a) < nearZeroEps;
+    const bNear = Math.abs(b) < nearZeroEps;
+    if (signChange || (aNear && !bNear) || (bNear && !aNear)) {
       crossings.push((i - 1 + (off - ys[i - 1]!) / (ys[i]! - ys[i - 1]!)) / (ys.length - 1));
     }
   }

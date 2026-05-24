@@ -180,13 +180,13 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
       { type: 'sin', phase: bestPhase, amp: bestAmp, offset: bestOff },
     );
 
-    // Cosine: just shift phase by π/2
-    const cosPhase = bestPhase + Math.PI / 2;
+    // Cosine: shift phase by -π/2 so cos(ωx + φ) = sin(ωx + bestPhase)
+    const cosPhase = bestPhase - Math.PI / 2;
     add(
-      (x) => bestAmp * Math.cos(omega * x + cosPhase - Math.PI / 2) + bestOff,
+      (x) => bestAmp * Math.cos(omega * x + cosPhase) + bestOff,
       'Cosinus',
-      buildLatex('cos', omega, cosPhase - Math.PI / 2, bestAmp, bestOff),
-      { type: 'cos', phase: cosPhase - Math.PI / 2, amp: bestAmp, offset: bestOff },
+      buildLatex('cos', omega, cosPhase, bestAmp, bestOff),
+      { type: 'cos', phase: cosPhase, amp: bestAmp, offset: bestOff },
     );
 
     // |sin|
@@ -238,7 +238,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     if (Math.abs(denom) > 1e-10) {
       const m = (n * sxy - sx * sy) / denom;
       const b = (sy - m * sx) / n;
-      add((x) => m * x + b, 'Linear', buildLatex('lin', 0, 0, m, b), { type: 'linear' });
+      add((x) => m * x + b, 'Linear', buildLatex('lin', 0, 0, m, b), { type: 'linear', m, b });
     }
   }
 
@@ -391,7 +391,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         const testAmp = f.amp * aMul;
         const test = xs.map((x) => {
           const v = Math.tan(omega * x + p);
-          return testAmp * Math.max(-3, Math.min(3, v)) + f.off;
+          return testAmp * Math.max(-5, Math.min(5, v)) + f.off;
         });
         const err = rmse(ys, test);
         if (err < bestErr) {
