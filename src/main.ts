@@ -126,12 +126,38 @@ function recognize(): void {
       trace_ln: 'logarithmic',
       trace_heaviside: 'square',
     };
-    const rawType = matchType.startsWith('trace_')
-      ? matchType.slice(6)
-      : matchType.startsWith('auto_')
-        ? matchType.slice(5)
-        : matchType;
-    const templateType = TRACE_TYPE_MAP[matchType] ?? rawType;
+    // Map known function names from custom traces to template types
+    const CUSTOM_FN_MAP: Record<string, string> = {
+      sqrt: 'sqrt',
+      ln: 'logarithmic',
+      log: 'logarithmic',
+      exp: 'exponential',
+      sin: 'sin',
+      cos: 'cos',
+      tan: 'tan',
+      abs: 'abs_sin',
+      '1/x': 'reciprocal',
+      recip: 'reciprocal',
+    };
+
+    // Resolve matchedType → template candidate type
+    let templateType = TRACE_TYPE_MAP[matchType] ?? '';
+    if (!templateType) {
+      // Strip trace_ or auto_ prefix
+      const raw = matchType.startsWith('trace_')
+        ? matchType.slice(6)
+        : matchType.startsWith('auto_')
+          ? matchType.slice(5)
+          : matchType;
+      // Handle trace_custom:sqrt(x) → extract function name
+      if (raw.startsWith('custom:')) {
+        const fnExpr = raw.slice(7); // e.g. "sqrt(x)"
+        const fnName = fnExpr.replace(/\(.*/, '').trim(); // e.g. "sqrt"
+        templateType = CUSTOM_FN_MAP[fnName] ?? fnName;
+      } else {
+        templateType = raw;
+      }
+    }
     console.log(
       '[TRAIN-BOOST] matchType=' +
         matchType +
