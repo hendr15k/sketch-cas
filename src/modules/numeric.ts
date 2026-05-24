@@ -18,7 +18,10 @@ export function rmse(a: number[], b: number[]): number {
 /**
  * Evaluate a template candidate at position x.
  */
-export function evalTemplate(x: number, candidate: { params: Record<string, unknown> }): number {
+export function evalTemplate(
+  x: number,
+  candidate: { params: Record<string, number | string | number[]> },
+): number {
   const p = candidate.params;
   const amp = (p['amp'] as number) || 0;
   const freq = (p['freq'] as number) || 0;
@@ -38,30 +41,29 @@ export function evalTemplate(x: number, candidate: { params: Record<string, unkn
       return amp * Math.sign(Math.sin(omega * x + phase)) + offset;
     case 'heaviside':
       return amp * Math.sign(x) + offset;
-    case 'damped': {
-      const decay = (p['decay'] as number) ?? freq * 2;
-      return amp * Math.exp(-decay * x) * Math.sin(omega * x + phase) + offset;
-    }
-    case 'linear': {
-      // Linear params: stores m (slope) and b (intercept) as part of the fit result.
-      // If not present (legacy), fall back to Features-based estimate.
-      const m = (p['m'] as number) ?? amp * 2;
-      const b = (p['b'] as number) ?? offset - amp;
-      return m * x + b;
-    }
+    case 'damped':
+      return (
+        amp * Math.exp(-((p['decay'] as number) ?? freq * 2) * x) * Math.sin(omega * x + phase) +
+        offset
+      );
+    case 'linear':
+      return amp * 2 * x + offset - amp;
+    case 'exponential':
+      return amp * Math.exp(((p['fB'] as number) || 1) * x) + offset;
     case 'poly2':
     case 'poly3':
     case 'poly4': {
-      const coeffs = p['coeffs'] as number[] | undefined;
-      if (!coeffs || coeffs.length === 0) return 0;
-      let r = 0;
-      for (let i = 0; i <= coeffs.length - 1; i++) {
-        r += coeffs[i]! * Math.pow(x, coeffs.length - 1 - i);
+      const coeffs = p['coeffs'] as unknown as number[] | undefined;
+      if (coeffs && coeffs.length > 0) {
+        let r = 0;
+        const degree = coeffs.length - 1;
+        for (let i = 0; i <= degree; i++) {
+          r += coeffs[i]! * Math.pow(x, degree - i);
+        }
+        return r;
       }
-      return r;
+      return 0;
     }
-    case 'exponential':
-      return amp * Math.exp(((p['fB'] as number) || 1) * x) + offset;
     default:
       return 0;
   }

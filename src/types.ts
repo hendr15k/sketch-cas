@@ -54,7 +54,7 @@ export interface TemplateCandidate {
   label: string;
   latex: string;
   err: number;
-  params: Record<string, unknown>;
+  params: Record<string, number | string | number[]>;
 }
 
 export interface TrainingTarget {

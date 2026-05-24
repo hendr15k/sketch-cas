@@ -299,7 +299,9 @@ export function runCas(expr: string, op: CasOperation, selectedEngine: string): 
 }
 
 /** Get a symbolic expression string from a template candidate. */
-export function getSymExpr(c: { params: Record<string, unknown> }): string | null {
+export function getSymExpr(c: {
+  params: Record<string, number | string | number[]>;
+}): string | null {
   const p = c.params;
   const t = p['type'] as string;
   const a = (p['amp'] as number) || 0;
@@ -336,6 +338,8 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
         ')' +
         (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '')
       );
+    case 'linear':
+      return F(a * 2, 4) + '*x+' + F(o, 4);
     case 'exponential':
       return (
         F(a, 4) +
@@ -353,38 +357,9 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
         (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '')
       );
     case 'damped':
-      return (
-        F(a, 4) +
-        '*exp(-' +
-        F((p['decay'] as number) || f * 2, 4) +
-        '*x)*sin(' +
-        F(2 * Math.PI * f, 4) +
-        '*x)'
-      );
+      return F(a, 4) + '*exp(-' + F(f * 2, 4) + '*x)*sin(' + F(2 * Math.PI * f, 4) + '*x)';
     case 'heaviside':
       return F(a, 4) + '*(x>0?1:0)' + (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '');
-    case 'linear': {
-      const m = (p['m'] as number) ?? a * 2;
-      const b = (p['b'] as number) ?? o - a;
-      return F(m, 4) + '*x' + (b >= 0 ? '+' + F(b, 4) : '-' + F(Math.abs(b), 4));
-    }
-    case 'poly2':
-    case 'poly3':
-    case 'poly4': {
-      const coeffs = p['coeffs'] as number[] | undefined;
-      if (!coeffs || coeffs.length === 0) return null;
-      const parts: string[] = [];
-      for (let i = 0; i <= coeffs.length - 1; i++) {
-        const val = coeffs[i]!;
-        if (Math.abs(val) < 0.001) continue;
-        const power = coeffs.length - 1 - i;
-        if (power === 0) parts.push(F(Math.abs(val), 4));
-        else if (power === 1) parts.push(F(Math.abs(val), 4) + '*x');
-        else parts.push(F(Math.abs(val), 4) + '*x^' + power);
-      }
-      const polyStr = parts.join('+').replace(/\+-/g, '-');
-      return (coeffs[0]! < 0 && !polyStr.startsWith('-') ? '-' : '') + polyStr || '0';
-    }
     default:
       return null;
   }

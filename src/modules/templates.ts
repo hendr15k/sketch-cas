@@ -23,10 +23,6 @@ const COMPLEXITY: Record<string, number> = {
   poly4: 1.5,
   exponential: 1.2,
   damped: 1.25,
-  logarithmic: 1.1,
-  sqrt: 1.1,
-  reciprocal: 1.2,
-  tan: 1.2,
 };
 
 // Feature consistency factors (lower = better fit for this type)
@@ -55,8 +51,7 @@ function featureFactor(type: string, f: Features): number {
       return 2.0;
 
     case 'linear':
-      if (totalExtrema === 0 && lowCurv) return 0.65; // no extrema + constant curvature → truly linear
-      if (totalExtrema === 0) return 1.0; // no extrema but curved → penalize (ln, sqrt, exp territory)
+      if (totalExtrema === 0) return 0.65; // strong bonus: no extrema
       if (totalExtrema === 1) return 1.2;
       return 2.5;
 
@@ -85,32 +80,6 @@ function featureFactor(type: string, f: Features): number {
       if (f.isDamp) return 0.7;
       return 2.0;
 
-    case 'logarithmic':
-      // ln(x) is monotonically increasing, concave down, 0 extrema
-      if (totalExtrema === 0 && f.curvatureVar > 0.00001) return 0.7;
-      if (totalExtrema === 0) return 0.85;
-      if (totalExtrema === 1) return 1.3;
-      return 2.5;
-
-    case 'sqrt':
-      // sqrt(x) is monotonically increasing, concave down, 0 extrema
-      if (totalExtrema === 0 && f.curvatureVar > 0.00001) return 0.7;
-      if (totalExtrema === 0) return 0.85;
-      if (totalExtrema === 1) return 1.3;
-      return 2.5;
-
-    case 'reciprocal':
-      // 1/x is monotonically decreasing, 0 extrema
-      if (totalExtrema === 0) return 0.75;
-      if (totalExtrema === 1) return 1.3;
-      return 2.5;
-
-    case 'tan':
-      // tan has inflection points, may have crossings
-      if (f.isPer) return 1.0;
-      if (totalExtrema === 0 && f.crossings >= 1) return 0.9;
-      return 1.5;
-
     default:
       return 1.0;
   }
@@ -131,7 +100,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     fn: (x: number) => number,
     label: string,
     latex: string,
-    params: Record<string, unknown> = {},
+    params: Record<string, number | string | number[]> = {},
     compositeOverride?: number,
   ): void {
     const t = xs.map(fn);
@@ -238,7 +207,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     if (Math.abs(denom) > 1e-10) {
       const m = (n * sxy - sx * sy) / denom;
       const b = (sy - m * sx) / n;
-      add((x) => m * x + b, 'Linear', buildLatex('lin', 0, 0, m, b), { type: 'linear', m, b });
+      add((x) => m * x + b, 'Linear', buildLatex('lin', 0, 0, m, b), { type: 'linear' });
     }
   }
 
@@ -248,13 +217,12 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     for (const degree of [2, 3, 4]) {
       const cc = fitPolynomial(xs, ys, degree);
       if (cc) {
-        const degree2 = degree;
         try {
           add(
             (x) => {
               let r = 0;
-              for (let i = 0; i <= degree2; i++) {
-                r += cc[i]! * Math.pow(x, i);
+              for (let i = 0; i <= degree; i++) {
+                r += cc[i]! * Math.pow(x, degree - i);
               }
               return r;
             },
@@ -280,161 +248,6 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         { type: 'exponential', fA: ef.a, fB: ef.b, fC: ef.c },
       );
     }
-  }
-
-  // === LOGARITHMIC CANDIDATE (ln(x + c) * a + b) ===
-  {
-    // Try several offset values c to avoid ln(0)
-    let bestLnA = 1;
-    let bestLnB = 0;
-    let bestLnC = 0.01;
-    let bestLnErr = Infinity;
-    for (const c of [0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2]) {
-      const logXs = xs.map((x) => Math.log(x + c));
-      const n = logXs.length;
-      if (n < 3) continue;
-      let sx = 0,
-        sy = 0,
-        sxx = 0,
-        sxy = 0;
-      for (let i = 0; i < n; i++) {
-        sx += logXs[i]!;
-        sy += ys[i]!;
-        sxx += logXs[i]! * logXs[i]!;
-        sxy += logXs[i]! * ys[i]!;
-      }
-      const denom = n * sxx - sx * sx;
-      if (Math.abs(denom) < 1e-10) continue;
-      const a = (n * sxy - sx * sy) / denom;
-      const b = (sy - a * sx) / n;
-      const test = xs.map((x) => a * Math.log(x + c) + b);
-      const err = rmse(ys, test);
-      if (err < bestLnErr) {
-        bestLnErr = err;
-        bestLnA = a;
-        bestLnB = b;
-        bestLnC = c;
-      }
-    }
-    if (bestLnErr < Infinity) {
-      const lnFn = bestLnA;
-      const lnOff = bestLnB;
-      const lnC = bestLnC;
-      add(
-        (x) => lnFn * Math.log(x + lnC) + lnOff,
-        'ln',
-        buildLatex('ln', 0, 0, lnFn, lnOff, { c: lnC }),
-        { type: 'logarithmic', fA: lnFn, fC: lnC, offset: lnOff },
-      );
-    }
-  }
-
-  // === SQUARE ROOT CANDIDATE (a * √x + b) ===
-  {
-    const sqrtXs = xs.map((x) => Math.sqrt(x));
-    const n = sqrtXs.length;
-    let sx = 0,
-      sy = 0,
-      sxx = 0,
-      sxy = 0;
-    for (let i = 0; i < n; i++) {
-      sx += sqrtXs[i]!;
-      sy += ys[i]!;
-      sxx += sqrtXs[i]! * sqrtXs[i]!;
-      sxy += sqrtXs[i]! * ys[i]!;
-    }
-    const denom = n * sxx - sx * sx;
-    if (Math.abs(denom) > 1e-10) {
-      const a = (n * sxy - sx * sy) / denom;
-      const b = (sy - a * sx) / n;
-      add((x) => a * Math.sqrt(x) + b, '√x', buildLatex('sqrt', 0, 0, a, b), {
-        type: 'sqrt',
-        fA: a,
-        offset: b,
-      });
-    }
-  }
-
-  // === RECIPROCAL CANDIDATE (a / (x + c) + b) ===
-  {
-    let bestRecA = 1;
-    let bestRecB = 0;
-    let bestRecC = 0.01;
-    let bestRecErr = Infinity;
-    for (const c of [0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2]) {
-      const recipXs = xs.map((x) => 1 / (x + c));
-      const n = recipXs.length;
-      if (n < 3) continue;
-      let sx = 0,
-        sy = 0,
-        sxx = 0,
-        sxy = 0;
-      for (let i = 0; i < n; i++) {
-        sx += recipXs[i]!;
-        sy += ys[i]!;
-        sxx += recipXs[i]! * recipXs[i]!;
-        sxy += recipXs[i]! * ys[i]!;
-      }
-      const denom = n * sxx - sx * sx;
-      if (Math.abs(denom) < 1e-10) continue;
-      const a = (n * sxy - sx * sy) / denom;
-      const b = (sy - a * sx) / n;
-      const test = xs.map((x) => a / (x + c) + b);
-      const err = rmse(ys, test);
-      if (err < bestRecErr) {
-        bestRecErr = err;
-        bestRecA = a;
-        bestRecB = b;
-        bestRecC = c;
-      }
-    }
-    if (bestRecErr < Infinity) {
-      const recFn = bestRecA;
-      const recOff = bestRecB;
-      const recC = bestRecC;
-      add(
-        (x) => recFn / (x + recC) + recOff,
-        '1/x',
-        buildLatex('recip', 0, 0, recFn, recOff, { c: recC }),
-        { type: 'reciprocal', fA: recFn, fC: recC, offset: recOff },
-      );
-    }
-  }
-
-  // === TANGENS CANDIDATE ===
-  {
-    let bestTanAmp = f.amp;
-    let bestTanPhase = 0;
-    let bestTanOff = f.off;
-    let bestTanErr = Infinity;
-    // tan is less periodic; try a few omega values
-    for (const omegaMul of [0.5, 1.0, 1.5, 2.0]) {
-      const ow = omega * omegaMul;
-      for (let ph = 0; ph < Math.PI * 2; ph += 0.1) {
-        const testAmp = f.amp;
-        const test = xs.map((x) => {
-          const val = Math.tan(ow * x + ph);
-          // Clip extreme tan values to avoid dominating RMSE
-          return testAmp * Math.max(-5, Math.min(5, val)) + f.off;
-        });
-        const err = rmse(ys, test);
-        if (err < bestTanErr) {
-          bestTanErr = err;
-          bestTanAmp = testAmp;
-          bestTanPhase = ph;
-          bestTanOff = f.off;
-        }
-      }
-    }
-    add(
-      (x) => {
-        const val = Math.tan(omega * x + bestTanPhase);
-        return bestTanAmp * Math.max(-5, Math.min(5, val)) + bestTanOff;
-      },
-      'tan',
-      buildLatex('tan', omega, bestTanPhase, bestTanAmp, bestTanOff),
-      { type: 'tan', phase: bestTanPhase, amp: bestTanAmp, offset: bestTanOff },
-    );
   }
 
   // Sort by composite score (lower is better)
