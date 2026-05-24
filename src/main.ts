@@ -126,7 +126,11 @@ function recognize(): void {
       trace_ln: 'logarithmic',
       trace_heaviside: 'square',
     };
-    const rawType = matchType.startsWith('trace_') ? matchType.slice(6) : matchType.startsWith('auto_') ? matchType.slice(5) : matchType;
+    const rawType = matchType.startsWith('trace_')
+      ? matchType.slice(6)
+      : matchType.startsWith('auto_')
+        ? matchType.slice(5)
+        : matchType;
     const templateType = TRACE_TYPE_MAP[matchType] ?? rawType;
     if (templateType) {
       // Boost strength: RMSE 0 → 0.1 (very strong), RMSE 0.15 → 0.5 (moderate)
