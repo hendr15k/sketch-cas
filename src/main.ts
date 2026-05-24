@@ -67,6 +67,24 @@ function scheduleR(): void {
   setTimeout(recognize, 350);
 }
 
+// ---- Self-Training Thresholds ----
+const AUTO_SAVE_THRESHOLD = 0.70;   // Save automatically if confidence >= 70%
+const DISCARD_THRESHOLD = 0.30;     // Show warning if best confidence < 30%
+
+/**
+ * Convert candidate errors to softmax probabilities.
+ * Lower error → higher probability.
+ */
+function errorsToProbs(cands: TemplateCandidate[]): number[] {
+  const temps = 0.15; // temperature — lower = sharper distribution
+  const minErr = Math.min(...cands.map(c => c.err));
+  // Shift so minimum error maps to 0
+  const shifted = cands.map(c => Math.max(0, c.err - minErr));
+  const exps = shifted.map(e => Math.exp(-e / temps));
+  const sum = exps.reduce((s, v) => s + v, 0);
+  return sum > 0 ? exps.map(e => e / sum) : exps.map(() => 1 / cands.length);
+}
+
 function recognize(): void {
   const state = getState();
   const strokes = state.strokes;
@@ -111,24 +129,15 @@ function recognize(): void {
     }
   }
 
+  // Compute softmax probabilities for all candidates
   best = cands[0]!;
+  const probs = errorsToProbs(cands);
+  const bestProb = probs[0]!;
 
   console.log('[DEBUG] ALL candidates (' + cands.length + '):');
   for (let i = 0; i < cands.length; i++) {
     const c = cands[i]!;
-    const rawErr = (c.params['rawErr'] as number) ?? c.err;
-    console.log(
-      '  ' +
-        i +
-        ': ' +
-        c.label +
-        ' | composite=' +
-        c.err.toFixed(4) +
-        ' | rawErr=' +
-        rawErr.toFixed(4) +
-        ' | type=' +
-        (c.params['type'] || '?'),
-    );
+    console.log('[DEBUG]   ' + i + ': ' + c.label + ' err=' + String(c.err).substring(0, 8) + ' p=' + (probs[i]! * 100).toFixed(1) + '% type=' + String(c.params['type'] || '?'));
   }
 
   const xs = pts.map((p) => p.x);
@@ -136,20 +145,57 @@ function recognize(): void {
   custP = null;
 
   // Score display uses raw RMSE (not composite) for user-friendly percentage
-  const rawErr = (best.params['rawErr'] as number) ?? best.err;
+  const rawErr = (best!.params['rawErr'] as number) ?? best!.err;
   const tp = strokes.reduce((s, st) => s + st.points.length, 0);
   const pct = Math.max(0, Math.min(100, 100 * (1 - rawErr * 3))).toFixed(1);
-  updateScore('' + tp, best.label, pct + '%');
+  updateScore('' + tp, best!.label, pct + '%');
 
-  renderRes(cands, trainMatches);
-  renderCAS(best);
-  drawBode(best);
-  addH(best);
+  // ---- Self-Training Logic ----
+  const matchType = (best!.params['type'] as string) || '';
+  let autoSaved = false;
+
+  if (bestProb >= AUTO_SAVE_THRESHOLD) {
+    // Auto-save as training example
+    const autoLabel = best!.label;
+    trainData.corrections.push({
+      id: genId(),
+      timestamp: Date.now(),
+      label: autoLabel,
+      normalizedPoints: pts,
+      matchedType: 'auto_' + matchType,
+    });
+    saveTrainData();
+    autoSaved = true;
+    console.log('[SELF-TRAIN] ✅ Auto-saved: ' + autoLabel + ' (p=' + (bestProb * 100).toFixed(1) + '%)');
+  } else if (bestProb < DISCARD_THRESHOLD) {
+    // Too uncertain — discard this recognition
+    best = null;
+    ovlP = null;
+    console.log('[SELF-TRAIN] ❌ Discarded (best p=' + (bestProb * 100).toFixed(1) + '% < ' + (DISCARD_THRESHOLD * 100) + '%)');
+    const resEl = document.getElementById('tRes');
+    if (resEl) {
+      const topLabels = cands.slice(0, 3).map(c => `${c.label} (${(probs[cands.indexOf(c)]! * 100).toFixed(0)}%)`).join(', ');
+      resEl.innerHTML = `<div style="margin:6px 0;padding:8px;background:#f8514922;border:1px solid #f85149;border-radius:5px;font-size:11px;color:#f85149;text-align:center">
+        ⚠️ Zu unsicher — verworfen<br>
+        <span style="font-size:9px;color:#8b949e">Beste Optionen: ${esc(topLabels)}</span>
+      </div>
+      <div style="text-align:center;padding:8px"><button class="b btn-correct" data-type="${esc(matchType)}" data-label="${esc(best!.label)}">📝 Trotzdem korrigieren</button></div>`;
+    }
+    updateScore('' + tp, '⚠️ Unklar', (bestProb * 100).toFixed(0) + '%');
+    return;
+  }
+
+  renderRes(cands, trainMatches, probs, autoSaved);
+  renderCAS(best!);
+  drawBode(best!);
+  addH(best!);
 }
 
 function renderRes(
   cands: TemplateCandidate[],
   trainMatches?: { example: { label: string; matchedType: string }; rmse: number }[],
+  probs?: number[],
+  autoSaved?: boolean,
 ): void {
   const el = document.getElementById('tRes');
   if (!el) return;
@@ -157,25 +203,44 @@ function renderRes(
   const mx = Math.max(...cands.map((c) => c.err));
   const mn = cands[0]!.err;
 
+  // Auto-save badge
+  let autoSaveBadge = '';
+  if (autoSaved) {
+    autoSaveBadge = `<div style="margin:6px 0;padding:6px 8px;background:#23863622;border:1px solid #238636;border-radius:5px;font-size:10px;color:#238636;text-align:center">🤖 Auto-gespeichert als Trainingsbeispiel</div>`;
+  }
+
   // Training match badge
   let trainBadge = '';
   if (trainMatches && trainMatches.length > 0 && trainMatches[0]!.rmse < 0.15) {
     const tm = trainMatches[0]!;
     const simPct = Math.round((1 - tm.rmse) * 100);
-    trainBadge = `<div style="margin:6px 0;padding:6px 8px;background:#23863622;border:1px solid #238636;border-radius:5px;font-size:10px;color:#238636;text-align:center">🎯 Training: ${esc(tm.example.label)} (${simPct}% Ähnlichkeit)</div>`;
+    trainBadge = `<div style="margin:6px 0;padding:6px 8px;background:#58a6ff22;border:1px solid #58a6ff;border-radius:5px;font-size:10px;color:#58a6ff;text-align:center">🎯 Training: ${esc(tm.example.label)} (${simPct}% Ähnlichkeit)</div>`;
   }
 
-  let h = trainBadge;
+  // Probability distribution header
+  let probHeader = '';
+  if (probs && probs.length > 0) {
+    const topP = probs[0]! * 100;
+    const color = topP >= 70 ? '#238636' : topP >= 40 ? '#f0883e' : '#f85149';
+    probHeader = `<div style="margin:4px 0;padding:4px 8px;background:${color}11;border:1px solid ${color}44;border-radius:4px;font-size:9px;color:${color};display:flex;justify-content:space-between">
+      <span>📊 Wahrscheinlichkeiten</span>
+      <span>Beste: ${topP.toFixed(1)}%</span>
+    </div>`;
+  }
+
+  let h = autoSaveBadge + trainBadge + probHeader;
   cands.slice(0, 6).forEach((c, i) => {
     const pct = Math.max(0, Math.min(100, 100 * (1 - (c.err - mn) / (mx - mn + 0.001))));
     const cls = i === 0 ? 'best' : '';
     const badge = i === 0 ? '<span class="badge">Best</span>' : '';
     const bgColor = i === 0 ? '#238636' : '#58a6ff';
+    const prob = probs ? (probs[i]! * 100).toFixed(1) : null;
+    const probColor = prob ? (Number(prob) >= 70 ? '#238636' : Number(prob) >= 40 ? '#f0883e' : '#f85149') : bgColor;
 
     h += `<div class="card ${cls}" onclick="window._casTab()">`;
-    h += `<div class="cr"><span>${c.label}</span>${badge}</div>`;
+    h += `<div class="cr"><span>${c.label}</span>${badge}${prob ? `<span style="font-size:9px;color:${probColor};margin-left:auto">${prob}%</span>` : ''}</div>`;
     h += `<div class="cf" data-latex="${esc(c.latex)}"></div>`;
-    h += `<div class="mb"><div class="mf" style="width:${pct}%;background:${bgColor}"></div></div>`;
+    h += `<div class="mb"><div class="mf" style="width:${pct}%;background:${probColor}"></div></div>`;
     h += `<div class="cm"><span>Fit: ${(100 - c.err * 100).toFixed(1)}%</span></div>`;
     h += `<div class="cl" onclick="event.stopPropagation();window.cpT(this)">${esc(c.latex)}</div>`;
     if (i === 0) {
@@ -885,6 +950,13 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
       { type: 'exponential', label: 'eˣ', latex: 'exp(x)' },
       { type: 'abs_sin', label: '|sin(x)|', latex: 'abs(sin(x))' },
       { type: 'heaviside', label: 'Heaviside(x)', latex: '(x>0?1:0)' },
+      { type: 'poly2', label: 'x²', latex: 'x^2' },
+      { type: 'poly3', label: 'x³', latex: 'x^3' },
+      { type: 'square', label: 'Rechteck', latex: 'sgn(sin(x))' },
+      { type: 'damped', label: 'Gedämpft', latex: 'exp(-x)*sin(x)' },
+      { type: 'tan', label: 'tan(x)', latex: 'tan(x)' },
+      { type: 'ln', label: 'ln(x)', latex: 'ln(x)' },
+      { type: 'inv_x', label: '1/x', latex: '1/x' },
     ];
 
     const tracingActive = !!getState().traceTarget;
@@ -908,7 +980,7 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
       h +=
         '<div class="card"><div class="cr"><span>Funktion wählen</span><span class="badge">Nachzeichnen</span></div>';
       h +=
-        '<div style="font-size:10px;color:#8b949e;margin-bottom:8px">Wähle eine Funktion, die auf dem Canvas erscheint. Zeichne sie nach — dein Zeichnung wird automatisch als Trainingsbeispiel gespeichert.</div>';
+        '<div style="font-size:10px;color:#8b949e;margin-bottom:8px">Wähle eine Funktion oder gib eine eigene ein. Die Funktion erscheint auf dem Canvas — zeichne sie nach. Dein Zeichnung wird automatisch als Trainingsbeispiel gespeichert.</div>';
       h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
       traceFns.forEach((fn) => {
         h +=
@@ -923,6 +995,17 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
           '</button>';
       });
       h += '</div></div>';
+
+      // Custom function input
+      h += '<div class="card" style="border-color:#da3688">';
+      h += '<div class="cr"><span>Eigene Funktion</span><span class="badge pink">Custom</span></div>';
+      h += '<div style="font-size:10px;color:#8b949e;margin-bottom:6px">Gib einen Ausdruck ein (z.B. <code>sin(2*x)</code>, <code>x^2 - 1</code>, <code>exp(-x)*cos(x)</code>)</div>';
+      h += '<div style="display:flex;gap:4px">';
+      h += '<input id="traceCustomInput" type="text" placeholder="z.B. sin(2*x), x^3, exp(-x)" style="flex:1;padding:6px 8px;background:#0d1117;border:1px solid #30363d;border-radius:5px;color:#e6edf3;font-size:12px;font-family:monospace">';
+      h += '<button class="b grn" id="btnTraceCustom" style="padding:6px 12px">🖊 Start</button>';
+      h += '</div>';
+      h += '<div style="font-size:9px;color:#484f58;margin-top:4px">Unterstützt: sin, cos, tan, exp, log, ln, abs, sqrt, ^, pi, e, Klammern</div>';
+      h += '</div>';
 
       // Show saved trace examples count
       const traceExamples = trainData.corrections.filter((c) =>
@@ -1053,6 +1136,31 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
   document.getElementById('btnStopTrace')?.addEventListener('click', () => {
     stopTracing();
   });
+
+  // Custom function trace button
+  document.getElementById('btnTraceCustom')?.addEventListener('click', () => {
+    const input = document.getElementById('traceCustomInput') as HTMLInputElement | null;
+    const expr = input?.value.trim();
+    if (!expr) {
+      toast('Funktion eingeben!');
+      return;
+    }
+    // Validate expression by trying to compile it
+    try {
+      makeNumFn(expr);
+    } catch (e) {
+      toast('Ungültiger Ausdruck: ' + (e as Error).message);
+      return;
+    }
+    startTracing('custom:' + expr, expr, expr);
+  });
+
+  // Allow Enter key in custom input
+  (document.getElementById('traceCustomInput') as HTMLInputElement | null)?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      document.getElementById('btnTraceCustom')?.click();
+    }
+  });
 }
 
 // ---- Trace Training ----
@@ -1062,32 +1170,81 @@ function startTracing(type: string, label: string, _latex: string): void {
   // Generate reference points for this function type
   const refPts: { x: number; y: number }[] = [];
   const N = 200;
-  for (let i = 0; i < N; i++) {
-    const x = i / (N - 1);
-    let y = 0;
-    switch (type) {
-      case 'sin':
-        y = Math.sin(2 * Math.PI * x);
-        break;
-      case 'cos':
-        y = Math.cos(2 * Math.PI * x);
-        break;
-      case 'linear':
-        y = 2 * x - 1;
-        break;
-      case 'exponential':
-        y = Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2));
-        break;
-      case 'abs_sin':
-        y = Math.abs(Math.sin(2 * Math.PI * x));
-        break;
-      case 'heaviside':
-        y = x < 0.5 ? -1 : 1;
-        break;
-      default:
-        y = Math.sin(2 * Math.PI * x);
+
+  // Check if this is a custom function (type starts with 'custom:')
+  if (type.startsWith('custom:')) {
+    const expr = type.slice(7); // strip 'custom:'
+    try {
+      const fn = makeNumFn(expr);
+      for (let i = 0; i < N; i++) {
+        const x = i / (N - 1);
+        // Map x from [0,1] to [-3,3] for evaluation
+        const xEval = (x - 0.5) * 6;
+        const yRaw = fn(xEval);
+        // Normalize output to [-1,1]
+        refPts.push({ x, y: isFinite(yRaw) ? Math.max(-1, Math.min(1, yRaw / 3)) : 0 });
+      }
+    } catch {
+      // Fallback: show a message and abort
+      toast('Fehler beim Auswerten: ' + expr);
+      return;
     }
-    refPts.push({ x, y: Math.max(-1, Math.min(1, y)) });
+  } else {
+    for (let i = 0; i < N; i++) {
+      const x = i / (N - 1);
+      let y = 0;
+      switch (type) {
+        case 'sin':
+          y = Math.sin(2 * Math.PI * x);
+          break;
+        case 'cos':
+          y = Math.cos(2 * Math.PI * x);
+          break;
+        case 'linear':
+          y = 2 * x - 1;
+          break;
+        case 'exponential':
+          y = Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2));
+          break;
+        case 'abs_sin':
+          y = Math.abs(Math.sin(2 * Math.PI * x));
+          break;
+        case 'heaviside':
+          y = x < 0.5 ? -1 : 1;
+          break;
+        case 'poly2':
+          y = (x - 0.5) * (x - 0.5) * 8 - 1;
+          break;
+        case 'poly3':
+          y = (x - 0.5) * (x - 0.5) * (x - 0.5) * 16;
+          break;
+        case 'square':
+          y = Math.sign(Math.sin(2 * Math.PI * x));
+          break;
+        case 'damped':
+          y = Math.exp(-3 * x) * Math.sin(4 * Math.PI * x);
+          break;
+        case 'tan': {
+          const tx = Math.tan(Math.PI * (x - 0.5));
+          y = isFinite(tx) ? Math.max(-1, Math.min(1, tx / 5)) : 0;
+          break;
+        }
+        case 'ln': {
+          const lx = Math.log((x - 0.5) * 6 + 3);
+          y = isFinite(lx) ? Math.max(-1, Math.min(1, lx / 3)) : 0;
+          break;
+        }
+        case 'inv_x': {
+          const ix = (x - 0.5) * 6;
+          y = ix !== 0 ? 1 / ix : 0;
+          y = Math.max(-1, Math.min(1, y));
+          break;
+        }
+        default:
+          y = Math.sin(2 * Math.PI * x);
+      }
+      refPts.push({ x, y: Math.max(-1, Math.min(1, y)) });
+    }
   }
 
   state.traceTarget = refPts;
