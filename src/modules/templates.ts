@@ -100,7 +100,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     fn: (x: number) => number,
     label: string,
     latex: string,
-    params: Record<string, number | string> = {},
+    params: Record<string, unknown> = {},
     compositeOverride?: number,
   ): void {
     const t = xs.map(fn);
@@ -207,7 +207,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     if (Math.abs(denom) > 1e-10) {
       const m = (n * sxy - sx * sy) / denom;
       const b = (sy - m * sx) / n;
-      add((x) => m * x + b, 'Linear', buildLatex('lin', 0, 0, m, b), { type: 'linear' });
+      add((x) => m * x + b, 'Linear', buildLatex('lin', 0, 0, m, b), { type: 'linear', m, b });
     }
   }
 
@@ -217,18 +217,19 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     for (const degree of [2, 3, 4]) {
       const cc = fitPolynomial(xs, ys, degree);
       if (cc) {
+        const degree2 = degree;
         try {
           add(
             (x) => {
               let r = 0;
-              for (let i = 0; i <= degree; i++) {
-                r += cc[i]! * Math.pow(x, degree - i);
+              for (let i = 0; i <= degree2; i++) {
+                r += cc[i]! * Math.pow(x, degree2 - i);
               }
               return r;
             },
             labels[degree]!,
             buildLatexPoly(cc),
-            { type: 'poly' + degree },
+            { type: 'poly' + degree, coeffs: cc },
           );
         } catch (e) {
           console.log('[DEBUG] poly' + degree + ' add ERROR:', (e as Error).message);
