@@ -107,6 +107,38 @@ export function buildLatex(
       }
       return result;
     }
+    case 'tan':
+      result =
+        (Math.abs(amp - 1) > 0.01 ? formatNum(amp) + '\\cdot ' : '') +
+        '\\tan\\!\\left(' +
+        arg +
+        '\\right)';
+      break;
+    case 'ln': {
+      const c = extra?.['c'] ?? 0.01;
+      const aVal = amp;
+      result = (Math.abs(aVal - 1) > 0.01 ? formatNum(aVal) + '\\cdot ' : '') + '\\ln\\!\\left(x';
+      if (Math.abs(c) > 0.011) {
+        result += ' + ' + formatNum(c);
+      }
+      result += '\\right)';
+      break;
+    }
+    case 'sqrt': {
+      const aVal = amp;
+      result = (Math.abs(aVal - 1) > 0.01 ? formatNum(aVal) + '\\cdot ' : '') + '\\sqrt{x}';
+      break;
+    }
+    case 'recip': {
+      const c = extra?.['c'] ?? 0.01;
+      const aVal = amp;
+      result = formatNum(aVal) + '\\,\\frac{1}{x';
+      if (Math.abs(c) > 0.011) {
+        result += ' + ' + formatNum(c);
+      }
+      result += '}';
+      break;
+    }
   }
 
   if (Math.abs(offset) > 0.01 && type !== 'lin') {

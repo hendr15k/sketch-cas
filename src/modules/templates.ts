@@ -51,7 +51,8 @@ function featureFactor(type: string, f: Features): number {
       return 2.0;
 
     case 'linear':
-      if (totalExtrema === 0) return 0.65; // strong bonus: no extrema
+      if (totalExtrema === 0 && lowCurv) return 0.65; // no extrema + constant curvature → truly linear
+      if (totalExtrema === 0) return 1.0; // no extrema but curved → penalize (ln, sqrt, exp territory)
       if (totalExtrema === 1) return 1.2;
       return 2.5;
 
