@@ -113,6 +113,9 @@ function recognize(): void {
   ];
   const trainMatches = matchTrainingExamples(pts, allExamples);
 
+  let trainingBoostApplied = false; // Track if training boost changed the winner
+  const prevBestType = (cands[0]?.params['type'] as string) || '';
+
   if (trainMatches.length > 0 && trainMatches[0]!.rmse < 0.15) {
     const bestMatch = trainMatches[0]!;
     const matchType = bestMatch.example.matchedType;
@@ -128,6 +131,11 @@ function recognize(): void {
         }
       }
       cands.sort((a, b) => a.err - b.err);
+      // Check if training boost changed the winner
+      const newBestType = (cands[0]?.params['type'] as string) || '';
+      if (newBestType !== prevBestType) {
+        trainingBoostApplied = true;
+      }
     }
   }
 
@@ -167,8 +175,8 @@ function recognize(): void {
   const matchType = (best.params['type'] as string) || '';
   let autoSaved = false;
 
-  if (bestProb >= AUTO_SAVE_THRESHOLD) {
-    // Auto-save as training example
+  if (bestProb >= AUTO_SAVE_THRESHOLD && !trainingBoostApplied) {
+    // Auto-save as training example (only if training boost didn't change the winner)
     const autoLabel = best.label;
     trainData.corrections.push({
       id: genId(),
@@ -181,6 +189,10 @@ function recognize(): void {
     autoSaved = true;
     console.log(
       '[SELF-TRAIN] ✅ Auto-saved: ' + autoLabel + ' (p=' + (bestProb * 100).toFixed(1) + '%)',
+    );
+  } else if (trainingBoostApplied) {
+    console.log(
+      '[SELF-TRAIN] ⏸️ Skipped auto-save (training boost changed winner to ' + best.label + ')',
     );
   } else if (bestProb < DISCARD_THRESHOLD) {
     // Too uncertain — discard this recognition
