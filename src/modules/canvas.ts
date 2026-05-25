@@ -287,60 +287,59 @@ function drawAxes(): void {
 
   const plotTop = 30;
   const plotBottom = H - 30;
+  const zoom = state.zoom;
+  const panX = state.panX;
+  const panY = state.panY;
 
   // Compute visible model range at current zoom/pan
-  const modelX0 = -state.panX / state.zoom;
-  const modelX1 = modelX0 + 1 / state.zoom;
-  const modelY0 = -1 / state.zoom - state.panY;
-  const modelY1 = 1 / state.zoom - state.panY;
+  const modelX0 = -panX / zoom;
+  const modelX1 = modelX0 + 1 / zoom;
+  const modelY0 = -1 / zoom - panY;
+  const modelY1 = 1 / zoom - panY;
 
-  // Grid spacing based on zoom level
-  const zoom = state.zoom;
-  let xStep = 0.1;
-  if (zoom > 5) xStep = 0.02;
-  else if (zoom > 2) xStep = 0.05;
-  else if (zoom < 0.5) xStep = 0.2;
-  let yStep = 0.2;
-  if (zoom > 5) yStep = 0.05;
-  else if (zoom > 2) yStep = 0.1;
-  else if (zoom < 0.5) yStep = 0.5;
+  // Canvas px positions of x=0 and y=0
+  const px0 = nx(0);
+  const py0 = ny(0);
 
   ax.strokeStyle = '#30363d';
   ax.lineWidth = 1;
+  ax.fillStyle = '#6e7681';
+  ax.font = '9px monospace';
 
-  // Vertical grid lines (x in model coords)
-  const x0 = Math.floor(modelX0 / xStep) * xStep;
-  for (let mx = x0; mx <= modelX1 + 1e-9; mx += xStep) {
-    const px = nx(mx);
-    if (px < -2 || px > W + 2) continue;
+  // ── Pixel-based grid (always every 50px on screen) ──────────────────────────
+  const gridStep = 50;
+
+  // Vertical grid lines at fixed canvas x positions
+  const xFirst = Math.ceil(0 / gridStep) * gridStep;
+  for (let px = xFirst; px < W; px += gridStep) {
+    const mx = canvasToModelX(px);
+    if (mx < modelX0 || mx > modelX1) continue;
     ax.beginPath();
     ax.moveTo(px, Math.max(0, plotTop));
     ax.lineTo(px, Math.min(H, plotBottom));
     ax.stroke();
   }
 
-  // Horizontal grid lines (y in model coords)
-  const y0 = Math.floor(modelY0 / yStep) * yStep;
-  for (let my = y0; my <= modelY1 + 1e-9; my += yStep) {
-    const py = ny(my);
-    if (py < -2 || py > H + 2) continue;
+  // Horizontal grid lines at fixed canvas y positions
+  const yFirst = Math.ceil(plotTop / gridStep) * gridStep;
+  for (let py = yFirst; py < plotBottom; py += gridStep) {
+    const my = canvasToModelY(py);
+    if (my < modelY0 || my > modelY1) continue;
     ax.beginPath();
     ax.moveTo(0, py);
     ax.lineTo(W, py);
     ax.stroke();
   }
 
-  // Axes (y=0 and x=0)
+  // ── Axes ────────────────────────────────────────────────────────────────────
   ax.strokeStyle = '#484f58';
   ax.lineWidth = 1.5;
-  const py0 = ny(0);
   if (py0 >= plotTop && py0 <= plotBottom) {
     ax.beginPath();
     ax.moveTo(0, py0);
     ax.lineTo(W, py0);
     ax.stroke();
   }
-  const px0 = nx(0);
   if (px0 >= 0 && px0 <= W) {
     ax.beginPath();
     ax.moveTo(px0, plotTop);
@@ -348,38 +347,45 @@ function drawAxes(): void {
     ax.stroke();
   }
 
-  // Tick labels
-  ax.fillStyle = '#6e7681';
-  ax.font = '9px monospace';
-  ax.fillText('x', W - 12, py0 - 6 < 12 ? py0 + 14 : py0 - 6);
-  ax.fillText('y', px0 + 6 < 12 ? px0 + 14 : px0 + 6, 12);
+  // ── Axis labels ─────────────────────────────────────────────────────────────
+  // "x" → right side, below the x-axis
+  const xLabelY = Math.min(py0 + 14, H - 4);
+  ax.fillText('x', W - 14, xLabelY);
+  // "y" → top side, right of the y-axis
+  const yLabelX = Math.min(Math.max(px0 + 8, 14), W - 10);
+  ax.fillText('y', yLabelX, 14);
 
-  // X tick labels
-  const xLabel0 = Math.floor(modelX0 / xStep) * xStep;
-  for (let mx = xLabel0; mx <= modelX1 + 1e-9; mx += xStep) {
+  // ── X tick labels (model coords at each grid line) ──────────────────────────
+  const xGridFirst = Math.ceil(0 / gridStep) * gridStep;
+  for (let px = xGridFirst; px < W; px += gridStep) {
+    const mx = canvasToModelX(px);
     if (Math.abs(mx) < 1e-9) continue;
-    const px = nx(mx);
-    if (px < 5 || px > W - 5) continue;
-    const label = mx.toFixed(xStep < 0.05 ? 2 : 1);
-    ax.fillText(label, px - 3, py0 + 12);
-  }
-  // Y tick labels
-  const yLabel0 = Math.floor(modelY0 / yStep) * yStep;
-  for (let my = yLabel0; my <= modelY1 + 1e-9; my += yStep) {
-    if (Math.abs(my) < 1e-9) continue;
-    const py = ny(my);
-    if (py < plotTop + 5 || py > plotBottom - 5) continue;
-    const label = my.toFixed(yStep < 0.1 ? 2 : 1);
-    ax.fillText(label, px0 + 5, py + 3);
+    if (px < 8 || px > W - 8) continue;
+    const label = Math.abs(mx) >= 1 ? mx.toFixed(1) : mx.toFixed(2);
+    ax.fillText(label, px - (label.length > 4 ? 10 : 3), py0 + 12);
   }
 
-  // Zoom indicator
-  if (zoom !== 1 || state.panX !== 0 || state.panY !== 0) {
-    ax.fillStyle = 'rgba(88,166,255,0.7)';
-    ax.font = 'bold 9px monospace';
-    const zoomTxt = zoom === 1 ? '' : zoom.toFixed(1) + '×';
-    ax.fillText(zoomTxt, W - 30, H - 8);
+  // ── Y tick labels (model coords at each grid line) ─────────────────────────
+  for (let py = yFirst; py < plotBottom; py += gridStep) {
+    const my = canvasToModelY(py);
+    if (Math.abs(my) < 1e-9) continue;
+    if (py < plotTop + 6 || py > plotBottom - 6) continue;
+    const label = Math.abs(my) >= 1 ? my.toFixed(1) : my.toFixed(2);
+    ax.fillText(label, Math.min(px0 + 5, W - 30), py + 3);
   }
+
+  // ── Viewport range indicator ────────────────────────────────────────────────
+  const xMin = modelX0;
+  const xMax = modelX1;
+  const yMin = modelY0;
+  const yMax = modelY1;
+  ax.font = '8px monospace';
+  ax.fillStyle = 'rgba(88,166,255,0.6)';
+  ax.fillText(
+    `x:[${xMin.toFixed(2)},${xMax.toFixed(2)}]  y:[${yMin.toFixed(2)},${yMax.toFixed(2)}]${zoom !== 1 ? `  ${zoom.toFixed(1)}×` : ''}`,
+    4,
+    12,
+  );
 }
 
 function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
