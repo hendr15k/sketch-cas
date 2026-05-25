@@ -134,8 +134,12 @@ export function getFeatures(pts: Point[]): Features {
   let isDamp = false;
   if (pkV.length >= 2) {
     // Damping: peak amplitudes decreasing, valley amplitudes increasing (relative to offset)
-    const pkDec = pkV.every((v, i) => !i || Math.abs(v - off) <= Math.abs(pkV[i - 1]! - off) + 0.01);
-    const vlInc = vlV.every((v, i) => !i || Math.abs(v - off) >= Math.abs(vlV[i - 1]! - off) - 0.01);
+    const pkDec = pkV.every(
+      (v, i) => !i || Math.abs(v - off) <= Math.abs(pkV[i - 1]! - off) + 0.01,
+    );
+    const vlInc = vlV.every(
+      (v, i) => !i || Math.abs(v - off) >= Math.abs(vlV[i - 1]! - off) - 0.01,
+    );
     if (pkDec && vlInc) isDamp = true;
   }
 
