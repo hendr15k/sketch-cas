@@ -314,10 +314,10 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
   const F = (n: number, dp?: number): string => {
     if (Math.abs(n) < 0.001) return '0';
     if (dp === undefined && Math.abs(n - Math.round(n)) < 0.01) return '' + Math.round(n);
-    return n
-      .toFixed(dp || 2)
-      .replace(/0+$/, '')
-      .replace(/\.$/, '');
+    const fixed = n.toFixed(dp || 2);
+    // Strip trailing zeros but keep at least one decimal digit (avoids empty string for near-zero values)
+    const stripped = fixed.replace(/0+$/, '');
+    return stripped.endsWith('.') ? stripped + '0' : stripped || '0';
   };
 
   switch (t) {

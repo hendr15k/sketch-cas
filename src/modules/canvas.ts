@@ -150,11 +150,10 @@ function setupPointerEvents(): void {
       const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
       state.zoom = Math.max(0.25, Math.min(20, state.zoom * factor));
       if (state.zoom === oldZoom) return;
-      // Keep the point under the cursor fixed
-      const modelX = canvasToModelX(cx);
-      const modelY = canvasToModelY(cy);
-      state.panX -= (modelX - 0.5) * (1 - 1 / state.zoom);
-      state.panY -= (modelY - 0) * (1 - 1 / state.zoom);
+      // Keep the model point under the cursor fixed: panX_new = panX_old + (cx/width) * (1/r_old - 1/r_new)
+      const r = oldZoom / state.zoom;
+      state.panX += (cx / state.width) * (1 - r);
+      state.panY += ((cy - state.height / 2) / (state.height - 60)) * (1 - r);
       drawAxes();
       redraw();
     },
@@ -233,6 +232,8 @@ function setupPointerEvents(): void {
     if (!state) return;
     state.isDrawing = false;
     state.currentStroke = null;
+    // Pop the undo entry that was pushed in pointerdown (stroke was cancelled)
+    if (state.undoStack.length > 0) state.undoStack.pop();
   });
 
   canvas.addEventListener(
@@ -292,10 +293,12 @@ function drawAxes(): void {
   const panY = state.panY;
 
   // Compute visible model range at current zoom/pan
-  const modelX0 = -panX / zoom;
-  const modelX1 = modelX0 + 1 / zoom;
-  const modelY0 = -1 / zoom - panY;
-  const modelY1 = 1 / zoom - panY;
+  // canvasToModelX(cx) = cx / (zoom * W) + panX
+  // canvasToModelY(cy) = (plotBottom - cy) / (zoom * plotH/2) + panY
+  const modelX0 = panX;
+  const modelX1 = panX + 1 / zoom;
+  const modelY0 = 1 / zoom + panY;
+  const modelY1 = panY;
 
   // Canvas px positions of x=0 and y=0
   const px0 = nx(0);
@@ -378,10 +381,11 @@ function drawAxes(): void {
   }
 
   // ── Viewport range indicator ────────────────────────────────────────────────
+  // modelY0 = top (larger), modelY1 = bottom (smaller)
   const xMin = modelX0;
   const xMax = modelX1;
-  const yMin = modelY0;
-  const yMax = modelY1;
+  const yMin = modelY1; // bottom of visible range
+  const yMax = modelY0; // top of visible range
   ax.font = '8px monospace';
   ax.fillStyle = 'rgba(88,166,255,0.6)';
   ax.fillText(
@@ -396,20 +400,24 @@ function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
   ctx.strokeStyle = s.color;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(s.points[0]!.x, s.points[0]!.y);
-  for (let i = 1; i < s.points.length; i++) {
-    const p = s.points[i]!;
-    ctx.lineWidth =
-      p.pressure !== undefined ? Math.max(1, s.width * (0.3 + 0.7 * p.pressure)) : s.width;
-    if (i < s.points.length - 1) {
-      const n = s.points[i + 1]!;
-      ctx.quadraticCurveTo(p.x, p.y, (p.x + n.x) / 2, (p.y + n.y) / 2);
+  // Draw each segment individually so pressure-sensitive width applies correctly
+  for (let i = 0; i < s.points.length - 1; i++) {
+    const p0 = s.points[i]!;
+    const p1 = s.points[i + 1]!;
+    const w =
+      p0.pressure !== undefined ? Math.max(1, s.width * (0.3 + 0.7 * p0.pressure)) : s.width;
+    ctx.lineWidth = w;
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    const midX = (p0.x + p1.x) / 2;
+    const midY = (p0.y + p1.y) / 2;
+    if (i < s.points.length - 2) {
+      ctx.quadraticCurveTo(p0.x, p0.y, midX, midY);
     } else {
-      ctx.lineTo(p.x, p.y);
+      ctx.lineTo(p1.x, p1.y);
     }
+    ctx.stroke();
   }
-  ctx.stroke();
 }
 
 function drawTraceTarget(points: Point[]): void {
@@ -550,18 +558,33 @@ export function clearAll(): void {
   redraw();
 }
 
-/** Zoom in */
+/** Zoom in toward viewport center */
 export function zoomIn(): void {
   if (!state) return;
+  const oldZoom = state.zoom;
   state.zoom = Math.min(20, state.zoom * 1.3);
+  if (state.zoom === oldZoom) return;
+  // Adjust pan so zoom is toward viewport center (same as wheel zoom formula)
+  const r = oldZoom / state.zoom;
+  const cx = state.width / 2;
+  const cy = state.height / 2;
+  state.panX += (cx / state.width) * (1 - r);
+  state.panY += ((cy - state.height / 2) / (state.height - 60)) * (1 - r);
   drawAxes();
   redraw();
 }
 
-/** Zoom out */
+/** Zoom out from viewport center */
 export function zoomOut(): void {
   if (!state) return;
+  const oldZoom = state.zoom;
   state.zoom = Math.max(0.25, state.zoom / 1.3);
+  if (state.zoom === oldZoom) return;
+  const r = oldZoom / state.zoom;
+  const cx = state.width / 2;
+  const cy = state.height / 2;
+  state.panX += (cx / state.width) * (1 - r);
+  state.panY += ((cy - state.height / 2) / (state.height - 60)) * (1 - r);
   drawAxes();
   redraw();
 }

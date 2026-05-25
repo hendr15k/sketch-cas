@@ -641,12 +641,25 @@ function evalPlot(expr: string): void {
 
 function makeNumFn(expr: string): (x: number) => number {
   const prepared = expr
-    // Step 1: Replace function names and constants FIRST (before Math.pow)
-    .replace(/\b(sin|cos|tan|abs|sqrt|exp|log|asin|acos|atan|sinh|cosh|tanh)\b/g, 'Math.$1')
+    // Step 0: Replace constants FIRST
     .replace(/\bpi\b/g, 'Math.PI')
     .replace(/\be\b/g, 'Math.E')
-    // Step 2: Convert ^ to Math.pow — handles parenthesized bases like (x+1)^2
-    .replace(/(\([^)]+\)|[a-zA-Z0-9._]+)\^(\([^)]+\)|[a-zA-Z0-9.]+)/g, 'Math.pow($1,$2)')
+    // Step 1: Convert ^ to Math.pow BEFORE function names
+    // Extended base: also match fn(args) like sin(x), Math.sin(x)
+    .replace(
+      /(\([^)]+\)|[a-zA-Z0-9._]+\([^)]*\)|[a-zA-Z0-9._]+)\^(\([^)]+\)|[a-zA-Z0-9.]+)/g,
+      'Math.pow($1,$2)',
+    )
+    // Step 1b: Handle nested ^ (e.g. e^(-x^2) → inner x^2)
+    .replace(
+      /(\([^)]+\)|[a-zA-Z0-9._]+\([^)]*\)|[a-zA-Z0-9._]+)\^(\([^)]+\)|[a-zA-Z0-9.]+)/g,
+      'Math.pow($1,$2)',
+    )
+    // Step 2: Replace function names (use lookbehind for letters only, not digits)
+    .replace(
+      /(?<![a-zA-Z])(sin|cos|tan|abs|sqrt|exp|log|asin|acos|atan|sinh|cosh|tanh)(?![a-zA-Z])/g,
+      'Math.$1',
+    )
     // Step 3: Implicit multiplication: 2x -> 2*x, 3Math.sin -> 3*Math.sin
     .replace(/(\d)([a-zA-Z(])/g, '$1*$2')
     .replace(/(\))(\d)/g, '$1*$2')

@@ -140,14 +140,6 @@ export function fitPolynomial(xs: number[], ys: number[], degree: number): numbe
     [M[c], M[maxRow]] = [M[maxRow]!, M[c]!];
 
     if (Math.abs(M[c]![c]!) < 1e-12) {
-      console.log(
-        '[DEBUG] fitPoly singular pivot at c=' +
-          c +
-          ': ' +
-          M[c]![c]! +
-          ' matrix=' +
-          JSON.stringify(M),
-      );
       return null;
     }
 
