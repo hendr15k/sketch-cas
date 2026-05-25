@@ -8,9 +8,43 @@
  */
 export function exprToLatex(s: string): string {
   if (!s) return '';
-  return s
+
+  // Helper to find balanced closing paren
+  function findBalanced(s: string, start: number): number {
+    let depth = 0;
+    for (let i = start; i < s.length; i++) {
+      if (s[i] === '(') depth++;
+      else if (s[i] === ')') {
+        depth--;
+        if (depth === 0) return i;
+      }
+    }
+    return s.length;
+  }
+
+  let result = '';
+  let i = 0;
+  while (i < s.length) {
+    // sqrt with balanced parens
+    if (s.startsWith('sqrt(', i)) {
+      const end = findBalanced(s, i + 5);
+      result += '\\sqrt{' + exprToLatex(s.substring(i + 5, end)) + '}';
+      i = end + 1;
+      continue;
+    }
+    // abs with balanced parens
+    if (s.startsWith('abs(', i)) {
+      const end = findBalanced(s, i + 4);
+      result += '\\left|' + exprToLatex(s.substring(i + 4, end)) + '\\right|';
+      i = end + 1;
+      continue;
+    }
+    result += s[i];
+    i++;
+  }
+
+  return result
     .replace(/\*\*/g, '^')
-    .replace(/sqrt\(([^)]+)\)/g, '\\sqrt{$1}')
     .replace(/sin\(/g, '\\sin(')
     .replace(/cos\(/g, '\\cos(')
     .replace(/tan\(/g, '\\tan(')
@@ -22,8 +56,6 @@ export function exprToLatex(s: string): string {
     .replace(/tanh\(/g, '\\tanh(')
     .replace(/log\(/g, '\\ln(')
     .replace(/\bpi\b/g, '\\pi')
-    .replace(/abs\(([^)]+)\)/g, '\\left|$1\\right|')
-    .replace(/\//g, '/ ')
     .replace(/(\d)([a-z(])/g, '$1\\cdot $2');
 }
 

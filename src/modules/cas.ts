@@ -20,13 +20,13 @@ function algebriteLaplace(e: string): string {
   if (el === '1' || el === '1(t)') return '\\frac{1}{s}';
   if (el === 't' || el === 'x') return '\\frac{1}{s^2}';
 
-  const sm = e.match(/^(\d*\.?\d*)\*?sin\((\d*\.?\d*)\*?[tx]\)$/);
+  const sm = el.match(/^(\d*\.?\d*)\*?sin\((\d*\.?\d*)\*?[tx]\)$/);
   if (sm) {
     const a = sm[1] || '1';
     const b = sm[2] || '1';
     return '\\frac{' + a + '\\cdot ' + b + '}{s^2+' + b + '^2}';
   }
-  const cm = e.match(/^(\d*\.?\d*)\*?cos\((\d*\.?\d*)\*?[tx]\)$/);
+  const cm = el.match(/^(\d*\.?\d*)\*?cos\((\d*\.?\d*)\*?[tx]\)$/);
   if (cm) {
     const a = cm[1] || '1';
     const b = cm[2] || '1';
@@ -79,7 +79,7 @@ function runAlgebrite(expr: string, op: CasOperation): CasResult {
 }
 
 function runNerdamer(expr: string, op: CasOperation): CasResult {
-  const e = expr;
+  const e = expr.replace(/\*\*/g, '^');
   switch (op) {
     case 'simplify': {
       const s = nerdamer(e).evaluate().toString();
@@ -105,11 +105,9 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
       return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
     }
     case 'solve': {
-      const eq = e.includes('=')
-        ? e.split('=').slice(0, -1).join('=') + '-(' + e.split('=').pop() + ')'
-        : e;
+      // nerdamer.solveEquations natively supports '=' syntax — no manual parsing needed
       try {
-        const sol = nerdamer.solveEquations(eq) as unknown as {
+        const sol = nerdamer.solveEquations(e) as unknown as {
           [key: string]: { toString(): string };
         };
         const lt =
@@ -118,7 +116,6 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
             .map((v) => exprToLatex(v.toString()))
             .join(',\\;') +
           '\\}';
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         return { latex: lt, raw: sol.toString() };
       } catch {
         return { latex: '\\text{(nicht lösbar)}', raw: 'error' };
@@ -218,38 +215,43 @@ export function setupGiacAutoload(): void {
 
 /* ---- Run on Xcas ---- */
 function runXcas(expr: string, op: CasOperation): CasResult {
-  const e = expr;
-  switch (op) {
-    case 'simplify': {
-      const s = caseval!('normal(simplify(' + e + '))').toString();
-      return { latex: exprToLatex(s), raw: s };
+  const e = expr.replace(/\*\*/g, '^');
+  try {
+    switch (op) {
+      case 'simplify': {
+        const s = caseval!('normal(simplify(' + e + '))').toString();
+        return { latex: exprToLatex(s), raw: s };
+      }
+      case 'diff': {
+        const d = caseval!('diff(' + e + ',x)').toString();
+        return {
+          latex: '\\frac{d}{dx}\\left(' + exprToLatex(e) + '\\right)=' + exprToLatex(d),
+          raw: d,
+        };
+      }
+      case 'integrate': {
+        const i = caseval!('integrate(' + e + ',x)').toString();
+        return { latex: '\\int ' + exprToLatex(e) + '\\,dx=' + exprToLatex(i) + '+C', raw: i };
+      }
+      case 'taylor': {
+        const t = caseval!('taylor(' + e + ',x,0,5)').toString();
+        return { latex: 'T_5(x)=' + exprToLatex(t), raw: t };
+      }
+      case 'laplace': {
+        const lp = caseval!('laplace(' + e + ',x,s)').toString();
+        return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
+      }
+      case 'solve': {
+        const sol = caseval!('solve(' + e + ',x)').toString();
+        return { latex: '\\text{solve: }' + exprToLatex(sol), raw: sol };
+      }
+      case 'plot':
+        return { latex: '\\text{Plot: }' + exprToLatex(e), raw: e };
     }
-    case 'diff': {
-      const d = caseval!('diff(' + e + ',x)').toString();
-      return {
-        latex: '\\frac{d}{dx}\\left(' + exprToLatex(e) + '\\right)=' + exprToLatex(d),
-        raw: d,
-      };
-    }
-    case 'integrate': {
-      const i = caseval!('integrate(' + e + ',x)').toString();
-      return { latex: '\\int ' + exprToLatex(e) + '\\,dx=' + exprToLatex(i) + '+C', raw: i };
-    }
-    case 'taylor': {
-      const t = caseval!('taylor(' + e + ',x,0,5)').toString();
-      return { latex: 'T_5(x)=' + exprToLatex(t), raw: t };
-    }
-    case 'laplace': {
-      const lp = caseval!('laplace(' + e + ',x,s)').toString();
-      return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
-    }
-    case 'solve': {
-      const sol = caseval!('solve(' + e + ',x)').toString();
-      return { latex: '\\text{solve: }' + exprToLatex(sol), raw: sol };
-    }
-    case 'plot':
-      return { latex: '\\text{Plot: }' + exprToLatex(e), raw: e };
+  } catch {
+    return { latex: '\\text{(Fehler bei Xcas)}', raw: '' };
   }
+  return { latex: '', raw: '' };
 }
 
 /**
@@ -364,7 +366,7 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
         '*x)'
       );
     case 'heaviside':
-      return F(a, 4) + '*(x>0?1:0)' + (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '');
+      return F(a, 4) + '*(x>=0?1:0)' + (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '');
     case 'square':
       return (
         F(a, 4) +
@@ -381,7 +383,7 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
       const lOff = (p['offset'] as number) || o;
       return (
         F(lA, 4) +
-        '*ln(x' +
+        '*log(x' +
         (lC > 0.011 ? '+' + F(lC, 4) : '') +
         ')' +
         (Math.abs(lOff) > 0.05 ? '+' + F(lOff, 4) : '')

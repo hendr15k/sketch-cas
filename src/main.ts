@@ -248,9 +248,10 @@ function recognize(): void {
       console.log('[SELF-TRAIN] ⏭ Skipped: no template type');
     } else {
       // Deduplication: only save if no existing example of this type has RMSE < 0.05
-      const existingSame = trainData.corrections.filter(
-        (c) => c.matchedType === 'auto_' + matchType,
-      );
+      // Limit to 5 most recent examples for performance
+      const existingSame = trainData.corrections
+        .filter((c) => c.matchedType === 'auto_' + matchType)
+        .slice(-5);
       const isDuplicate =
         existingSame.length > 0 &&
         existingSame.some((c) => {
