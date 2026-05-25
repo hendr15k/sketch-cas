@@ -45,12 +45,12 @@ export function exprToLatex(s: string): string {
 
   return result
     .replace(/\*\*/g, '^')
-    .replace(/sin\(/g, '\\sin(')
-    .replace(/cos\(/g, '\\cos(')
-    .replace(/tan\(/g, '\\tan(')
     .replace(/asin\(/g, '\\arcsin(')
     .replace(/acos\(/g, '\\arccos(')
     .replace(/atan\(/g, '\\arctan(')
+    .replace(/sin\(/g, '\\sin(')
+    .replace(/cos\(/g, '\\cos(')
+    .replace(/tan\(/g, '\\tan(')
     .replace(/sinh\(/g, '\\sinh(')
     .replace(/cosh\(/g, '\\cosh(')
     .replace(/tanh\(/g, '\\tanh(')
@@ -118,7 +118,7 @@ export function buildLatex(
       break;
     case 'dmp': {
       const d = extra?.['d'] ?? 1;
-      result = formatNum(amp) + '\\,e^{-' + formatNum(d, 2) + 't}\\sin(' + arg + ')';
+      result = formatNum(amp) + '\\,e^{-' + formatNum(d, 2) + 'x}\\sin(' + arg + ')';
       break;
     }
     case 'lin':

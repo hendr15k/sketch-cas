@@ -406,7 +406,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
       add(
         (x) => {
           const v = Math.tan(omega * x + bestPhase);
-          return bestAmp * Math.max(-3, Math.min(3, v)) + bestOff;
+          return bestAmp * Math.max(-5, Math.min(5, v)) + bestOff;
         },
         'Tangens',
         buildLatex('tan', omega, bestPhase, bestAmp, bestOff),

@@ -6,8 +6,9 @@
  * Root mean square error between two numeric arrays.
  */
 export function rmse(a: number[], b: number[]): number {
-  let sum = 0;
   const n = Math.min(a.length, b.length);
+  if (n === 0) return 0;
+  let sum = 0;
   for (let i = 0; i < n; i++) {
     const diff = a[i]! - b[i]!;
     sum += diff * diff;
@@ -61,31 +62,31 @@ export function evalTemplate(x: number, candidate: { params: Record<string, unkn
       return r;
     }
     case 'exponential': {
-      const a = (p['fA'] as number) || 1;
-      const c = (p['fC'] as number) || 0;
-      return a * Math.exp(((p['fB'] as number) || 1) * x) + c;
+      const a = (p['fA'] as number) ?? 1;
+      const c = (p['fC'] as number) ?? 0;
+      return a * Math.exp(((p['fB'] as number) ?? 1) * x) + c;
     }
     case 'logarithmic': {
-      const a = (p['fA'] as number) || 1;
-      const c = (p['fC'] as number) || 0.01;
-      const off = (p['offset'] as number) || 0;
+      const a = (p['fA'] as number) ?? 1;
+      const c = (p['fC'] as number) ?? 0.01;
+      const off = (p['offset'] as number) ?? 0;
       return a * Math.log(x + c) + off;
     }
     case 'sqrt': {
-      const a = (p['fA'] as number) || 1;
-      const off = (p['offset'] as number) || 0;
+      const a = (p['fA'] as number) ?? 1;
+      const off = (p['offset'] as number) ?? 0;
       return a * Math.sqrt(x) + off;
     }
     case 'reciprocal': {
-      const a = (p['fA'] as number) || 1;
-      const c = (p['fC'] as number) || 0.01;
-      const off = (p['offset'] as number) || 0;
+      const a = (p['fA'] as number) ?? 1;
+      const c = (p['fC'] as number) ?? 0.01;
+      const off = (p['offset'] as number) ?? 0;
       return a / (x + c) + off;
     }
     case 'tan': {
-      const a = (p['amp'] as number) || 1;
-      const pPhase = (p['phase'] as number) || 0;
-      const off = (p['offset'] as number) || 0;
+      const a = (p['amp'] as number) ?? 1;
+      const pPhase = (p['phase'] as number) ?? 0;
+      const off = (p['offset'] as number) ?? 0;
       const val = Math.tan(omega * x + pPhase);
       return a * Math.max(-5, Math.min(5, val)) + off;
     }

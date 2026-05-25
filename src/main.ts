@@ -447,6 +447,8 @@ function addH(c: TemplateCandidate): void {
 }
 
 function openCorrectionDialog(matchedType: string, currentLabel: string): void {
+  // Prevent dialog stacking
+  document.getElementById('corrDlg')?.remove();
   // Build a correction dialog
   const labels = [
     'sin(x)',
@@ -598,8 +600,8 @@ function makeNumFn(expr: string): (x: number) => number {
     .replace(/\b(sin|cos|tan|abs|sqrt|exp|log|asin|acos|atan|sinh|cosh|tanh)\b/g, 'Math.$1')
     .replace(/\bpi\b/g, 'Math.PI')
     .replace(/\be\b/g, 'Math.E')
-    // Step 2: Convert ^ to Math.pow — avoids unary-minus precedence issues with **
-    .replace(/([a-zA-Z0-9._)]+)\^([a-zA-Z0-9.(]+)/g, 'Math.pow($1,$2)')
+    // Step 2: Convert ^ to Math.pow — handles parenthesized bases like (x+1)^2
+    .replace(/(\([^)]+\)|[a-zA-Z0-9._]+)\^(\([^)]+\)|[a-zA-Z0-9.]+)/g, 'Math.pow($1,$2)')
     // Step 3: Implicit multiplication: 2x -> 2*x, 3Math.sin -> 3*Math.sin
     .replace(/(\d)([a-zA-Z(])/g, '$1*$2')
     .replace(/(\))(\d)/g, '$1*$2')
@@ -1594,6 +1596,8 @@ function setupUIHandlers(): void {
     if (bodeEl) bodeEl.innerHTML = emptyState('📊', 'Bode', 'Periodische Funktion erkennen.');
     practiceActive = false;
     activeTargetId = null;
+    ovlP = null;
+    custP = null;
   });
 
   // Sound and export

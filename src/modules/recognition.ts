@@ -16,10 +16,11 @@ export function normalizeAndResample(strokes: { points: Point[] }[]): Point[] | 
 
   const xs = all.map((p) => p.x);
   const ys = all.map((p) => p.y);
-  const xMin = Math.min(...xs);
-  const xMax = Math.max(...xs);
-  const yMin = Math.min(...ys);
-  const yMax = Math.max(...ys);
+  // Use reduce instead of spread to avoid stack overflow on large arrays
+  const xMin = xs.reduce((a, b) => Math.min(a, b), Infinity);
+  const xMax = xs.reduce((a, b) => Math.max(a, b), -Infinity);
+  const yMin = ys.reduce((a, b) => Math.min(a, b), Infinity);
+  const yMax = ys.reduce((a, b) => Math.max(a, b), -Infinity);
   const xRange = xMax - xMin || 1;
   const yRange = yMax - yMin || 1;
 
@@ -88,7 +89,12 @@ export function getFeatures(pts: Point[]): Features {
     const aNear = Math.abs(a) < nearZeroEps;
     const bNear = Math.abs(b) < nearZeroEps;
     if (signChange || (aNear && !bNear) || (bNear && !aNear)) {
-      crossings.push((i - 1 + (off - ys[i - 1]!) / (ys[i]! - ys[i - 1]!)) / (ys.length - 1));
+      const denom = ys[i]! - ys[i - 1]!;
+      if (Math.abs(denom) > 1e-12) {
+        crossings.push((i - 1 + (off - ys[i - 1]!) / denom) / (ys.length - 1));
+      } else {
+        crossings.push(i / (ys.length - 1));
+      }
     }
   }
 
@@ -127,8 +133,9 @@ export function getFeatures(pts: Point[]): Features {
   // Check for damped oscillation
   let isDamp = false;
   if (pkV.length >= 2) {
-    const pkDec = pkV.every((v, i) => !i || v <= pkV[i - 1]! + 0.01);
-    const vlInc = vlV.every((v, i) => !i || v >= vlV[i - 1]! - 0.01);
+    // Damping: peak amplitudes decreasing, valley amplitudes increasing (relative to offset)
+    const pkDec = pkV.every((v, i) => !i || Math.abs(v - off) <= Math.abs(pkV[i - 1]! - off) + 0.01);
+    const vlInc = vlV.every((v, i) => !i || Math.abs(v - off) >= Math.abs(vlV[i - 1]! - off) - 0.01);
     if (pkDec && vlInc) isDamp = true;
   }
 

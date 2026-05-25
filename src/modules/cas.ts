@@ -343,11 +343,11 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
       );
     case 'exponential':
       return (
-        F(a, 4) +
+        F((p['fA'] as number) ?? 1, 4) +
         '*exp(' +
-        F((p['fB'] as number) || 1, 4) +
+        F((p['fB'] as number) ?? 1, 4) +
         '*x)' +
-        (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '')
+        (Math.abs((p['fC'] as number) ?? 0) > 0.05 ? '+' + F((p['fC'] as number) ?? 0, 4) : '')
       );
     case 'abs_sin':
       return (
