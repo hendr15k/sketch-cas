@@ -116,6 +116,7 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
             .map((v) => exprToLatex(v.toString()))
             .join(',\\;') +
           '\\}';
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         return { latex: lt, raw: sol.toString() };
       } catch {
         return { latex: '\\text{(nicht lösbar)}', raw: 'error' };
