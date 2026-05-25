@@ -109,7 +109,7 @@ function setupPointerEvents(): void {
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'pen' && e.button === 5) return;
     e.preventDefault();
-    canvas.setPointerCapture(e.pointerId);
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* synthetic events may lack active pointerId */ }
     state!.isDrawing = true;
     state!.undoStack.push(JSON.parse(JSON.stringify(state!.strokes)) as Stroke[]);
     state!.redoStack = [];

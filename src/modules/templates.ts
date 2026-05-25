@@ -361,8 +361,8 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     let bestC = 0.01;
     let bestOff = 0;
     let bestErr = Infinity;
-    for (const c of [0.01, 0.05, 0.1, 0.2, 0.5]) {
-      for (const aMul of [-2.0, -1.0, 1.0, 2.0]) {
+    for (const c of [0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.7, 1.0]) {
+      for (const aMul of [-2.0, -1.5, -1.0, -0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]) {
         const testYs = xs.map((x) => aMul / (x + c));
         const testOff = ys.reduce((s, y, i) => s + (y - testYs[i]!), 0) / ys.length;
         const shifted = testYs.map((v) => v + testOff);

@@ -277,8 +277,8 @@ async function isPageAlive() {
     assert.ok(box && box.width > 100 && box.height > 100);
   });
 
-  await test('AUTO_SAVE_THRESHOLD = 0.7', async () => {
-    assert.equal(await page.evaluate(SK + '.AUTO_SAVE_THRESHOLD'), 0.7);
+  await test('AUTO_SAVE_THRESHOLD = 0.5', async () => {
+    assert.equal(await page.evaluate(SK + '.AUTO_SAVE_THRESHOLD'), 0.5);
   });
 
   await test('DISCARD_THRESHOLD = 0.05', async () => {
@@ -501,7 +501,7 @@ async function isPageAlive() {
   });
 
   await test('Thresholds accessible', async () => {
-    assert.equal(await page.evaluate(SK + '.AUTO_SAVE_THRESHOLD'), 0.7);
+    assert.equal(await page.evaluate(SK + '.AUTO_SAVE_THRESHOLD'), 0.5);
     assert.equal(await page.evaluate(SK + '.DISCARD_THRESHOLD'), 0.05);
   });
 

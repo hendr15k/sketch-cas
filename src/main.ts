@@ -72,7 +72,7 @@ function scheduleR(): void {
 }
 
 // ---- Self-Training Thresholds ----
-const AUTO_SAVE_THRESHOLD = 0.7; // Save automatically if confidence >= 70%
+const AUTO_SAVE_THRESHOLD = 0.5; // Save automatically if confidence >= 50%
 const DISCARD_THRESHOLD = 0.05; // Show warning if best probability < 5% (truly uniform)
 // Note: With 13 candidates, uniform softmax ≈ 7.7% each. T=0.01 gives clear winners
 // ~90% for 10x error ratio, ~65% for 2x, ~52% for 1.1x. Only truly ambiguous
@@ -252,10 +252,10 @@ function recognize(): void {
       console.log('[SELF-TRAIN] ⏭ Skipped: no template type');
     } else {
       // Deduplication: only save if no existing example of this type has RMSE < 0.05
-      // Limit to 5 most recent examples for performance
+      // Limit to 15 most recent examples for better training diversity
       const existingSame = trainData.corrections
         .filter((c) => c.matchedType === 'auto_' + matchType)
-        .slice(-5);
+        .slice(-15);
       const isDuplicate =
         existingSame.length > 0 &&
         existingSame.some((c) => {
@@ -274,6 +274,21 @@ function recognize(): void {
           normalizedPoints: pts,
           matchedType: 'auto_' + matchType,
         });
+        // Variety bonus: generate 2-3 perturbed versions for training diversity
+        const perturbCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
+        for (let pi = 0; pi < perturbCount; pi++) {
+          const perturbed = pts.map((p) => ({
+            x: Math.max(0, Math.min(1, p.x + (Math.random() - 0.5) * 0.03)),
+            y: Math.max(-1, Math.min(1, p.y + (Math.random() - 0.5) * 0.04)),
+          }));
+          trainData.corrections.push({
+            id: genId(),
+            timestamp: Date.now(),
+            label: autoLabel,
+            normalizedPoints: perturbed,
+            matchedType: 'auto_' + matchType,
+          });
+        }
         saveTrainData();
         autoSaved = true;
         console.log(
@@ -536,7 +551,6 @@ function saveCorrection(label: string, matchedType: string): void {
     toast('Keine Zeichnung vorhanden!');
     return;
   }
-
   trainData.corrections.push({
     id: genId(),
     timestamp: Date.now(),
@@ -544,6 +558,20 @@ function saveCorrection(label: string, matchedType: string): void {
     normalizedPoints: pts,
     matchedType,
   });
+  // Also save 2 perturbed versions for training diversity
+  for (let pi = 0; pi < 2; pi++) {
+    const perturbed = pts.map((p) => ({
+      x: Math.max(0, Math.min(1, p.x + (Math.random() - 0.5) * 0.03)),
+      y: Math.max(-1, Math.min(1, p.y + (Math.random() - 0.5) * 0.04)),
+    }));
+    trainData.corrections.push({
+      id: genId(),
+      timestamp: Date.now(),
+      label,
+      normalizedPoints: perturbed,
+      matchedType,
+    });
+  }
   saveTrainData();
   toast('✅ Korrektur gespeichert: ' + label);
 }
@@ -804,6 +832,52 @@ function loadSeedData(): void {
       matchedType: ex.matchedType,
     });
   }
+
+  // Auto-generate synthetic training data for each template type
+  // by evaluating template functions at random parameters
+  const N = 400;
+  const synthDefs: { label: string; type: string; fn: (x: number) => number }[] = [
+    { label: 'Sinus', type: 'auto_sin', fn: (x) => Math.sin(2 * Math.PI * x * (0.8 + Math.random() * 0.4) + Math.random() * Math.PI) },
+    { label: 'Cosinus', type: 'auto_cos', fn: (x) => Math.cos(2 * Math.PI * x * (0.8 + Math.random() * 0.4) + Math.random() * Math.PI) },
+    { label: 'Linear', type: 'auto_linear', fn: (x) => (Math.random() * 4 - 2) * x + (Math.random() * 2 - 1) },
+    { label: 'x²', type: 'auto_poly2', fn: (x) => { const a = Math.random() * 4 + 1; const c = Math.random() * 2 - 1; return a * (x - 0.5) * (x - 0.5) + c; } },
+    { label: 'x³', type: 'auto_poly3', fn: (x) => { const a = Math.random() * 8 + 4; return a * (x - 0.5) * (x - 0.5) * (x - 0.5); } },
+    { label: 'eˣ', type: 'auto_exponential', fn: (x) => Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2)) },
+    { label: '|Sinus|', type: 'auto_abs_sin', fn: (x) => Math.abs(Math.sin(2 * Math.PI * x * (0.8 + Math.random() * 0.4))) },
+    { label: 'Gedaempft', type: 'auto_damped', fn: (x) => Math.exp(-3 * x) * Math.sin(4 * Math.PI * x + Math.random() * 0.5) },
+    { label: 'ln(x)', type: 'auto_logarithmic', fn: (x) => { const v = Math.log((x - 0.5) * 6 + 3); return isFinite(v) ? Math.max(-1, Math.min(1, v / 3)) : 0; } },
+    { label: '√x', type: 'auto_sqrt', fn: (x) => { const v = Math.sqrt(x); return isFinite(v) ? Math.max(-1, Math.min(1, v * 2 - 1)) : 0; } },
+    { label: '1/x', type: 'auto_reciprocal', fn: (x) => { const v = (x - 0.5) * 6; return v !== 0 ? Math.max(-1, Math.min(1, 1 / v)) : 0; } },
+    { label: 'Tan', type: 'auto_tan', fn: (x) => { const v = Math.tan(Math.PI * (x - 0.5)); return isFinite(v) ? Math.max(-1, Math.min(1, v / 5)) : 0; } },
+  ];
+
+  for (const def of synthDefs) {
+    // Generate 3 variants per type with random parameter variations
+    for (let v = 0; v < 3; v++) {
+      const raw: { x: number; y: number }[] = [];
+      for (let i = 0; i < N; i++) {
+        const t = i / (N - 1);
+        raw.push({ x: t, y: def.fn(t) });
+      }
+      // Normalize y to [-1, 1]
+      const ys = raw.map((p) => p.y);
+      const yMin = Math.min(...ys);
+      const yMax = Math.max(...ys);
+      const yRange = yMax - yMin || 1;
+      const normalized = raw.map((p) => ({
+        x: p.x,
+        y: -(((p.y - yMin) / yRange) * 2 - 1),
+      }));
+      trainData.corrections.push({
+        id: 'seed_synth_' + def.type + '_' + v,
+        timestamp: Date.now() - 86400000,
+        label: def.label,
+        normalizedPoints: normalized,
+        matchedType: def.type,
+      });
+    }
+  }
+
   saveTrainData();
 }
 
@@ -1093,6 +1167,8 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
       h +=
         '<div style="text-align:center;padding:12px;color:#484f58;font-size:11px">Keine Ziele vorhanden. Erst welche aufzeichnen!</div>';
     } else {
+      // Smart Practice button: auto-pick weakest target
+      h += `<div style="margin-bottom:8px;text-align:center"><button class="b" id="btnSmartPractice" style="background:#8957e5;color:#fff;border:none;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px">🎯 Smart Üben (Schwächstes Ziel)</button></div>`;
       h += '<div style="max-height:400px;overflow-y:auto">';
       trainData.targets.forEach((t) => {
         const atts = trainData.attempts.filter((a) => a.targetId === t.id);
@@ -1119,6 +1195,24 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
       { type: 'tan', label: 'tan(x)', latex: 'tan(x)' },
       { type: 'ln', label: 'ln(x)', latex: 'ln(x)' },
       { type: 'inv_x', label: '1/x', latex: '1/x' },
+      { type: 'sqrt', label: '√x', latex: 'sqrt(x)' },
+      { type: 'abs', label: '|x|', latex: 'abs(x)' },
+      { type: 'poly4', label: 'x⁴', latex: 'x^4' },
+      { type: 'cosh', label: 'cosh(x)', latex: 'cosh(x)' },
+      { type: 'sinh', label: 'sinh(x)', latex: 'sinh(x)' },
+      { type: 'atan', label: 'atan(x)', latex: 'atan(x)' },
+      { type: 'sawtooth', label: 'Sägezahn', latex: 'sawtooth(x)' },
+      { type: 'triangle', label: 'Dreieck', latex: 'triangle(x)' },
+      { type: 'gaussian', label: 'Gauss', latex: 'exp(-x^2)' },
+      { type: 'lorentzian', label: 'Lorentz', latex: '1/(1+x^2)' },
+      { type: 'sin2x', label: 'sin(2x)', latex: 'sin(2*x)' },
+      { type: 'cos3x', label: 'cos(3x)', latex: 'cos(3*x)' },
+      { type: 'exp_neg_x2', label: 'e^(-x²)', latex: 'exp(-x^2)' },
+      { type: 'sin_x', label: 'sin(x)·x', latex: 'sin(x)*x' },
+      { type: 'abs_x', label: '|x|·sign', latex: 'abs(x)*sign(x)' },
+      { type: 'poly5', label: 'x⁵', latex: 'x^5' },
+      { type: 'cosh_decay', label: 'cosh·decay', latex: 'exp(-x)*cosh(x)' },
+      { type: 'sin_abs', label: 'sin(|x|)', latex: 'sin(abs(x))' },
     ];
 
     const tracingActive = !!getState().traceTarget;
@@ -1292,6 +1386,29 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
     }
   });
 
+  // Smart Practice: auto-pick weakest target (lowest average score)
+  document.getElementById('btnSmartPractice')?.addEventListener('click', () => {
+    if (trainData.targets.length === 0) {
+      toast('Keine Ziele vorhanden!');
+      return;
+    }
+    let weakestId = trainData.targets[0]!.id;
+    let weakestScore = Infinity;
+    for (const t of trainData.targets) {
+      const atts = trainData.attempts.filter((a) => a.targetId === t.id);
+      const avgScore = atts.length > 0
+        ? atts.reduce((s, a) => s + a.score, 0) / atts.length
+        : 0;
+      if (avgScore < weakestScore) {
+        weakestScore = avgScore;
+        weakestId = t.id;
+      }
+    }
+    const weakestTarget = trainData.targets.find((t) => t.id === weakestId);
+    toast('🎯 Smart Üben: ' + (weakestTarget?.label || weakestId));
+    startPractice(weakestId);
+  });
+
   // Trace mode handlers
   el.querySelectorAll<HTMLElement>('.btn-trace-fn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -1409,6 +1526,73 @@ function startTracing(type: string, label: string, _latex: string): void {
           y = Math.max(-1, Math.min(1, y));
           break;
         }
+        case 'sqrt': {
+          const sv = Math.sqrt((x - 0.5) * 6 + 3);
+          y = isFinite(sv) ? Math.max(-1, Math.min(1, (sv - 2) / 2)) : 0;
+          break;
+        }
+        case 'abs':
+          y = Math.abs(2 * x - 1) * 2 - 1;
+          break;
+        case 'poly4':
+          y = Math.pow(x - 0.5, 4) * 32 - 1;
+          break;
+        case 'cosh': {
+          const cv = Math.cosh(2 * (x - 0.5));
+          y = (cv - 1) / (Math.cosh(1) - 1);
+          y = Math.max(-1, Math.min(1, y));
+          break;
+        }
+        case 'sinh': {
+          const shv = Math.sinh(2 * (x - 0.5));
+          y = shv / Math.sinh(1);
+          y = Math.max(-1, Math.min(1, y));
+          break;
+        }
+        case 'atan': {
+          const av = Math.atan(6 * (x - 0.5));
+          y = av / (Math.PI / 2);
+          break;
+        }
+        case 'sawtooth':
+          y = 2 * (x - Math.floor(x + 0.5));
+          break;
+        case 'triangle':
+          y = 2 * Math.abs(2 * (x - Math.floor(x + 0.5))) - 1;
+          break;
+        case 'gaussian':
+          y = Math.exp(-Math.pow((x - 0.5) * 6, 2) / 2) * 2 - 1;
+          break;
+        case 'lorentzian':
+          y = 1 / (1 + Math.pow((x - 0.5) * 6, 2)) * 2 - 1;
+          break;
+        case 'sin2x':
+          y = Math.sin(4 * Math.PI * x);
+          break;
+        case 'cos3x':
+          y = Math.cos(6 * Math.PI * x);
+          break;
+        case 'exp_neg_x2':
+          y = Math.exp(-Math.pow((x - 0.5) * 6, 2)) * 2 - 1;
+          break;
+        case 'sin_x':
+          y = Math.sin(2 * Math.PI * x) * (2 * x - 1);
+          break;
+        case 'abs_x':
+          y = Math.abs(2 * x - 1) * Math.sign(x - 0.5);
+          break;
+        case 'poly5':
+          y = Math.pow(x - 0.5, 5) * 64;
+          y = Math.max(-1, Math.min(1, y));
+          break;
+        case 'cosh_decay': {
+          const cdv = Math.exp(-3 * x) * Math.cosh(2 * (x - 0.5));
+          y = Math.max(-1, Math.min(1, cdv));
+          break;
+        }
+        case 'sin_abs':
+          y = Math.sin(2 * Math.PI * Math.abs(x - 0.5) * 2);
+          break;
         default:
           y = Math.sin(2 * Math.PI * x);
       }
@@ -1691,55 +1875,6 @@ g['cpT'] = copyToClipboard;
 g['_casTab'] = () => {
   document.querySelectorAll<HTMLElement>('.tab')[1]?.click();
 };
-g['__sk'] = {
-  get best() {
-    return best;
-  },
-  get ovlP() {
-    return ovlP;
-  },
-  get custP() {
-    return custP;
-  },
-  get selectedEngine() {
-    return selectedEngine;
-  },
-  get trainData() {
-    return trainData;
-  },
-  get practiceActive() {
-    return practiceActive;
-  },
-  get showOvl() {
-    try {
-      return getState().showOverlay;
-    } catch {
-      return true;
-    }
-  },
-  get showGrid() {
-    try {
-      return getState().showGrid;
-    } catch {
-      return true;
-    }
-  },
-  get selEng() {
-    return selectedEngine;
-  },
-  normPts,
-  getAllPoints,
-  saveTrainData,
-  loadTrainData,
-  saveTrainingTarget,
-  deleteTarget,
-  startPractice,
-  endPractice,
-  trainMode,
-  exportTrainingData,
-  genId,
-  evalTemplate,
-};
 
 // ---- Test API (for Playwright) ----
 declare global {
@@ -1760,16 +1895,30 @@ declare global {
       loadTrainData: () => void;
       saveTrainData: () => void;
       exportTrainingData: () => void;
+      saveTrainingTarget: () => void;
+      deleteTarget: (id: string) => void;
+      startPractice: (id: string) => void;
+      endPractice: () => void;
+      trainMode: (mode: 'record' | 'practice' | 'trace' | 'stats') => void;
       // CAS
       runCas: typeof runCas;
       getSymExpr: typeof getSymExpr;
+      evalTemplate: typeof evalTemplate;
       // UI
       updateScore: (...args: Parameters<typeof updateScore>) => void;
       toast: (...args: Parameters<typeof toast>) => void;
+      // Helpers
+      normPts: typeof normPts;
+      genId: () => string;
       // Internal state (live via getters)
       best: typeof best;
       ovlP: typeof ovlP;
       custP: typeof custP;
+      selectedEngine: string;
+      selEng: string;
+      practiceActive: boolean;
+      showOvl: boolean;
+      showGrid: boolean;
       AUTO_SAVE_THRESHOLD: number;
       DISCARD_THRESHOLD: number;
     };
@@ -1782,14 +1931,16 @@ function exposeTestAPI(): void {
     // @ts-expect-error — intentionally augment Window at runtime
     window.__sk = {
       getState,
-      clearAll,
+      clearAll: () => {
+        clearAll();
+        best = null; // also reset main.ts best
+      },
       undo,
       redo,
       toggleGrid,
       toggleOverlay,
       recognize,
       getAllPoints,
-      trainData,
       loadTrainData,
       saveTrainData,
       exportTrainingData,
@@ -1797,6 +1948,14 @@ function exposeTestAPI(): void {
       getSymExpr,
       updateScore,
       toast,
+      normPts,
+      saveTrainingTarget,
+      deleteTarget,
+      startPractice,
+      endPractice,
+      trainMode,
+      genId,
+      evalTemplate,
       AUTO_SAVE_THRESHOLD,
       DISCARD_THRESHOLD,
     };
@@ -1822,6 +1981,44 @@ function exposeTestAPI(): void {
     Object.defineProperty(window.__sk, 'trainData', {
       get() {
         return trainData;
+      },
+      enumerable: true,
+    });
+    Object.defineProperty(window.__sk, 'selectedEngine', {
+      get() {
+        return selectedEngine;
+      },
+      enumerable: true,
+    });
+    Object.defineProperty(window.__sk, 'selEng', {
+      get() {
+        return selectedEngine;
+      },
+      enumerable: true,
+    });
+    Object.defineProperty(window.__sk, 'practiceActive', {
+      get() {
+        return practiceActive;
+      },
+      enumerable: true,
+    });
+    Object.defineProperty(window.__sk, 'showOvl', {
+      get() {
+        try {
+          return getState().showOverlay;
+        } catch {
+          return true;
+        }
+      },
+      enumerable: true,
+    });
+    Object.defineProperty(window.__sk, 'showGrid', {
+      get() {
+        try {
+          return getState().showGrid;
+        } catch {
+          return true;
+        }
       },
       enumerable: true,
     });
