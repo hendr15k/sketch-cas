@@ -48,6 +48,8 @@ export interface Features {
   vlV: number[];
   isDamp: boolean;
   curvatureVar: number; // variance of 2nd derivative: low=parabola, high=sin
+  sqrtLike: boolean; // true if curve is monotonically increasing + concave down (sqrt shape)
+  concaveDown: boolean; // true if 2nd derivative is consistently negative (sqrt, ln, exp decay)
 }
 
 export interface TemplateCandidate {

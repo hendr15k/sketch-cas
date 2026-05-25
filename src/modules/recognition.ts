@@ -145,6 +145,8 @@ export function getFeatures(pts: Point[]): Features {
 
   // Curvature variance: low = parabola (constant 2nd deriv), high = sinusoidal (oscillating 2nd deriv)
   let curvatureVar = 0;
+  let concaveDown = false;
+  let sqrtLike = false;
   if (ys.length > 4) {
     const d2: number[] = [];
     for (let i = 2; i < ys.length - 2; i++) {
@@ -153,6 +155,32 @@ export function getFeatures(pts: Point[]): Features {
     if (d2.length > 2) {
       const mean = d2.reduce((a, b) => a + b, 0) / d2.length;
       curvatureVar = d2.reduce((a, b) => a + (b - mean) * (b - mean), 0) / d2.length;
+      // concaveDown: >90% of 2nd derivatives are negative (curving downward)
+      const negCount = d2.filter((d) => d < 0).length;
+      concaveDown = negCount / d2.length > 0.9;
+    }
+
+    // sqrtLike: monotonically increasing + concave down + meaningful y-range
+    // Distinguish from ln: sqrt has y(0.5) < 0.45 (normalized), ln has y(0.5) > 0.45
+    // because ln's curvature is more concentrated near x=0
+    const totalExtrema = pk + vl;
+    if (totalExtrema === 0) {
+      // Check monotonic increasing: all forward differences positive
+      let allIncreasing = true;
+      for (let i = 1; i < ys.length; i++) {
+        if (ys[i]! <= ys[i - 1]!) {
+          allIncreasing = false;
+          break;
+        }
+      }
+      // y-range must be large enough to not be confused with a line
+      const yRange = yMax - yMin;
+      // Check curvature ratio: sqrt has moderate ratio (~5), ln has high ratio (~9)
+      // Use y-value at midpoint as proxy: sqrt(0.5)≈0.41, ln(0.5)≈0.50 (in [-1,1] norm)
+      // midNorm = (midY - yMin) / yRange → sqrt ≈ 0.71, ln ≈ 0.75
+      const midY = ys[Math.floor(ys.length / 2)]!;
+      const midNorm = (midY - yMin) / (yRange || 1); // 0..1 scale
+      sqrtLike = allIncreasing && concaveDown && yRange > 0.3 && amp > 0.15 && midNorm < 0.73;
     }
   }
 
@@ -168,6 +196,8 @@ export function getFeatures(pts: Point[]): Features {
     vlV,
     isDamp,
     curvatureVar,
+    sqrtLike,
+    concaveDown,
   };
 }
 

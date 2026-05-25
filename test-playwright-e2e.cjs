@@ -281,8 +281,8 @@ async function isPageAlive() {
     assert.equal(await page.evaluate(SK + '.AUTO_SAVE_THRESHOLD'), 0.7);
   });
 
-  await test('DISCARD_THRESHOLD = 0.3', async () => {
-    assert.equal(await page.evaluate(SK + '.DISCARD_THRESHOLD'), 0.3);
+  await test('DISCARD_THRESHOLD = 0.05', async () => {
+    assert.equal(await page.evaluate(SK + '.DISCARD_THRESHOLD'), 0.05);
   });
 
   await test('Initial state: empty', async () => {
@@ -502,7 +502,7 @@ async function isPageAlive() {
 
   await test('Thresholds accessible', async () => {
     assert.equal(await page.evaluate(SK + '.AUTO_SAVE_THRESHOLD'), 0.7);
-    assert.equal(await page.evaluate(SK + '.DISCARD_THRESHOLD'), 0.3);
+    assert.equal(await page.evaluate(SK + '.DISCARD_THRESHOLD'), 0.05);
   });
 
   // ════════════════════════════════════════════════════════════════════════════

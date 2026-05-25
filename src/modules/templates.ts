@@ -41,10 +41,10 @@ function featureFactor(type: string, f: Features): number {
       if (f.isPer) return 0.65; // strong bonus: clear periodic
       if (totalExtrema >= 3) return 0.8; // many oscillations → sin likely
       if (totalExtrema === 2 && f.crossings >= 3) return 0.85;
-      if (totalExtrema <= 1 && lowCurv) return 4.0; // parabola-like → definitely NOT sin
-      if (totalExtrema <= 1) return 2.5; // no oscillation → unlikely sin
-      if (totalExtrema === 1 && highCurv) return 1.2; // single peak with curvature → maybe
-      return 1.5;
+      if (totalExtrema === 1 && highCurv) return 1.0; // single peak with curvature → likely partial sin
+      if (totalExtrema <= 1 && lowCurv) return 3.0; // parabola-like → probably NOT sin
+      if (totalExtrema <= 1) return 1.8; // no oscillation → maybe partial sin
+      return 1.3;
 
     case 'abs_sin':
       if (f.isPer && totalExtrema >= 2) return 0.75;
@@ -67,12 +67,17 @@ function featureFactor(type: string, f: Features): number {
       return 1.8;
 
     case 'poly3':
+      if (f.sqrtLike) return 2.5; // sqrt-like shape → poly3 overfits; penalize
+      if (totalExtrema === 0 && f.concaveDown) return 2.0; // monotonic concave-down → poly3 overfits
       if (totalExtrema === 2) return 0.8;
       if (totalExtrema === 1 && highCurv) return 0.9; // single extremum with inflection
       return 1.5;
 
     case 'poly4':
       if (totalExtrema >= 2) return 0.9;
+      if (f.sqrtLike) return 3.0; // sqrt-like shape → poly4 overfits; penalize heavily
+      if (totalExtrema === 0 && f.concaveDown) return 2.5; // monotonic concave-down → poly4 overfits (ln, sqrt territory)
+      if (totalExtrema === 1) return 1.2;
       return 1.5;
 
     case 'exponential':
@@ -94,6 +99,7 @@ function featureFactor(type: string, f: Features): number {
 
     case 'sqrt':
       // sqrt(x) is monotonically increasing, concave down, 0 extrema
+      if (f.sqrtLike) return 0.5; // strong boost when sqrt-like curvature detected
       if (totalExtrema === 0 && f.curvatureVar > 0.00001) return 0.7;
       if (totalExtrema === 0) return 0.85;
       if (totalExtrema === 1) return 1.3;
@@ -157,9 +163,9 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     let bestErr = Infinity;
 
     for (let p = 0; p < Math.PI * 2; p += 0.05) {
-      for (const aMul of [0.8, 1.0, 1.2]) {
+      for (const aMul of [0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.5, 2.0, 3.0]) {
         const testAmp = f.amp * aMul;
-        for (const oDelta of [-0.2, 0, 0.2]) {
+        for (const oDelta of [-0.5, -0.2, -0.1, 0, 0.1, 0.2, 0.5]) {
           const testOff = f.off + oDelta;
           const test = xs.map((x) => testAmp * Math.sin(omega * x + p) + testOff);
           const err = rmse(ys, test);
@@ -289,7 +295,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     let bestOff = 0;
     let bestErr = Infinity;
     for (const c of [0.01, 0.05, 0.1, 0.2, 0.5]) {
-      for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
+      for (const aMul of [0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.5, 2.0]) {
         const testYs = xs.map((x) => aMul * Math.log(x + c));
         const testOff = ys.reduce((s, y, i) => s + (y - testYs[i]!), 0) / ys.length;
         const shifted = testYs.map((v) => v + testOff);

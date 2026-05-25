@@ -31,7 +31,7 @@ import {
 } from './modules/cas';
 import { drawBode } from './modules/bode';
 import { getSeedExamples } from './modules/seed-training';
-import type { TemplateCandidate, CasOperation } from './types';
+import type { TemplateCandidate, CasOperation, CasResponse } from './types';
 
 // ---- App State (mirrors what was in the inline script) ----
 let best: TemplateCandidate | null = null;
@@ -73,9 +73,10 @@ function scheduleR(): void {
 
 // ---- Self-Training Thresholds ----
 const AUTO_SAVE_THRESHOLD = 0.7; // Save automatically if confidence >= 70%
-const DISCARD_THRESHOLD = 0.15; // Show warning if best probability < 15%
-// Note: With 13 candidates, uniform softmax ≈ 7.7%. Temperature 0.5 gives
-// perfect fit ~85%, good fit ~53%, ambiguous ~20%. Threshold 0.15 catches only
+const DISCARD_THRESHOLD = 0.05; // Show warning if best probability < 5% (truly uniform)
+// Note: With 13 candidates, uniform softmax ≈ 7.7% each. T=0.01 gives clear winners
+// ~90% for 10x error ratio, ~65% for 2x, ~52% for 1.1x. Only truly ambiguous
+// distributions (errors within ~5% of each other) fall below 5%.
 // near-uniform distributions (errors within ~0.1 of each other).
 
 /**
@@ -83,8 +84,7 @@ const DISCARD_THRESHOLD = 0.15; // Show warning if best probability < 15%
  * Lower error → higher probability.
  */
 function errorsToProbs(cands: TemplateCandidate[]): number[] {
-  const temps = 0.5; // temperature — 0.15 was too sharp for 13 candidates; 0.5 spreads
-  // the distribution so perfect fits get ~85%, good fits ~53%, ambiguous ~20%.
+  const temps = 0.01; // temperature — T=0.01 gives sharp discrimination: 10x error ratio → ~90%, 2x → ~65%
   const minErr = Math.min(...cands.map((c) => c.err));
   // Shift so minimum error maps to 0
   const shifted = cands.map((c) => Math.max(0, c.err - minErr));
@@ -419,7 +419,13 @@ function renderCAS(c: TemplateCandidate): void {
   };
 
   ops.forEach((op) => {
-    const results = runCas(symExpr, op, 'all');
+    let results: CasResponse[] = [];
+    try {
+      results = runCas(symExpr, op, 'all');
+    } catch (e) {
+      // Nerdamer Solve.js can throw uncaught errors — ignore gracefully
+      console.log('[CAS] ' + op + ' failed:', String((e as Error).message));
+    }
     if (results.length === 0) return;
 
     h += `<div style="margin-top:8px"><div style="font-size:10px;font-weight:600;color:#c9d1d9;margin-bottom:4px">${opLabels[op]}</div>`;
