@@ -15,6 +15,9 @@ import {
   toggleOverlay,
   getAllPoints,
   redraw,
+  zoomIn,
+  zoomOut,
+  resetView,
 } from './modules/canvas';
 import { normalizeAndResample, getFeatures, matchTrainingExamples } from './modules/recognition';
 import { generateTemplates } from './modules/templates';
@@ -1863,6 +1866,11 @@ function setupUIHandlers(): void {
   document.getElementById('bSound')?.addEventListener('click', playAudio);
   document.getElementById('bExport')?.addEventListener('click', exportPNG);
 
+  // Zoom controls
+  document.getElementById('bZoomIn')?.addEventListener('click', zoomIn);
+  document.getElementById('bZoomOut')?.addEventListener('click', zoomOut);
+  document.getElementById('bResetView')?.addEventListener('click', resetView);
+
   // Tabs
   let trainInitialized = false;
   document.querySelectorAll<HTMLElement>('.tab').forEach((t) => {
@@ -1984,6 +1992,10 @@ declare global {
       practiceActive: boolean;
       showOvl: boolean;
       showGrid: boolean;
+      zoom: number;
+      zoomIn: () => void;
+      zoomOut: () => void;
+      resetView: () => void;
       AUTO_SAVE_THRESHOLD: number;
       DISCARD_THRESHOLD: number;
     };
@@ -2087,6 +2099,19 @@ function exposeTestAPI(): void {
       },
       enumerable: true,
     });
+    Object.defineProperty(window.__sk, 'zoom', {
+      get() {
+        try {
+          return getState().zoom;
+        } catch {
+          return 1;
+        }
+      },
+      enumerable: true,
+    });
+    window.__sk!.zoomIn = zoomIn;
+    window.__sk!.zoomOut = zoomOut;
+    window.__sk!.resetView = resetView;
     console.log('[TEST] window.__sk exposed');
   }
 }
