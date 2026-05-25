@@ -837,18 +837,85 @@ function loadSeedData(): void {
   // by evaluating template functions at random parameters
   const N = 400;
   const synthDefs: { label: string; type: string; fn: (x: number) => number }[] = [
-    { label: 'Sinus', type: 'auto_sin', fn: (x) => Math.sin(2 * Math.PI * x * (0.8 + Math.random() * 0.4) + Math.random() * Math.PI) },
-    { label: 'Cosinus', type: 'auto_cos', fn: (x) => Math.cos(2 * Math.PI * x * (0.8 + Math.random() * 0.4) + Math.random() * Math.PI) },
-    { label: 'Linear', type: 'auto_linear', fn: (x) => (Math.random() * 4 - 2) * x + (Math.random() * 2 - 1) },
-    { label: 'x²', type: 'auto_poly2', fn: (x) => { const a = Math.random() * 4 + 1; const c = Math.random() * 2 - 1; return a * (x - 0.5) * (x - 0.5) + c; } },
-    { label: 'x³', type: 'auto_poly3', fn: (x) => { const a = Math.random() * 8 + 4; return a * (x - 0.5) * (x - 0.5) * (x - 0.5); } },
-    { label: 'eˣ', type: 'auto_exponential', fn: (x) => Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2)) },
-    { label: '|Sinus|', type: 'auto_abs_sin', fn: (x) => Math.abs(Math.sin(2 * Math.PI * x * (0.8 + Math.random() * 0.4))) },
-    { label: 'Gedaempft', type: 'auto_damped', fn: (x) => Math.exp(-3 * x) * Math.sin(4 * Math.PI * x + Math.random() * 0.5) },
-    { label: 'ln(x)', type: 'auto_logarithmic', fn: (x) => { const v = Math.log((x - 0.5) * 6 + 3); return isFinite(v) ? Math.max(-1, Math.min(1, v / 3)) : 0; } },
-    { label: '√x', type: 'auto_sqrt', fn: (x) => { const v = Math.sqrt(x); return isFinite(v) ? Math.max(-1, Math.min(1, v * 2 - 1)) : 0; } },
-    { label: '1/x', type: 'auto_reciprocal', fn: (x) => { const v = (x - 0.5) * 6; return v !== 0 ? Math.max(-1, Math.min(1, 1 / v)) : 0; } },
-    { label: 'Tan', type: 'auto_tan', fn: (x) => { const v = Math.tan(Math.PI * (x - 0.5)); return isFinite(v) ? Math.max(-1, Math.min(1, v / 5)) : 0; } },
+    {
+      label: 'Sinus',
+      type: 'auto_sin',
+      fn: (x) => Math.sin(2 * Math.PI * x * (0.8 + Math.random() * 0.4) + Math.random() * Math.PI),
+    },
+    {
+      label: 'Cosinus',
+      type: 'auto_cos',
+      fn: (x) => Math.cos(2 * Math.PI * x * (0.8 + Math.random() * 0.4) + Math.random() * Math.PI),
+    },
+    {
+      label: 'Linear',
+      type: 'auto_linear',
+      fn: (x) => (Math.random() * 4 - 2) * x + (Math.random() * 2 - 1),
+    },
+    {
+      label: 'x²',
+      type: 'auto_poly2',
+      fn: (x) => {
+        const a = Math.random() * 4 + 1;
+        const c = Math.random() * 2 - 1;
+        return a * (x - 0.5) * (x - 0.5) + c;
+      },
+    },
+    {
+      label: 'x³',
+      type: 'auto_poly3',
+      fn: (x) => {
+        const a = Math.random() * 8 + 4;
+        return a * (x - 0.5) * (x - 0.5) * (x - 0.5);
+      },
+    },
+    {
+      label: 'eˣ',
+      type: 'auto_exponential',
+      fn: (x) => Math.exp(-2 + 4 * x) / (Math.exp(2) + Math.exp(-2)),
+    },
+    {
+      label: '|Sinus|',
+      type: 'auto_abs_sin',
+      fn: (x) => Math.abs(Math.sin(2 * Math.PI * x * (0.8 + Math.random() * 0.4))),
+    },
+    {
+      label: 'Gedaempft',
+      type: 'auto_damped',
+      fn: (x) => Math.exp(-3 * x) * Math.sin(4 * Math.PI * x + Math.random() * 0.5),
+    },
+    {
+      label: 'ln(x)',
+      type: 'auto_logarithmic',
+      fn: (x) => {
+        const v = Math.log((x - 0.5) * 6 + 3);
+        return isFinite(v) ? Math.max(-1, Math.min(1, v / 3)) : 0;
+      },
+    },
+    {
+      label: '√x',
+      type: 'auto_sqrt',
+      fn: (x) => {
+        const v = Math.sqrt(x);
+        return isFinite(v) ? Math.max(-1, Math.min(1, v * 2 - 1)) : 0;
+      },
+    },
+    {
+      label: '1/x',
+      type: 'auto_reciprocal',
+      fn: (x) => {
+        const v = (x - 0.5) * 6;
+        return v !== 0 ? Math.max(-1, Math.min(1, 1 / v)) : 0;
+      },
+    },
+    {
+      label: 'Tan',
+      type: 'auto_tan',
+      fn: (x) => {
+        const v = Math.tan(Math.PI * (x - 0.5));
+        return isFinite(v) ? Math.max(-1, Math.min(1, v / 5)) : 0;
+      },
+    },
   ];
 
   for (const def of synthDefs) {
@@ -1396,9 +1463,7 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
     let weakestScore = Infinity;
     for (const t of trainData.targets) {
       const atts = trainData.attempts.filter((a) => a.targetId === t.id);
-      const avgScore = atts.length > 0
-        ? atts.reduce((s, a) => s + a.score, 0) / atts.length
-        : 0;
+      const avgScore = atts.length > 0 ? atts.reduce((s, a) => s + a.score, 0) / atts.length : 0;
       if (avgScore < weakestScore) {
         weakestScore = avgScore;
         weakestId = t.id;
@@ -1564,7 +1629,7 @@ function startTracing(type: string, label: string, _latex: string): void {
           y = Math.exp(-Math.pow((x - 0.5) * 6, 2) / 2) * 2 - 1;
           break;
         case 'lorentzian':
-          y = 1 / (1 + Math.pow((x - 0.5) * 6, 2)) * 2 - 1;
+          y = (1 / (1 + Math.pow((x - 0.5) * 6, 2))) * 2 - 1;
           break;
         case 'sin2x':
           y = Math.sin(4 * Math.PI * x);
