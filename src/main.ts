@@ -1726,6 +1726,74 @@ g['__sk'] = {
   evalTemplate,
 };
 
+// ---- Test API (for Playwright) ----
+declare global {
+  interface Window {
+    __sk?: {
+      // Canvas state
+      getState: () => ReturnType<typeof getState>;
+      clearAll: () => void;
+      undo: () => void;
+      redo: () => void;
+      toggleGrid: () => void;
+      toggleOverlay: () => void;
+      // Recognition
+      recognize: typeof recognize;
+      getAllPoints: () => {x:number;y:number}[];
+      // Training
+      trainData: typeof trainData;
+      loadTrainData: () => void;
+      saveTrainData: () => void;
+      exportTrainingData: () => void;
+      // CAS
+      runCas: typeof runCas;
+      getSymExpr: typeof getSymExpr;
+      // UI
+      updateScore: (...args: Parameters<typeof updateScore>) => void;
+      toast: (...args: Parameters<typeof toast>) => void;
+      // Internal state (live via getters)
+      best: typeof best;
+      ovlP: typeof ovlP;
+      custP: typeof custP;
+      AUTO_SAVE_THRESHOLD: number;
+      DISCARD_THRESHOLD: number;
+    };
+  }
+}
+
+/** Expose internal state for Playwright testing. */
+function exposeTestAPI(): void {
+  if (typeof window !== 'undefined') {
+    // @ts-ignore — intentionally augment Window at runtime
+    window.__sk = {
+      getState,
+      clearAll,
+      undo,
+      redo,
+      toggleGrid,
+      toggleOverlay,
+      recognize,
+      getAllPoints,
+      trainData,
+      loadTrainData,
+      saveTrainData,
+      exportTrainingData,
+      runCas,
+      getSymExpr,
+      updateScore,
+      toast,
+      AUTO_SAVE_THRESHOLD,
+      DISCARD_THRESHOLD,
+    };
+    // Live getters — these variables are reassigned, not mutated
+    Object.defineProperty(window.__sk, 'best', { get() { return best; }, enumerable: true });
+    Object.defineProperty(window.__sk, 'ovlP', { get() { return ovlP; }, enumerable: true });
+    Object.defineProperty(window.__sk, 'custP', { get() { return custP; }, enumerable: true });
+    Object.defineProperty(window.__sk, 'trainData', { get() { return trainData; }, enumerable: true });
+    console.log('[TEST] window.__sk exposed');
+  }
+}
+
 // ---- Init ----
 function init(): void {
   initCanvas();
@@ -1734,6 +1802,7 @@ function init(): void {
   loadSeedData();
   setupUIHandlers();
   renderH();
+  exposeTestAPI();
 }
 
 if (document.readyState === 'loading') {
