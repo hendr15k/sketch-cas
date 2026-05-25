@@ -28,8 +28,8 @@ function sampleFn(
   }
   // Normalize y to [-1, 1]
   const ys = raw.map((p) => p.y);
-  const yMin = Math.min(...ys);
-  const yMax = Math.max(...ys);
+  const yMin = ys.reduce((a, b) => Math.min(a, b), Infinity);
+  const yMax = ys.reduce((a, b) => Math.max(a, b), -Infinity);
   const yRange = yMax - yMin || 1;
   return raw.map((p) => ({
     x: p.x,

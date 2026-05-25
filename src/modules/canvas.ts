@@ -294,11 +294,11 @@ function drawAxes(): void {
 
   // Compute visible model range at current zoom/pan
   // canvasToModelX(cx) = cx / (zoom * W) + panX
-  // canvasToModelY(cy) = (plotBottom - cy) / (zoom * plotH/2) + panY
+  // canvasToModelY(cy) = (plotBottom - cy) / (zoom * plotH/2) + panY - 1
   const modelX0 = panX;
   const modelX1 = panX + 1 / zoom;
-  const modelY0 = 1 / zoom + panY;
-  const modelY1 = panY;
+  const modelY0 = 2 / zoom + panY - 1; // top of visible range (larger value)
+  const modelY1 = panY - 1;             // bottom of visible range (smaller value)
 
   // Canvas px positions of x=0 and y=0
   const px0 = nx(0);

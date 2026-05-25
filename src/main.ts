@@ -624,10 +624,20 @@ function evalPlot(expr: string): void {
   try {
     const fn = makeNumFn(expr);
     const pts: { x: number; y: number }[] = [];
+    // Use current viewport range instead of hardcoded [-5,5]
+    const s = getState();
+    const xMin = s.panX;
+    const xMax = s.panX + 1 / s.zoom;
+    const yMin = s.panY - 1;
+    const yMax = 2 / s.zoom + s.panY - 1;
+    const yRange = yMax - yMin || 2;
     for (let i = 0; i < 400; i++) {
-      const x = (i / 399) * 10 - 5;
+      const t = i / 399;
+      const x = xMin + t * (xMax - xMin);
       const y = fn(x);
-      pts.push({ x: i / 399, y: isFinite(y) ? Math.max(-1.2, Math.min(1.2, y / 3)) : 0 });
+      // Normalize to model Y range [-1,1] for overlay rendering
+      const normalized = isFinite(y) ? ((y - yMin) / yRange) * 2 - 1 : 0;
+      pts.push({ x: t, y: Math.max(-1.2, Math.min(1.2, normalized)) });
     }
     custP = pts;
     const state = getState();
@@ -646,13 +656,14 @@ function makeNumFn(expr: string): (x: number) => number {
     .replace(/\be\b/g, 'Math.E')
     // Step 1: Convert ^ to Math.pow BEFORE function names
     // Extended base: also match fn(args) like sin(x), Math.sin(x)
+    // Exponent group includes - for negative exponents (x^-1, x^-2)
     .replace(
-      /(\([^)]+\)|[a-zA-Z0-9._]+\([^)]*\)|[a-zA-Z0-9._]+)\^(\([^)]+\)|[a-zA-Z0-9.]+)/g,
+      /(\([^)]+\)|[a-zA-Z0-9._]+\([^)]*\)|[a-zA-Z0-9._]+)\^(\([^)]+\)|-?[a-zA-Z0-9.]+)/g,
       'Math.pow($1,$2)',
     )
     // Step 1b: Handle nested ^ (e.g. e^(-x^2) → inner x^2)
     .replace(
-      /(\([^)]+\)|[a-zA-Z0-9._]+\([^)]*\)|[a-zA-Z0-9._]+)\^(\([^)]+\)|[a-zA-Z0-9.]+)/g,
+      /(\([^)]+\)|[a-zA-Z0-9._]+\([^)]*\)|[a-zA-Z0-9._]+)\^(\([^)]+\)|-?[a-zA-Z0-9.]+)/g,
       'Math.pow($1,$2)',
     )
     // Step 2: Replace function names (use lookbehind for letters only, not digits)
@@ -948,8 +959,8 @@ function loadSeedData(): void {
       }
       // Normalize y to [-1, 1]
       const ys = raw.map((p) => p.y);
-      const yMin = Math.min(...ys);
-      const yMax = Math.max(...ys);
+      const yMin = ys.reduce((a, b) => Math.min(a, b), Infinity);
+      const yMax = ys.reduce((a, b) => Math.max(a, b), -Infinity);
       const yRange = yMax - yMin || 1;
       const normalized = raw.map((p) => ({
         x: p.x,
@@ -1030,10 +1041,10 @@ function calcDifficulty(pts: { x: number; y: number }[]): string {
   if (!pts || pts.length < 10) return 'Einfach';
   const xs = pts.map((p) => p.x);
   const ys = pts.map((p) => p.y);
-  const xMn = Math.min(...xs);
-  const xMx = Math.max(...xs);
-  const yMn = Math.min(...ys);
-  const yMx = Math.max(...ys);
+  const xMn = xs.reduce((a, b) => Math.min(a, b), Infinity);
+  const xMx = xs.reduce((a, b) => Math.max(a, b), -Infinity);
+  const yMn = ys.reduce((a, b) => Math.min(a, b), Infinity);
+  const yMx = ys.reduce((a, b) => Math.max(a, b), -Infinity);
   const ranges = xMx - xMn + yMx - yMn;
   let crossings = 0;
   const midY = (yMx + yMn) / 2;
@@ -1394,7 +1405,7 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
       totalAttempts > 0
         ? Math.round(trainData.attempts.reduce((s, a) => s + a.score, 0) / totalAttempts)
         : 0;
-    const bestScore = totalAttempts > 0 ? Math.max(...trainData.attempts.map((a) => a.score)) : 0;
+    const bestScore = totalAttempts > 0 ? trainData.attempts.reduce((m, a) => Math.max(m, a.score), 0) : 0;
 
     const perTarget: Record<string, { scores: number[]; count: number }> = {};
     trainData.attempts.forEach((a) => {
