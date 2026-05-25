@@ -370,7 +370,7 @@ function renderRes(
     h += `<div class="cr"><span>${c.label}</span>${badge}${prob ? `<span style="font-size:9px;color:${probColor};margin-left:auto">${prob}%</span>` : ''}</div>`;
     h += `<div class="cf" data-latex="${esc(c.latex)}"></div>`;
     h += `<div class="mb"><div class="mf" style="width:${pct}%;background:${probColor}"></div></div>`;
-    h += `<div class="cm"><span>Fit: ${(100 - c.err * 100).toFixed(1)}%</span></div>`;
+    h += `<div class="cm"><span>Fit: ${Math.max(0, Math.min(100, 100 - ((c.params['rawErr'] as number) ?? c.err) * 100)).toFixed(1)}%</span></div>`;
     h += `<div class="cl" onclick="event.stopPropagation();window.cpT(this)">${esc(c.latex)}</div>`;
     if (i === 0) {
       h += `<div style="margin-top:6px;text-align:center"><button class="b btn-correct" data-type="${esc((c.params['type'] as string) || '')}" data-label="${esc(c.label)}">📝 Korrigieren</button></div>`;
@@ -1739,7 +1739,7 @@ declare global {
       toggleOverlay: () => void;
       // Recognition
       recognize: typeof recognize;
-      getAllPoints: () => {x:number;y:number}[];
+      getAllPoints: () => { x: number; y: number }[];
       // Training
       trainData: typeof trainData;
       loadTrainData: () => void;
@@ -1764,7 +1764,7 @@ declare global {
 /** Expose internal state for Playwright testing. */
 function exposeTestAPI(): void {
   if (typeof window !== 'undefined') {
-    // @ts-ignore — intentionally augment Window at runtime
+    // @ts-expect-error — intentionally augment Window at runtime
     window.__sk = {
       getState,
       clearAll,
@@ -1786,10 +1786,30 @@ function exposeTestAPI(): void {
       DISCARD_THRESHOLD,
     };
     // Live getters — these variables are reassigned, not mutated
-    Object.defineProperty(window.__sk, 'best', { get() { return best; }, enumerable: true });
-    Object.defineProperty(window.__sk, 'ovlP', { get() { return ovlP; }, enumerable: true });
-    Object.defineProperty(window.__sk, 'custP', { get() { return custP; }, enumerable: true });
-    Object.defineProperty(window.__sk, 'trainData', { get() { return trainData; }, enumerable: true });
+    Object.defineProperty(window.__sk, 'best', {
+      get() {
+        return best;
+      },
+      enumerable: true,
+    });
+    Object.defineProperty(window.__sk, 'ovlP', {
+      get() {
+        return ovlP;
+      },
+      enumerable: true,
+    });
+    Object.defineProperty(window.__sk, 'custP', {
+      get() {
+        return custP;
+      },
+      enumerable: true,
+    });
+    Object.defineProperty(window.__sk, 'trainData', {
+      get() {
+        return trainData;
+      },
+      enumerable: true,
+    });
     console.log('[TEST] window.__sk exposed');
   }
 }

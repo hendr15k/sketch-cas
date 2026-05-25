@@ -105,7 +105,9 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
       return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
     }
     case 'solve': {
-      const eq = e.replace(/==/g, '-').replace(/=/g, '-');
+      const eq = e.includes('=')
+        ? e.split('=').slice(0, -1).join('=') + '-(' + e.split('=').pop() + ')'
+        : e;
       try {
         const sol = nerdamer.solveEquations(eq) as unknown as {
           [key: string]: { toString(): string };
@@ -363,6 +365,16 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
       );
     case 'heaviside':
       return F(a, 4) + '*(x>0?1:0)' + (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '');
+    case 'square':
+      return (
+        F(a, 4) +
+        '*sign(sin(' +
+        F(2 * Math.PI * f, 4) +
+        '*x' +
+        (Math.abs(ph) > 0.05 ? '+' + F(ph, 4) : '') +
+        '))' +
+        (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '')
+      );
     case 'logarithmic': {
       const lA = (p['fA'] as number) || 1;
       const lC = (p['fC'] as number) || 0.01;
