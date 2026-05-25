@@ -73,14 +73,18 @@ function scheduleR(): void {
 
 // ---- Self-Training Thresholds ----
 const AUTO_SAVE_THRESHOLD = 0.7; // Save automatically if confidence >= 70%
-const DISCARD_THRESHOLD = 0.3; // Show warning if best confidence < 30%
+const DISCARD_THRESHOLD = 0.15; // Show warning if best probability < 15%
+// Note: With 13 candidates, uniform softmax ≈ 7.7%. Temperature 0.5 gives
+// perfect fit ~85%, good fit ~53%, ambiguous ~20%. Threshold 0.15 catches only
+// near-uniform distributions (errors within ~0.1 of each other).
 
 /**
  * Convert candidate errors to softmax probabilities.
  * Lower error → higher probability.
  */
 function errorsToProbs(cands: TemplateCandidate[]): number[] {
-  const temps = 0.15; // temperature — lower = sharper distribution
+  const temps = 0.5; // temperature — 0.15 was too sharp for 13 candidates; 0.5 spreads
+  // the distribution so perfect fits get ~85%, good fits ~53%, ambiguous ~20%.
   const minErr = Math.min(...cands.map((c) => c.err));
   // Shift so minimum error maps to 0
   const shifted = cands.map((c) => Math.max(0, c.err - minErr));
