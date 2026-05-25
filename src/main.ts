@@ -238,6 +238,9 @@ function recognize(): void {
   const xs = pts.map((p) => p.x);
   ovlP = xs.map((x) => ({ x, y: evalTemplate(x, best!) }));
   custP = null;
+  // Sync to canvas state so redraw() can render the template overlay
+  getState().overlayPoints = ovlP;
+  redraw(); // Render the template overlay curve on the canvas
 
   // Score display uses raw RMSE (not composite) for user-friendly percentage
   const rawErr = (best.params['rawErr'] as number) ?? best.err;
@@ -307,6 +310,7 @@ function recognize(): void {
     // Too uncertain — discard this recognition
     best = null;
     ovlP = null;
+    getState().overlayPoints = null;
     console.log(
       '[SELF-TRAIN] ❌ Discarded (best p=' +
         (bestProb * 100).toFixed(1) +
@@ -1860,6 +1864,8 @@ function setupUIHandlers(): void {
     activeTargetId = null;
     ovlP = null;
     custP = null;
+    getState().overlayPoints = null;
+    getState().customPoints = null;
   });
 
   // Sound and export

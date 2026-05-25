@@ -306,8 +306,11 @@ function drawAxes(): void {
   ax.fillStyle = '#6e7681';
   ax.font = '9px monospace';
 
-  // ── Pixel-based grid (always every 50px on screen) ──────────────────────────
-  const gridStep = 50;
+  // ── Pixel-based grid (always fixed 50px on screen, dense zoom handled) ───────
+  // At high zoom, increase grid step to avoid visual noise
+  let gridStep = 50;
+  if (zoom > 10) gridStep = 200;
+  else if (zoom > 4) gridStep = 100;
 
   // Vertical grid lines at fixed canvas x positions
   const xFirst = Math.ceil(0 / gridStep) * gridStep;
@@ -490,6 +493,10 @@ export function undo(): void {
   state.overlayPoints = null;
   state.customPoints = null;
   state.best = null;
+  state.zoom = 1;
+  state.panX = 0;
+  state.panY = 0;
+  drawAxes();
   redraw();
 }
 
@@ -500,6 +507,10 @@ export function redo(): void {
   if (!state || !state.redoStack.length) return;
   state.undoStack.push(JSON.parse(JSON.stringify(state.strokes)) as Stroke[]);
   state.strokes = state.redoStack.pop()!;
+  state.zoom = 1;
+  state.panX = 0;
+  state.panY = 0;
+  drawAxes();
   redraw();
 }
 
