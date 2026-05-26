@@ -1410,7 +1410,8 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
       totalAttempts > 0
         ? Math.round(trainData.attempts.reduce((s, a) => s + a.score, 0) / totalAttempts)
         : 0;
-    const bestScore = totalAttempts > 0 ? trainData.attempts.reduce((m, a) => Math.max(m, a.score), 0) : 0;
+    const bestScore =
+      totalAttempts > 0 ? trainData.attempts.reduce((m, a) => Math.max(m, a.score), 0) : 0;
 
     const perTarget: Record<string, { scores: number[]; count: number }> = {};
     trainData.attempts.forEach((a) => {

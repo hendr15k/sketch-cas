@@ -298,7 +298,7 @@ function drawAxes(): void {
   const modelX0 = panX;
   const modelX1 = panX + 1 / zoom;
   const modelY0 = 2 / zoom + panY - 1; // top of visible range (larger value)
-  const modelY1 = panY - 1;             // bottom of visible range (smaller value)
+  const modelY1 = panY - 1; // bottom of visible range (smaller value)
 
   // Canvas px positions of x=0 and y=0
   const px0 = nx(0);
