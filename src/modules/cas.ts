@@ -9,7 +9,15 @@ import { exprToLatex } from './latex';
 import Algebrite from 'algebrite';
 import nerdamer from 'nerdamer';
 import 'nerdamer/Calculus';
-import 'nerdamer/Solve';
+// nerdamer/Solve throws uncaught TypeError on import (line 213: undefined[0])
+// on some browser/config combos. We suppress it — solve is non-critical since
+// the page uses nerdamer.solveEquations() which is part of the Solve plugin.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('nerdamer/Solve');
+} catch {
+  // non-fatal — diff, integrate, taylor, laplace all work without Solve
+}
 
 /* ---- Algebrite Laplace (hardcoded table) ---- */
 function algebriteLaplace(e: string): string {
