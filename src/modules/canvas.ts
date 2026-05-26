@@ -235,22 +235,6 @@ function setupPointerEvents(): void {
     // Pop the undo entry that was pushed in pointerdown (stroke was cancelled)
     if (state.undoStack.length > 0) state.undoStack.pop();
   });
-
-  canvas.addEventListener(
-    'touchstart',
-    (e) => {
-      e.preventDefault();
-    },
-    { passive: false },
-  );
-
-  canvas.addEventListener(
-    'touchmove',
-    (e) => {
-      e.preventDefault();
-    },
-    { passive: false },
-  );
 }
 
 function getPointerPos(e: PointerEvent): Point {
