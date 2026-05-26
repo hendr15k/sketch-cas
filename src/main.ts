@@ -1877,9 +1877,11 @@ function setupUIHandlers(): void {
   });
   document.getElementById('bHidePnl')?.addEventListener('click', (e) => {
     const pnl = document.querySelector<HTMLElement>('.pnl');
-    if (pnl) {
-      pnl.classList.toggle('hidden');
-      (e.currentTarget as HTMLElement).textContent = pnl.classList.contains('hidden') ? '⏵' : '⏴';
+    const main = document.querySelector<HTMLElement>('.main');
+    if (pnl && main) {
+      const isHidden = pnl.classList.toggle('hidden');
+      main.classList.toggle('panel-hidden', isHidden);
+      (e.currentTarget as HTMLElement).textContent = isHidden ? '⏵' : '⏴';
     }
   });
   document.getElementById('bClear')?.addEventListener('click', () => {
