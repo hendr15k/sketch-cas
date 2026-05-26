@@ -87,7 +87,9 @@ footer{display:flex;align-items:center;gap:10px;padding:5px 12px;background:#161
 .tr-target .lbl{font-size:11px;color:#c9d1d9}
 .tr-target .sub{font-size:9px;color:#8b949e}
 .tr-target .b{font-size:9px;padding:3px 6px}
-@media(max-width:900px){.main{grid-template-columns:1fr;grid-template-rows:1fr auto}.pnl{max-height:50vh;border-top:1px solid #30363d;border-right:none}}
+.pnl.hidden {
+  display: none;
+}
 </style>
 </head>
 <body>
@@ -99,6 +101,7 @@ footer{display:flex;align-items:center;gap:10px;padding:5px 12px;background:#161
     <button class="b" id="bRedo" title="Redo">↪</button>
     <button class="b on" id="bGrid" title="Gitter">⊞</button>
     <button class="b on" id="bOvl" title="Overlay">◎</button>
+    <button class="b" id="bHidePnl" title="Panel ausblenden">⏴</button>
     <button class="b" id="bSound" title="Ton">🔊</button>
     <button class="b" id="bExport" title="PNG">💾</button>
     <button class="b" id="bZoomOut" title="Zoom −">−</button>

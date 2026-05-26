@@ -57,9 +57,11 @@ export function evalTemplate(x: number, candidate: { params: Record<string, unkn
       if (!coeffs || coeffs.length === 0) return 0;
       let r = 0;
       for (let i = 0; i < coeffs.length; i++) {
-        r += coeffs[i]! * Math.pow(x, i);
+        const term = coeffs[i]! * Math.pow(x, i);
+        if (!isFinite(term)) return 0; // overflow guard
+        r += term;
       }
-      return r;
+      return isFinite(r) ? r : 0;
     }
     case 'exponential': {
       const a = (p['fA'] as number) ?? 1;

@@ -501,10 +501,6 @@ export function undo(): void {
   state.overlayPoints = null;
   state.customPoints = null;
   state.best = null;
-  state.zoom = 1;
-  state.panX = 0;
-  state.panY = 0;
-  drawAxes();
   redraw();
 }
 
@@ -515,10 +511,9 @@ export function redo(): void {
   if (!state || !state.redoStack.length) return;
   state.undoStack.push(JSON.parse(JSON.stringify(state.strokes)) as Stroke[]);
   state.strokes = state.redoStack.pop()!;
-  state.zoom = 1;
-  state.panX = 0;
-  state.panY = 0;
-  drawAxes();
+  state.overlayPoints = null;
+  state.customPoints = null;
+  state.best = null;
   redraw();
 }
 

@@ -677,8 +677,13 @@ function makeNumFn(expr: string): (x: number) => number {
     .replace(/(\))(\()/g, '$1*$2');
   // eslint-disable-next-line @typescript-eslint/no-implied-eval
   const fn = new Function('x', 'return ' + prepared) as (x: number) => number;
-  fn(0);
-  fn(1);
+  // Validate the function doesn't throw on test values
+  try {
+    fn(0);
+    fn(1);
+  } catch {
+    throw new Error('Invalid expression');
+  }
   return fn;
 }
 
@@ -1868,6 +1873,13 @@ function setupUIHandlers(): void {
   document.getElementById('bOvl')?.addEventListener('click', (e) => {
     toggleOverlay();
     (e.currentTarget as HTMLElement).classList.toggle('on');
+  });
+  document.getElementById('bHidePnl')?.addEventListener('click', (e) => {
+    const pnl = document.querySelector<HTMLElement>('.pnl');
+    if (pnl) {
+      pnl.classList.toggle('hidden');
+      (e.currentTarget as HTMLElement).textContent = pnl.classList.contains('hidden') ? '⏵' : '⏴';
+    }
   });
   document.getElementById('bClear')?.addEventListener('click', () => {
     clearAll();

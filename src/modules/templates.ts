@@ -259,9 +259,11 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
             (x) => {
               let r = 0;
               for (let i = 0; i <= degree; i++) {
-                r += cc[i]! * Math.pow(x, i);
+                const term = cc[i]! * Math.pow(x, i);
+                if (!isFinite(term)) return 0;
+                r += term;
               }
-              return r;
+              return isFinite(r) ? r : 0;
             },
             labels[degree]!,
             buildLatexPoly(cc),
