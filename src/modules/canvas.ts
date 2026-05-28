@@ -409,45 +409,81 @@ function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
   }
 }
 
-/** Overlay-to-canvas x: normalized [0,1] → full canvas width. */
-function ovNx(x: number): number {
-  if (!state) return x;
-  return x * state.width;
-}
-
-/** Overlay-to-canvas y: normalized [-1,1] → full canvas height. */
-function ovNy(y: number): number {
-  if (!state) return y;
-  const plotBottom = state.height - 30;
-  const plotH = state.height - 60;
-  return plotBottom - (y + 1) * (plotH / 2);
+/**
+ * Compute bounding box of all strokes in canvas pixel coordinates.
+ */
+function getStrokeBounds(): { xMin: number; xMax: number; yMin: number; yMax: number } | null {
+  if (!state) return null;
+  const allPts: { x: number; y: number }[] = [];
+  state.strokes.forEach((s) => {
+    s.points.forEach((p) => allPts.push({ x: p.x, y: p.y }));
+  });
+  if (allPts.length < 2) return null;
+  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  for (const p of allPts) {
+    if (p.x < xMin) xMin = p.x;
+    if (p.x > xMax) xMax = p.x;
+    if (p.y < yMin) yMin = p.y;
+    if (p.y > yMax) yMax = p.y;
+  }
+  return { xMin, xMax, yMin, yMax };
 }
 
 function drawTraceTarget(points: Point[]): void {
   if (!state || points.length < 2) return;
   const { mainCtx: ctx } = state;
+  const bounds = getStrokeBounds();
   ctx.strokeStyle = 'rgba(88,166,255,0.35)';
   ctx.lineWidth = 3;
   ctx.setLineDash([8, 6]);
   ctx.beginPath();
-  ctx.moveTo(ovNx(points[0]!.x), ovNy(points[0]!.y));
-  for (let i = 1; i < points.length; i++) {
-    ctx.lineTo(ovNx(points[i]!.x), ovNy(points[i]!.y));
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]!;
+    let cx: number, cy: number;
+    if (bounds) {
+      // Inverse of normalizeAndResample: map [0,1]×[-1,1] back to canvas pixels
+      const xRange = bounds.xMax - bounds.xMin || 1;
+      const yRange = bounds.yMax - bounds.yMin || 1;
+      cx = p.x * xRange + bounds.xMin;
+      cy = bounds.yMin + (1 - p.y) * yRange / 2;
+    } else {
+      cx = p.x;
+      cy = p.y;
+    }
+    if (i === 0) ctx.moveTo(cx, cy);
+    else ctx.lineTo(cx, cy);
   }
   ctx.stroke();
   ctx.setLineDash([]);
 }
 
-function drawOverlayPath(points: Point[], color: string): void {
+function drawOverlayPath(
+  points: Point[],
+  color: string,
+  useInverseNorm = true,
+): void {
   if (!state || points.length < 2) return;
   const { mainCtx: ctx } = state;
+  const bounds = useInverseNorm ? getStrokeBounds() : null;
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 4]);
   ctx.beginPath();
-  ctx.moveTo(ovNx(points[0]!.x), ovNy(points[0]!.y));
-  for (let i = 1; i < points.length; i++) {
-    ctx.lineTo(ovNx(points[i]!.x), ovNy(points[i]!.y));
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]!;
+    let cx: number, cy: number;
+    if (bounds) {
+      // Inverse of normalizeAndResample: map [0,1]×[-1,1] back to canvas pixels
+      const xRange = bounds.xMax - bounds.xMin || 1;
+      const yRange = bounds.yMax - bounds.yMin || 1;
+      cx = p.x * xRange + bounds.xMin;
+      cy = bounds.yMin + (1 - p.y) * yRange / 2;
+    } else {
+      cx = nx(p.x);
+      cy = ny(p.y);
+    }
+    if (i === 0) ctx.moveTo(cx, cy);
+    else ctx.lineTo(cx, cy);
   }
   ctx.stroke();
   ctx.setLineDash([]);
@@ -468,7 +504,7 @@ export function redraw(): void {
   if (state.traceTarget) drawTraceTarget(state.traceTarget);
   if (state.showOverlay) {
     if (state.overlayPoints) drawOverlayPath(state.overlayPoints, '#f0883e');
-    if (state.customPoints) drawOverlayPath(state.customPoints, '#da3688');
+    if (state.customPoints) drawOverlayPath(state.customPoints, '#da3688', false);
   }
 }
 

@@ -631,20 +631,18 @@ function evalPlot(expr: string): void {
     const halfVisibleX = s.width / (2 * currentPPU);
     const xMin = s.panX - halfVisibleX;
     const xMax = s.panX + halfVisibleX;
-    const yMin = s.panY - 1;
-    const yMax = 2 / s.zoom + s.panY - 1;
-    const yRange = yMax - yMin || 2;
     for (let i = 0; i < 400; i++) {
       const t = i / 399;
       const x = xMin + t * (xMax - xMin);
       const y = fn(x);
-      // Normalize to model Y range [-1,1] for overlay rendering
-      const normalized = isFinite(y) ? ((y - yMin) / yRange) * 2 - 1 : 0;
-      pts.push({ x: t, y: Math.max(-1.2, Math.min(1.2, normalized)) });
+      // Store model coordinates — drawOverlayPath will use nx/ny for rendering
+      pts.push({ x, y: isFinite(y) ? y : NaN });
     }
-    custP = pts;
+    // Filter out NaN segments to avoid drawing discontinuities
+    const validPts = pts.filter((p) => isFinite(p.y));
+    custP = validPts;
     const state = getState();
-    state.customPoints = pts;
+    state.customPoints = validPts;
     redraw();
     toast('Geplottet!');
   } catch (e) {
