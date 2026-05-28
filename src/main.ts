@@ -626,8 +626,11 @@ function evalPlot(expr: string): void {
     const pts: { x: number; y: number }[] = [];
     // Use current viewport range instead of hardcoded [-5,5]
     const s = getState();
-    const xMin = s.panX;
-    const xMax = s.panX + 1 / s.zoom;
+    const plotHH = s.height - 60;
+    const currentPPU = s.zoom * (plotHH / 2);
+    const halfVisibleX = s.width / (2 * currentPPU);
+    const xMin = s.panX - halfVisibleX;
+    const xMax = s.panX + halfVisibleX;
     const yMin = s.panY - 1;
     const yMax = 2 / s.zoom + s.panY - 1;
     const yRange = yMax - yMin || 2;

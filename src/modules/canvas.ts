@@ -114,17 +114,14 @@ export function resize(): void {
 /** Inverse: canvas px to model x */
 function canvasToModelX(cx: number): number {
   if (!state) return cx;
-  return cx / (state.zoom * state.width) + state.panX;
+  return (cx - state.width / 2) / ppu() + state.panX;
 }
 
 /** Inverse: canvas py to model y */
 function canvasToModelY(cy: number): number {
   if (!state) return cy;
-  const h = state.height;
-  const plotTop = 30;
-  const plotBottom = h - 30;
-  const plotH = plotBottom - plotTop;
-  return (plotBottom - cy) / (state.zoom * (plotH / 2)) + state.panY - 1;
+  const plotBottom = state.height - 30;
+  return (plotBottom - cy) / ppu() + state.panY - 1;
 }
 
 /** Pan drag state */
@@ -151,9 +148,12 @@ function setupPointerEvents(): void {
       state.zoom = Math.max(0.25, Math.min(20, state.zoom * factor));
       if (state.zoom === oldZoom) return;
       // Keep the model point under the cursor fixed: panX_new = panX_old + (cx/width) * (1/r_old - 1/r_new)
-      const r = oldZoom / state.zoom;
-      state.panX += (cx / state.width) * (1 - r);
-      state.panY += ((cy - state.height / 2) / (state.height - 60)) * (1 - r);
+      const currentPPU_old = oldZoom * ((state.height - 60) / 2);
+      const currentPPU_new = state.zoom * ((state.height - 60) / 2);
+      const mx_before = (cx - state.width / 2) / currentPPU_old + state.panX;
+      const my_before = (state.height - 30 - cy) / currentPPU_old + state.panY - 1;
+      state.panX = mx_before - (cx - state.width / 2) / currentPPU_new;
+      state.panY = my_before + 1 - (state.height - 30 - cy) / currentPPU_new;
       drawAxes();
       redraw();
     },
@@ -199,8 +199,9 @@ function setupPointerEvents(): void {
     if (isPanDragging && state) {
       const cx = e.clientX - canvas.getBoundingClientRect().left;
       const cy = e.clientY - canvas.getBoundingClientRect().top;
-      const dx = (cx - panStartX) / (state.zoom * state.width);
-      const dy = (cy - panStartY) / ((state.zoom * (state.height - 60)) / 2);
+      const currentPPU = state.zoom * ((state.height - 60) / 2);
+      const dx = (cx - panStartX) / currentPPU;
+      const dy = (cy - panStartY) / currentPPU;
       state.panX = panStartPanX - dx;
       state.panY = panStartPanY + dy;
       drawAxes();
@@ -247,21 +248,24 @@ function getPointerPos(e: PointerEvent): Point {
   };
 }
 
+/** Pixels per model unit (same for x and y — proportional display). */
+function ppu(): number {
+  if (!state) return 1;
+  const plotH = state.height - 60;
+  return state.zoom * (plotH / 2);
+}
+
 /** Coordinate conversion: model x to canvas px (with zoom/pan) */
 function nx(x: number): number {
   if (!state) return x;
-  return (x - state.panX) * state.zoom * state.width;
+  return state.width / 2 + (x - state.panX) * ppu();
 }
 
 /** Coordinate conversion: model y to canvas py (with zoom/pan) */
 function ny(y: number): number {
   if (!state) return y;
-  const h = state.height;
-  const plotTop = 30;
-  const plotBottom = h - 30;
-  const plotH = plotBottom - plotTop;
-  // y in [-1,1] model → canvas py with zoom/pan
-  return plotBottom - (y - state.panY + 1) * state.zoom * (plotH / 2);
+  const plotBottom = state.height - 30;
+  return plotBottom - (y - state.panY + 1) * ppu();
 }
 
 function drawAxes(): void {
@@ -277,10 +281,11 @@ function drawAxes(): void {
   const panY = state.panY;
 
   // Compute visible model range at current zoom/pan
-  // canvasToModelX(cx) = cx / (zoom * W) + panX
-  // canvasToModelY(cy) = (plotBottom - cy) / (zoom * plotH/2) + panY - 1
-  const modelX0 = panX;
-  const modelX1 = panX + 1 / zoom;
+  const plotH = H - 60;
+  const currentPPU = zoom * (plotH / 2);
+  const halfVisibleX = W / (2 * currentPPU);
+  const modelX0 = panX - halfVisibleX;
+  const modelX1 = panX + halfVisibleX;
   const modelY0 = 2 / zoom + panY - 1; // top of visible range (larger value)
   const modelY1 = panY - 1; // bottom of visible range (smaller value)
 
@@ -544,11 +549,15 @@ export function zoomIn(): void {
   state.zoom = Math.min(20, state.zoom * 1.3);
   if (state.zoom === oldZoom) return;
   // Adjust pan so zoom is toward viewport center (same as wheel zoom formula)
-  const r = oldZoom / state.zoom;
+  const plotHH = state.height - 60;
+  const ppu_old = oldZoom * (plotHH / 2);
+  const ppu_new = state.zoom * (plotHH / 2);
   const cx = state.width / 2;
   const cy = state.height / 2;
-  state.panX += (cx / state.width) * (1 - r);
-  state.panY += ((cy - state.height / 2) / (state.height - 60)) * (1 - r);
+  const mx_b = (cx - state.width / 2) / ppu_old + state.panX;
+  const my_b = (state.height - 30 - cy) / ppu_old + state.panY - 1;
+  state.panX = mx_b - (cx - state.width / 2) / ppu_new;
+  state.panY = my_b + 1 - (state.height - 30 - cy) / ppu_new;
   drawAxes();
   redraw();
 }
@@ -559,11 +568,15 @@ export function zoomOut(): void {
   const oldZoom = state.zoom;
   state.zoom = Math.max(0.25, state.zoom / 1.3);
   if (state.zoom === oldZoom) return;
-  const r = oldZoom / state.zoom;
+  const plotHH = state.height - 60;
+  const ppu_old = oldZoom * (plotHH / 2);
+  const ppu_new = state.zoom * (plotHH / 2);
   const cx = state.width / 2;
   const cy = state.height / 2;
-  state.panX += (cx / state.width) * (1 - r);
-  state.panY += ((cy - state.height / 2) / (state.height - 60)) * (1 - r);
+  const mx_b = (cx - state.width / 2) / ppu_old + state.panX;
+  const my_b = (state.height - 30 - cy) / ppu_old + state.panY - 1;
+  state.panX = mx_b - (cx - state.width / 2) / ppu_new;
+  state.panY = my_b + 1 - (state.height - 30 - cy) / ppu_new;
   drawAxes();
   redraw();
 }
