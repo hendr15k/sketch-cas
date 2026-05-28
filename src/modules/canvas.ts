@@ -409,6 +409,20 @@ function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
   }
 }
 
+/** Overlay-to-canvas x: normalized [0,1] → full canvas width. */
+function ovNx(x: number): number {
+  if (!state) return x;
+  return x * state.width;
+}
+
+/** Overlay-to-canvas y: normalized [-1,1] → full canvas height. */
+function ovNy(y: number): number {
+  if (!state) return y;
+  const plotBottom = state.height - 30;
+  const plotH = state.height - 60;
+  return plotBottom - (y + 1) * (plotH / 2);
+}
+
 function drawTraceTarget(points: Point[]): void {
   if (!state || points.length < 2) return;
   const { mainCtx: ctx } = state;
@@ -416,9 +430,9 @@ function drawTraceTarget(points: Point[]): void {
   ctx.lineWidth = 3;
   ctx.setLineDash([8, 6]);
   ctx.beginPath();
-  ctx.moveTo(nx(points[0]!.x), ny(points[0]!.y));
+  ctx.moveTo(ovNx(points[0]!.x), ovNy(points[0]!.y));
   for (let i = 1; i < points.length; i++) {
-    ctx.lineTo(nx(points[i]!.x), ny(points[i]!.y));
+    ctx.lineTo(ovNx(points[i]!.x), ovNy(points[i]!.y));
   }
   ctx.stroke();
   ctx.setLineDash([]);
@@ -431,9 +445,9 @@ function drawOverlayPath(points: Point[], color: string): void {
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 4]);
   ctx.beginPath();
-  ctx.moveTo(nx(points[0]!.x), ny(points[0]!.y));
+  ctx.moveTo(ovNx(points[0]!.x), ovNy(points[0]!.y));
   for (let i = 1; i < points.length; i++) {
-    ctx.lineTo(nx(points[i]!.x), ny(points[i]!.y));
+    ctx.lineTo(ovNx(points[i]!.x), ovNy(points[i]!.y));
   }
   ctx.stroke();
   ctx.setLineDash([]);
