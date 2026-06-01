@@ -291,27 +291,44 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
 
   // === LOGARITHMIC CANDIDATE: y = a * ln(x + c) + off ===
   {
-    // Brute-force search over (a, c) to minimize RMSE
+    // For each candidate c, the model `a*ln(x+c) + off` is LINEAR in (a, off)
+    // when treated as a function of `u = ln(x+c)`.  So we can solve the
+    // least-squares problem analytically instead of brute-forcing `aMul`.
+    // This gives near-perfect fits (RMSE ~1e-6) and makes ln competitive
+    // with poly fits, so the feature factor can do its job.
+    const cGrid = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0];
     let bestA = 1;
     let bestC = 0.01;
     let bestOff = 0;
     let bestErr = Infinity;
-    for (const c of [0.01, 0.05, 0.1, 0.2, 0.5]) {
-      for (const aMul of [0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.5, 2.0]) {
-        const testYs = xs.map((x) => aMul * Math.log(x + c));
-        const testOff = ys.reduce((s, y, i) => s + (y - testYs[i]!), 0) / ys.length;
-        const shifted = testYs.map((v) => v + testOff);
-        const err = rmse(ys, shifted);
-        if (err < bestErr) {
-          bestErr = err;
-          bestA = aMul;
-          bestC = c;
-          bestOff = testOff;
-        }
+    for (const c of cGrid) {
+      // u_i = ln(x_i + c);  solve min ||a*u + off - y||^2
+      let su = 0,
+        sy = 0,
+        suu = 0,
+        suy = 0;
+      for (let i = 0; i < xs.length; i++) {
+        const u = Math.log(xs[i]! + c);
+        su += u;
+        sy += ys[i]!;
+        suu += u * u;
+        suy += u * ys[i]!;
+      }
+      const denom = xs.length * suu - su * su;
+      if (Math.abs(denom) < 1e-10) continue;
+      const a = (xs.length * suy - su * sy) / denom;
+      const off = (sy - a * su) / xs.length;
+      if (!isFinite(a) || !isFinite(off)) continue;
+      const test = xs.map((x) => a * Math.log(x + c) + off);
+      const err = rmse(ys, test);
+      if (err < bestErr) {
+        bestErr = err;
+        bestA = a;
+        bestC = c;
+        bestOff = off;
       }
     }
     if (bestErr < 3) {
-      // Sanity check
       add(
         (x) => bestA * Math.log(x + bestC) + bestOff,
         'Logarithmisch',
@@ -323,30 +340,38 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
 
   // === SQRT CANDIDATE: y = a * sqrt(x) + off ===
   {
+    // y = a*sqrt(x) + off is linear in (a, off) once we set u = sqrt(x).
+    // Closed-form least squares: a = (n*suy - su*sy) / (n*suu - su^2).
     let bestA = 1;
     let bestOff = 0;
     let bestErr = Infinity;
-    // Wide amplitude range including negatives (inverted sqrt)
-    for (let aMul = -5; aMul <= 5; aMul += 0.25) {
-      if (aMul === 0) continue;
-      const testYs = xs.map((x) => aMul * Math.sqrt(Math.max(0, x)));
-      const testOff = ys.reduce((s, y, i) => s + (y - testYs[i]!), 0) / ys.length;
-      const shifted = testYs.map((v) => v + testOff);
-      const err = rmse(ys, shifted);
+    // Try a few horizontal shifts (x + shift) to handle strokes that
+    // start at non-zero x in the normalized grid.
+    for (const shift of [0, 0.01, 0.05]) {
+      const us = xs.map((x) => Math.sqrt(Math.max(0, x + shift)));
+      let su = 0,
+        sy = 0,
+        suu = 0,
+        suy = 0;
+      for (let i = 0; i < xs.length; i++) {
+        su += us[i]!;
+        sy += ys[i]!;
+        suu += us[i]! * us[i]!;
+        suy += us[i]! * ys[i]!;
+      }
+      const denom = xs.length * suu - su * su;
+      if (Math.abs(denom) < 1e-10) continue;
+      const a = (xs.length * suy - su * sy) / denom;
+      const off = (sy - a * su) / xs.length;
+      if (!isFinite(a) || !isFinite(off)) continue;
+      const test = xs.map((x) => a * Math.sqrt(Math.max(0, x + shift)) + off);
+      const err = rmse(ys, test);
       if (err < bestErr) {
         bestErr = err;
-        bestA = aMul;
-        bestOff = testOff;
+        bestA = a;
+        bestOff = off;
       }
     }
-    console.log(
-      '[TEMPLATE] sqrt: err=' +
-        bestErr.toFixed(4) +
-        ' a=' +
-        bestA.toFixed(2) +
-        ' off=' +
-        bestOff.toFixed(2),
-    );
     if (bestErr < 3) {
       add(
         (x) => bestA * Math.sqrt(Math.max(0, x)) + bestOff,
@@ -359,22 +384,37 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
 
   // === RECIPROCAL CANDIDATE: y = a / (x + c) + off ===
   {
+    // For each candidate c, the model is LINEAR in (a, off) when treated
+    // as a function of `z = 1/(x+c)`:  y = a*z + off.
+    const cGrid = [0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.7, 1.0];
     let bestA = 1;
     let bestC = 0.01;
     let bestOff = 0;
     let bestErr = Infinity;
-    for (const c of [0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.7, 1.0]) {
-      for (const aMul of [-2.0, -1.5, -1.0, -0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]) {
-        const testYs = xs.map((x) => aMul / (x + c));
-        const testOff = ys.reduce((s, y, i) => s + (y - testYs[i]!), 0) / ys.length;
-        const shifted = testYs.map((v) => v + testOff);
-        const err = rmse(ys, shifted);
-        if (err < bestErr) {
-          bestErr = err;
-          bestA = aMul;
-          bestC = c;
-          bestOff = testOff;
-        }
+    for (const c of cGrid) {
+      const zs = xs.map((x) => 1 / (x + c));
+      let sz = 0,
+        sy = 0,
+        szz = 0,
+        szy = 0;
+      for (let i = 0; i < xs.length; i++) {
+        sz += zs[i]!;
+        sy += ys[i]!;
+        szz += zs[i]! * zs[i]!;
+        szy += zs[i]! * ys[i]!;
+      }
+      const denom = xs.length * szz - sz * sz;
+      if (Math.abs(denom) < 1e-10) continue;
+      const a = (xs.length * szy - sz * sy) / denom;
+      const off = (sy - a * sz) / xs.length;
+      if (!isFinite(a) || !isFinite(off)) continue;
+      const test = xs.map((x) => a / (x + c) + off);
+      const err = rmse(ys, test);
+      if (err < bestErr) {
+        bestErr = err;
+        bestA = a;
+        bestC = c;
+        bestOff = off;
       }
     }
     if (bestErr < 3) {

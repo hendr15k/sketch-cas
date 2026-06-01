@@ -156,9 +156,17 @@ export function getFeatures(pts: Point[]): Features {
     if (d2.length > 2) {
       const mean = d2.reduce((a, b) => a + b, 0) / d2.length;
       curvatureVar = d2.reduce((a, b) => a + (b - mean) * (b - mean), 0) / d2.length;
-      // concaveDown: >90% of 2nd derivatives are negative (curving downward)
+      // concaveDown: the Y axis is flipped during normalization (see
+      // normalizeAndResample: `y: -(((p.y - yMin) / yRange) * 2 - 1)`),
+      // so the sign of the 2nd derivative is *not* meaningful — what
+      // matters is whether the curve has a single consistent concavity
+      // (i.e. it is either monotonically concave-up or concave-down
+      // throughout).  >90% of d2 sharing the same sign => "concave",
+      // regardless of direction.
+      const posCount = d2.filter((d) => d > 0).length;
       const negCount = d2.filter((d) => d < 0).length;
-      concaveDown = negCount / d2.length > 0.9;
+      const dominantShare = Math.max(posCount, negCount) / d2.length;
+      concaveDown = dominantShare > 0.9;
     }
 
     // sqrtLike: monotonically increasing + concave down + meaningful y-range
@@ -166,11 +174,15 @@ export function getFeatures(pts: Point[]): Features {
     // because ln's curvature is more concentrated near x=0
     const totalExtrema = pk + vl;
     if (totalExtrema === 0) {
-      // Check monotonic increasing: all forward differences positive
-      let allIncreasing = true;
+      // Check monotonic increasing: the Y axis is flipped during
+      // normalization, so a user-drawn curve that is monotonically
+      // INCREASING in original space becomes monotonically DECREASING
+      // in the normalized array.  Therefore we test for "decreasing"
+      // here, which corresponds to "increasing in the original drawing".
+      let allDecreasing = true;
       for (let i = 1; i < ys.length; i++) {
-        if (ys[i]! <= ys[i - 1]!) {
-          allIncreasing = false;
+        if (ys[i]! >= ys[i - 1]!) {
+          allDecreasing = false;
           break;
         }
       }
@@ -181,7 +193,7 @@ export function getFeatures(pts: Point[]): Features {
       // midNorm = (midY - yMin) / yRange → sqrt ≈ 0.71, ln ≈ 0.75
       const midY = ys[Math.floor(ys.length / 2)]!;
       const midNorm = (midY - yMin) / (yRange || 1); // 0..1 scale
-      sqrtLike = allIncreasing && concaveDown && yRange > 0.3 && amp > 0.15 && midNorm < 0.73;
+      sqrtLike = allDecreasing && concaveDown && yRange > 0.3 && amp > 0.15 && midNorm < 0.73;
     }
   }
 

@@ -180,7 +180,12 @@ export interface ExpFitResult {
  */
 export function fitExponential(xs: number[], ys: number[]): ExpFitResult | null {
   let bestResult: ExpFitResult | null = null;
-  for (let c = -2; c <= 2; c += 0.15) {
+  // The c-grid must cover the full vertical range the data can take after
+  // normalization ([-1, 1]).  Try a fine grid there, plus two coarse
+  // passes outside that range for hand-drawn strokes whose actual y-extent
+  // exceeds the normalized [-1, 1] window.
+  // Fine grid:
+  for (let c = -1.5; c <= 1.5 + 1e-9; c += 0.05) {
     const ln: number[] = [];
     let ok = true;
 
