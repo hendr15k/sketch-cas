@@ -1,3 +1,5 @@
 training-data/
 *.mem
 *.wasm
+node_modules/
+package-lock.json

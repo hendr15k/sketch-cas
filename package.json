@@ -1,0 +1,26 @@
+{
+  "name": "sketch-cas",
+  "version": "1.0.0",
+  "description": "Handwritten math recognition with real CAS engines in the browser. Draw with your stylus on Android/tablet — get instant symbolic solutions from **Algebrite**, **Nerdamer**, and **Giac.js**.",
+  "main": "giac.js",
+  "scripts": {
+    "test": "node test.js",
+    "test:bugs": "node test-bugs.js",
+    "test:bugfixes": "node test-bugfixes.js",
+    "test:all": "node test.js && node test-bugs.js && node test-bugfixes.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hendr15k/sketch-cas.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hendr15k/sketch-cas/issues"
+  },
+  "homepage": "https://github.com/hendr15k/sketch-cas#readme",
+  "dependencies": {
+    "playwright": "^1.60.0"
+  }
+}

@@ -8,32 +8,56 @@ from datetime import datetime
 
 DATA_DIR = "/opt/data/sketch-cas/training-data"
 os.makedirs(DATA_DIR, exist_ok=True)
+MAX_BODY_BYTES = 25 * 1024 * 1024  # 25 MB cap to prevent OOM DoS
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/api/send-training":
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length)
             try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except (TypeError, ValueError):
+                self.send_error(400, "Invalid Content-Length")
+                return
+            if length < 0 or length > MAX_BODY_BYTES:
+                self.send_error(413, "Payload too large")
+                return
+            try:
+                body = self.rfile.read(length) if length else b""
                 data = json.loads(body)
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = "training_" + ts + ".json"
-                filepath = os.path.join(DATA_DIR, filename)
-                with open(filepath, "w") as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
-                # Also copy to latest
-                shutil.copy2(filepath, os.path.join(DATA_DIR, "latest.json"))
-                self.send_response(200)
+            except json.JSONDecodeError as e:
+                self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-                self.wfile.write(json.dumps({"ok": True, "file": filename}).encode())
+                self.wfile.write(json.dumps({"ok": False, "error": "Invalid JSON: " + str(e)}).encode())
+                return
             except Exception as e:
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(json.dumps({"ok": False, "error": str(e)}).encode())
+                return
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = "training_" + ts + ".json"
+            filepath = os.path.join(DATA_DIR, filename)
+            try:
+                with open(filepath, "w") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                # Also copy to latest
+                shutil.copy2(filepath, os.path.join(DATA_DIR, "latest.json"))
+            except OSError as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": False, "error": "Write failed: " + str(e)}).encode())
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "file": filename}).encode())
         else:
             self.send_response(404)
             self.end_headers()

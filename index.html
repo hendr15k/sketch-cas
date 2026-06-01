@@ -214,7 +214,7 @@ canvas.addEventListener("touchmove",function(e){e.preventDefault()},{passive:fal
 
 /* ===== UI ===== */
 function toast(m){var t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},1500)}
-function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 function updS(p,m,f){document.getElementById("sP").textContent=p;document.getElementById("sM").textContent=m;document.getElementById("sF").textContent=f}
 function eH(icon,title,desc){return '<div class="es"><div class="bi">'+icon+"</div><h3>"+title+"</h3><p>"+desc+"</p></div>"}
 
@@ -481,7 +481,7 @@ function genT(pts,f){
     add(function(x){return f.amp*Math.sign(Math.sin(om*x+bsp))+f.off},"Rechteck",mkLat("sgn",om,bsp,f.amp,f.off),{type:"square"});
     if(f.isDamp){
       var dec=Math.log(Math.max(.01,Math.abs(f.pkV[0]-f.off)+.01))/Math.max(.01,f.period*(f.pkV.length-1||1));
-      add(function(x){return f.amp*Math.exp(-Math.abs(dec)*2*x)*Math.sin(om*x+bsp)+f.off},"Gedaempft",mkLat("dmp",om,bsp,f.amp,f.off,{d:Math.abs(dec*2)}),{type:"damped"});
+      add(function(x){return f.amp*Math.exp(-Math.abs(dec)*2*x)*Math.sin(om*x+bsp)+f.off},"Gedaempft",mkLat("dmp",om,bsp,f.amp,f.off,{d:Math.abs(dec*2)}),{type:"damped",decay:Math.abs(dec)*2});
     }
   }
   if(!f.isPer){
@@ -520,7 +520,7 @@ function evalT(x,c){
   switch(t){case"sin":return a*Math.sin(om*x+p)+o;case"cos":return a*Math.cos(om*x+p)+o;
     case"abs_sin":return a*Math.abs(Math.sin(om*x+p))+o;case"square":return a*Math.sign(Math.sin(om*x+p))+o;
     case"heaviside":return a*Math.sign(x-.5)+o;
-    case"damped":return a*Math.exp(-f*2*x)*Math.sin(om*x+p)+o;
+    case"damped":{var dd=c.params.decay!==undefined?c.params.decay:f*2;return a*Math.exp(-dd*x)*Math.sin(om*x+p)+o}
     case"exponential":return a*Math.exp((c.params.fB||1)*x)+o;default:return 0}
 }
 function fitPoly(xs,ys,d){var n=xs.length,m=d+1;var A=[];for(var r=0;r<m;r++){A[r]=[];for(var c=0;c<m;c++)A[r][c]=0}var b=[];for(var r=0;r<m;r++)b[r]=0;
@@ -624,7 +624,19 @@ function getSymExpr(c){
 
 function renderK(el){requestAnimationFrame(function(){el.querySelectorAll("[data-latex]").forEach(function(e){
   try{katex.render(e.getAttribute("data-latex"),e,{throwOnError:false,displayMode:false})}catch(er){e.textContent=e.getAttribute("data-latex")}})})}
-window.cpT=function(el){navigator.clipboard.writeText(el.textContent||el.getAttribute("data-latex")||"").then(function(){toast("Kopiert!")})};
+window.cpT=function(el){
+  var text=el.textContent||el.getAttribute("data-latex")||"";
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){toast("Kopiert!")}).catch(function(e){
+      // Fallback für non-secure contexts / verweigerte Permissions
+      try{var ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);toast("Kopiert!")}
+      catch(_e){toast("Kopieren fehlgeschlagen")}
+    });
+  }else{
+    try{var ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);toast("Kopiert!")}
+    catch(_e){toast("Kopieren fehlgeschlagen")}
+  }
+};
 window._casTab=function(){document.querySelectorAll(".tab")[1].click()};
 
 /* ===== BODE ===== */
@@ -800,6 +812,9 @@ function deleteTarget(id){
 }
 
 function startPractice(id){
+  if(practiceActive&&activeTargetId&&activeTargetId!==id){
+    if(!confirm("Übung läuft bereits. Aktuelle Übung verwerfen und neu starten?"))return;
+  }
   var target=null;
   for(var i=0;i<trainData.targets.length;i++){
     if(trainData.targets[i].id===id){target=trainData.targets[i];break}
@@ -829,9 +844,20 @@ function endPractice(){
   for(var i=0;i<trainData.targets.length;i++){
     if(trainData.targets[i].id===activeTargetId){target=trainData.targets[i];break}
   }
-  if(!target){activeTargetId=null;return}
+  if(!target){activeTargetId=null;ovlP=null;redraw();return}
   var attPts=getAllPoints();
-  if(attPts.length<10){toast("Mindestens 10 Punkte zum Vergleichen!");activeTargetId=null;ovlP=null;redraw();return}
+  if(attPts.length<10){
+    toast("Mindestens 10 Punkte zum Vergleichen!");
+    practiceActive=false;activeTargetId=null;ovlP=null;redraw();
+    document.getElementById("tRes").innerHTML=eH("📈","Zeichne eine Funktion","Stift oder Finger. Erkennung + multi-CAS automatisch.");
+    document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")});
+    var allTabs=document.querySelectorAll(".tab");
+    for(var i=0;i<allTabs.length;i++){if(allTabs[i].dataset.t==="train"){allTabs[i].classList.add("active");break}}
+    ["tRes","tCas","tInp","tBode","tHist","tTrain"].forEach(function(pid){document.getElementById(pid).classList.remove("on")});
+    document.getElementById("tTrain").classList.add("on");
+    renderTrainingList();
+    return;
+  }
   var err=comparePaths(target.normalizedPoints,attPts);
   var score=Math.max(0,Math.min(100,Math.round((1-err)*100)));
   var attempt={
@@ -1008,9 +1034,10 @@ window.__sk={
   genId:genId,getAllPoints:getAllPoints
 };
 
-/* Auto-load Giac on first CAS interaction */
-document.querySelector('[data-t="cas"]').addEventListener("click",function(){if(!giacLoaded&&!giacLoading)loadGiac()},{once:true});
-document.querySelector('[data-t="inp"]').addEventListener("click",function(){if(!giacLoaded&&!giacLoading)loadGiac()},{once:true});
+/* Auto-load Giac on first CAS interaction (retry-fähig, falls 404) */
+function maybeLoadGiac(){if(!giacLoaded&&!giacLoading)loadGiac()}
+document.querySelector('[data-t="cas"]').addEventListener("click",maybeLoadGiac);
+document.querySelector('[data-t="inp"]').addEventListener("click",maybeLoadGiac);
 
 })();
 </script>
