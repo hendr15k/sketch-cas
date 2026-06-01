@@ -419,7 +419,10 @@ function getStrokeBounds(): { xMin: number; xMax: number; yMin: number; yMax: nu
     s.points.forEach((p) => allPts.push({ x: p.x, y: p.y }));
   });
   if (allPts.length < 2) return null;
-  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  let xMin = Infinity,
+    xMax = -Infinity,
+    yMin = Infinity,
+    yMax = -Infinity;
   for (const p of allPts) {
     if (p.x < xMin) xMin = p.x;
     if (p.x > xMax) xMax = p.x;
@@ -445,7 +448,7 @@ function drawTraceTarget(points: Point[]): void {
       const xRange = bounds.xMax - bounds.xMin || 1;
       const yRange = bounds.yMax - bounds.yMin || 1;
       cx = p.x * xRange + bounds.xMin;
-      cy = bounds.yMin + (1 - p.y) * yRange / 2;
+      cy = bounds.yMin + ((1 - p.y) * yRange) / 2;
     } else {
       cx = p.x;
       cy = p.y;
@@ -457,11 +460,7 @@ function drawTraceTarget(points: Point[]): void {
   ctx.setLineDash([]);
 }
 
-function drawOverlayPath(
-  points: Point[],
-  color: string,
-  useInverseNorm = true,
-): void {
+function drawOverlayPath(points: Point[], color: string, useInverseNorm = true): void {
   if (!state || points.length < 2) return;
   const { mainCtx: ctx } = state;
   const bounds = useInverseNorm ? getStrokeBounds() : null;
@@ -477,7 +476,7 @@ function drawOverlayPath(
       const xRange = bounds.xMax - bounds.xMin || 1;
       const yRange = bounds.yMax - bounds.yMin || 1;
       cx = p.x * xRange + bounds.xMin;
-      cy = bounds.yMin + (1 - p.y) * yRange / 2;
+      cy = bounds.yMin + ((1 - p.y) * yRange) / 2;
     } else {
       cx = nx(p.x);
       cy = ny(p.y);

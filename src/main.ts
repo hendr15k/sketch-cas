@@ -1183,9 +1183,9 @@ function endPractice(): void {
     state.customPoints = null;
     best = null;
     redraw();
-    document.querySelectorAll<HTMLElement>('.tab').forEach((t) =>
-      t.classList.remove('active'),
-    );
+    document.querySelectorAll<HTMLElement>('.tab').forEach((t) => {
+      t.classList.remove('active');
+    });
     const tabs = document.querySelectorAll<HTMLElement>('.tab');
     tabs[5]?.classList.add('active');
     ['tRes', 'tCas', 'tInp', 'tBode', 'tHist', 'tTrain'].forEach((id2) =>
