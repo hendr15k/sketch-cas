@@ -10,7 +10,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write 'src/**/*.ts'",
-    "test": "node src/__tests__/cas.test.cjs"
+    "test": "node src/__tests__/cas.test.cjs && node src/__tests__/template-recognition.test.cjs && node src/__tests__/eval-template-bugfixes.test.cjs && bash src/__tests__/server-bugfixes.test.sh"
   },
   "dependencies": {
     "algebrite": "^1.4.0",
