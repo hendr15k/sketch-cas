@@ -50,9 +50,34 @@ export function emptyState(icon: string, title: string, desc: string): string {
  */
 export function copyToClipboard(el: HTMLElement): void {
   const text = el.textContent || el.getAttribute('data-latex') || '';
-  void navigator.clipboard.writeText(text).then(() => {
-    toast('Kopiert!');
-  });
+  const finish = () => toast('Kopiert!');
+  // navigator.clipboard may be blocked (e.g. in non-secure contexts, some tablets);
+  // fall back to the legacy execCommand path so the user still gets feedback.
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(text).then(finish).catch(() => {
+      try {
+        const range = document.createRange();
+        range.selectNode(el);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        if (document.execCommand('copy')) finish();
+      } catch {
+        /* swallow — silent failure is preferable to noisy toast spam */
+      }
+    });
+  } else {
+    try {
+      const range = document.createRange();
+      range.selectNode(el);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      if (document.execCommand('copy')) finish();
+    } catch {
+      /* silent */
+    }
+  }
 }
 
 /**

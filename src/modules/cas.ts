@@ -211,15 +211,19 @@ export function loadGiac(): void {
   document.body.appendChild(script);
 }
 
-/** Register auto-load on first CAS interaction. */
+/**
+ * Register auto-load on first CAS interaction.
+ * Uses a shared `maybeLoadGiac` helper (no `{once:true}`) so the listener
+ * remains available across tab switches and re-tries on transient failures.
+ */
 export function setupGiacAutoload(): void {
   const casTab = document.querySelector('[data-t="cas"]');
   const inpTab = document.querySelector('[data-t="inp"]');
-  const handler = () => {
+  const maybeLoadGiac = (): void => {
     if (!giacLoaded && !giacLoading) loadGiac();
   };
-  casTab?.addEventListener('click', handler, { once: true });
-  inpTab?.addEventListener('click', handler, { once: true });
+  casTab?.addEventListener('click', maybeLoadGiac);
+  inpTab?.addEventListener('click', maybeLoadGiac);
 }
 
 /* ---- Run on Xcas ---- */

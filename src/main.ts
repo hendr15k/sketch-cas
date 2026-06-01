@@ -1117,6 +1117,13 @@ function startPractice(id: string): void {
     toast('Keine Referenzdaten!');
     return;
   }
+  // Guard against silently discarding an in-progress practice session.
+  if (practiceActive && activeTargetId && activeTargetId !== id) {
+    const ok = window.confirm(
+      'Es läuft bereits eine Übung. Aktuelle Übung verwerfen und neu starten?',
+    );
+    if (!ok) return;
+  }
 
   activeTargetId = id;
   practiceActive = true;
@@ -1169,6 +1176,23 @@ function endPractice(): void {
   if (attPts.length < 10) {
     toast('Mindestens 10 Punkte zum Vergleichen!');
     activeTargetId = null;
+    // Reset UI back to the training tab so the user can re-select a target
+    // instead of being stranded on a half-finished "Übung" view.
+    const state = getState();
+    state.overlayPoints = null;
+    state.customPoints = null;
+    best = null;
+    redraw();
+    document.querySelectorAll<HTMLElement>('.tab').forEach((t) =>
+      t.classList.remove('active'),
+    );
+    const tabs = document.querySelectorAll<HTMLElement>('.tab');
+    tabs[5]?.classList.add('active');
+    ['tRes', 'tCas', 'tInp', 'tBode', 'tHist', 'tTrain'].forEach((id2) =>
+      document.getElementById(id2)?.classList.remove('on'),
+    );
+    document.getElementById('tTrain')?.classList.add('on');
+    renderTrainingList();
     return;
   }
 
