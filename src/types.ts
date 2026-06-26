@@ -101,4 +101,4 @@ export interface HistoryEntry {
 
 export type EngineSelector = 'all' | 'algebrite' | 'nerdamer' | 'xcas';
 
-export type TrainMode = 'record' | 'practice' | 'stats';
+export type TrainMode = 'record' | 'practice' | 'trace' | 'stats';

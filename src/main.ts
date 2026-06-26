@@ -1654,8 +1654,7 @@ function startTracing(type: string, label: string, _latex: string): void {
           break;
         }
         case 'sqrt': {
-          const sv = Math.sqrt((x - 0.5) * 6 + 3);
-          y = isFinite(sv) ? Math.max(-1, Math.min(1, (sv - 2) / 2)) : 0;
+          y = 2 * Math.sqrt(x) - 1;
           break;
         }
         case 'abs':
@@ -1682,7 +1681,7 @@ function startTracing(type: string, label: string, _latex: string): void {
           break;
         }
         case 'sawtooth':
-          y = 2 * (x - Math.floor(x + 0.5));
+          y = 2 * (x - Math.floor(x)) - 1;
           break;
         case 'triangle':
           y = 2 * Math.abs(2 * (x - Math.floor(x + 0.5))) - 1;
@@ -1709,8 +1708,7 @@ function startTracing(type: string, label: string, _latex: string): void {
           y = Math.abs(2 * x - 1) * Math.sign(x - 0.5);
           break;
         case 'poly5':
-          y = Math.pow(x - 0.5, 5) * 64;
-          y = Math.max(-1, Math.min(1, y));
+          y = Math.pow(x - 0.5, 5) * 32;
           break;
         case 'cosh_decay': {
           const cdv = Math.exp(-3 * x) * Math.cosh(2 * (x - 0.5));

@@ -307,18 +307,21 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         for (let p = 0; p < Math.PI * 2; p += 0.2) {
           for (const dm of [1, 2, 3, 5, 8]) {
             for (const aMul of [0.5, 1.0, 2.0]) {
-              const testAmp = f.amp * aMul;
-              const test = xs.map(
-                (x) => testAmp * Math.exp(-dm * x) * Math.sin(oTry * x + p) + f.off,
-              );
-              const err = rmse(ys, test);
-              if (err < dBestErr) {
-                dBestErr = err;
-                dBestAmp = testAmp;
-                dBestPhase = p;
-                dBestOff = f.off;
-                dBestD = dm;
-                dBestOmega = oTry;
+              for (const oDelta of [-0.3, -0.1, 0, 0.1, 0.3]) {
+                const testAmp = f.amp * aMul;
+                const testOff = f.off + oDelta;
+                const test = xs.map(
+                  (x) => testAmp * Math.exp(-dm * x) * Math.sin(oTry * x + p) + testOff,
+                );
+                const err = rmse(ys, test);
+                if (err < dBestErr) {
+                  dBestErr = err;
+                  dBestAmp = testAmp;
+                  dBestPhase = p;
+                  dBestOff = testOff;
+                  dBestD = dm;
+                  dBestOmega = oTry;
+                }
               }
             }
           }
