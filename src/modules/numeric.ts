@@ -188,9 +188,15 @@ export function fitExponential(xs: number[], ys: number[]): ExpFitResult | null 
   for (let c = -1.5; c <= 1.5 + 1e-9; c += 0.05) {
     const ln: number[] = [];
     let ok = true;
+    // Track whether most y_i - c are negative — if so the model needs
+    // negative amplitude (i.e. y = -|a|*exp(b*x) + c) which the original
+    // code silently dropped because it always set a = exp(intercept) > 0.
+    let negCount = 0;
 
     for (let i = 0; i < xs.length; i++) {
-      const v = Math.log(Math.abs(ys[i]! - c) + 1e-10);
+      const diff = ys[i]! - c;
+      if (diff < 0) negCount++;
+      const v = Math.log(Math.abs(diff) + 1e-10);
       if (!isFinite(v)) {
         ok = false;
         break;
@@ -214,7 +220,11 @@ export function fitExponential(xs: number[], ys: number[]): ExpFitResult | null 
     const denom = n * sxx - sx * sx;
     if (Math.abs(denom) < 1e-10) continue;
     const b = (n * sxy - sx * sy) / denom;
-    const a = Math.exp((sy - b * sx) / n);
+    // Sign of "a" follows the dominant sign of (y_i - c): if the majority
+    // of the data sits *below* c, the model must curve downward, so we
+    // flip the sign of a.
+    const sign = negCount > n / 2 ? -1 : 1;
+    const a = sign * Math.exp((sy - b * sx) / n);
 
     let err = 0;
     for (let i = 0; i < n; i++) {

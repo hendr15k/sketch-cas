@@ -115,19 +115,31 @@ export function getFeatures(pts: Point[]): Features {
     }
   }
 
-  // Count peaks and valleys
+  // Count peaks and valleys — require prominence above a small threshold
+  // proportional to the amplitude so stroke noise does not create spurious
+  // local extrema (which would break feature-based recognition for noisy
+  // sqrt / linear / other monotonic strokes).  Monotonic-shape detection
+  // (sqrtLike / expLike / linear) also accepts a tiny residual noise slop
+  // via the allDecreasing noise tolerant check below.
+  const extremaPromThresh = amp * 0.04;
   let pk = 0;
   let vl = 0;
   const pkV: number[] = [];
   const vlV: number[] = [];
   for (let i = 2; i < ys.length - 2; i++) {
     if (ys[i]! > ys[i - 1]! && ys[i]! > ys[i + 1]! && ys[i]! > ys[i - 2]! && ys[i]! > ys[i + 2]!) {
-      pk++;
-      pkV.push(ys[i]!);
+      const prom = ys[i]! - Math.max(ys[i - 1]!, ys[i + 1]!);
+      if (prom >= extremaPromThresh) {
+        pk++;
+        pkV.push(ys[i]!);
+      }
     }
     if (ys[i]! < ys[i - 1]! && ys[i]! < ys[i + 1]! && ys[i]! < ys[i - 2]! && ys[i]! < ys[i + 2]!) {
-      vl++;
-      vlV.push(ys[i]!);
+      const prom = Math.min(ys[i - 1]!, ys[i + 1]!) - ys[i]!;
+      if (prom >= extremaPromThresh) {
+        vl++;
+        vlV.push(ys[i]!);
+      }
     }
   }
 
@@ -148,6 +160,7 @@ export function getFeatures(pts: Point[]): Features {
   let curvatureVar = 0;
   let concaveDown = false;
   let sqrtLike = false;
+  let expLike = false;
   if (ys.length > 4) {
     const d2: number[] = [];
     for (let i = 2; i < ys.length - 2; i++) {
@@ -169,33 +182,72 @@ export function getFeatures(pts: Point[]): Features {
       concaveDown = dominantShare > 0.9;
     }
 
-    // sqrtLike: monotonically increasing + concave down + meaningful y-range
-    // Distinguish from ln: sqrt has y(0.5) < 0.45 (normalized), ln has y(0.5) > 0.45
-    // because ln's curvature is more concentrated near x=0
+    // sqrtLike / expLike: monotonically increasing + concave + meaningful
+    // y-range.  Distinguish sqrt (concave down, slope decreases from
+    // left → right) from exp (slope INCREASES from left → right after
+    // the Y-axis flip, since the original exp becomes steeper at the
+    // right).  We use |slope(right)| and |slope(left)| as proxies.
     const totalExtrema = pk + vl;
-    if (totalExtrema === 0) {
+    if (totalExtrema <= 5) {
       // Check monotonic increasing: the Y axis is flipped during
       // normalization, so a user-drawn curve that is monotonically
       // INCREASING in original space becomes monotonically DECREASING
       // in the normalized array.  Therefore we test for "decreasing"
       // here, which corresponds to "increasing in the original drawing".
-      let allDecreasing = true;
+      // Count strictly-increasing steps; noise can flip ~25-40% so allow
+      // up to 45% noise misses while still treating as monotonic.
+      let decMisses = 0;
       for (let i = 1; i < ys.length; i++) {
-        if (ys[i]! >= ys[i - 1]!) {
-          allDecreasing = false;
-          break;
-        }
+        if (ys[i]! > ys[i - 1]!) decMisses++;
       }
+      const allDecreasing = decMisses <= ys.length * 0.45;
       // y-range must be large enough to not be confused with a line
-      const yRange = yMax - yMin;
+      const fullRange = yMax - yMin;
+      // Slope ratio of average slope over right-most 25% of the array vs
+      // left-most 25%.  After the flip, exp's |slope| INCREASES toward the
+      // right (because original exp gets steeper), giving slopeRatio > 1.
+      const slopeWindow = Math.max(3, Math.floor(ys.length * 0.25));
+      let leftSlope = 0;
+      let rightSlope = 0;
+      for (let i = 1; i < slopeWindow; i++) leftSlope += ys[i]! - ys[i - 1]!;
+      for (let i = ys.length - slopeWindow; i < ys.length - 1; i++)
+        rightSlope += ys[i + 1]! - ys[i]!;
+      leftSlope /= Math.max(1, slopeWindow - 1);
+      rightSlope /= Math.max(1, slopeWindow - 1);
+      const slopeRatio =
+        Math.abs(rightSlope) / Math.max(Math.abs(leftSlope), 1e-9);
       // Check curvature ratio: sqrt has moderate ratio (~5), ln has high ratio (~9)
       // Use y-value at midpoint as proxy: sqrt(0.5)≈0.41, ln(0.5)≈0.50 (in [-1,1] norm)
-      // midNorm = (midY - yMin) / yRange → sqrt ≈ 0.71, ln ≈ 0.75
+      // midNorm = (midY - yMin) / fullRange → sqrt ≈ 0.71, ln ≈ 0.75
       const midY = ys[Math.floor(ys.length / 2)]!;
-      const midNorm = (midY - yMin) / (yRange || 1); // 0..1 scale
-      sqrtLike = allDecreasing && concaveDown && yRange > 0.3 && amp > 0.15 && midNorm < 0.73;
+      const midNorm = (midY - yMin) / (fullRange || 1); // 0..1 scale
+      const monotonicConcave = allDecreasing && concaveDown && fullRange > 0.3 && amp > 0.15;
+      // sqrtLike: |slope| gets GENTLER toward the right (slopeRatio < 1.5)
+      // AND mid-norm isn't in the ln/exp territory; expLike: |slope| STEEPENS
+      // toward the right (slopeRatio > 1.5).
+      sqrtLike = monotonicConcave && slopeRatio < 1.5 && midNorm < 0.78;
+      expLike = monotonicConcave && slopeRatio > 1.5;
     }
   }
+
+  // Step-like / tan-like detection: count large consecutive jumps.
+  // Square waves and tan share a sharp transition that produces several
+  // consecutive y-diffs much larger than the typical slope.
+  // We distinguish square (flat extremes) from tan (extremes near the
+  // offset/centre — the "wings" ramp up only near the asymptote).
+  let largeJumps = 0;
+  const jumpThresh = amp * 0.2;
+  for (let i = 1; i < ys.length; i++) {
+    if (Math.abs(ys[i]! - ys[i - 1]!) > jumpThresh) largeJumps++;
+  }
+  // Wing magnitude: how close the boundary y-values are to ±amp versus 0.
+  const wingMax = Math.max(Math.abs(ys[0]!), Math.abs(ys[ys.length - 1]!));
+  const wingFlat = wingMax > amp * 0.7;
+  const wingTilted = wingMax < amp * 0.3;
+  const hasSharpTransition = largeJumps >= 2 && largeJumps <= 15;
+  const stepLike = hasSharpTransition && wingFlat;
+  const tanLike =
+    hasSharpTransition && wingTilted && (pk + vl) <= 4 && crossings.length >= 1;
 
   return {
     amp,
@@ -210,7 +262,10 @@ export function getFeatures(pts: Point[]): Features {
     isDamp,
     curvatureVar,
     sqrtLike,
+    expLike,
     concaveDown,
+    stepLike,
+    tanLike,
   };
 }
 

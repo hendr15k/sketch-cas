@@ -6,7 +6,10 @@ import os
 import shutil
 from datetime import datetime
 
-DATA_DIR = "/opt/data/sketch-cas/training-data"
+# Resolve paths relative to this script so the server runs identically
+# in development (repo root) and in production deployments.
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(SCRIPT_DIR, "training-data")
 # Cap upload body at 25 MiB to avoid OOM-DoS while still leaving headroom
 # for hand-written math training payloads that may include base64 images.
 MAX_BODY_BYTES = 25 * 1024 * 1024
@@ -77,7 +80,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     import sys
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 3141
-    os.chdir("/opt/data/sketch-cas")
+    os.chdir(SCRIPT_DIR)
     server = http.server.HTTPServer(("0.0.0.0", port), Handler)
     print(f"Sketch-CAS server on :{port} (with training API)")
     server.serve_forever()

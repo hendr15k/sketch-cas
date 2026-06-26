@@ -50,6 +50,9 @@ export interface Features {
   curvatureVar: number; // variance of 2nd derivative: low=parabola, high=sin
   sqrtLike: boolean; // true if curve is monotonically increasing + concave down (sqrt shape)
   concaveDown: boolean; // true if 2nd derivative is consistently negative (sqrt, ln, exp decay)
+  stepLike: boolean; // true for square-like signals: sharp transitions + flat extremes
+  tanLike: boolean; // true for tan-like signals: sharp transition + wings tilted toward center
+  expLike: boolean; // true for monotonic concave curves whose right-side slope is steeper than left ← exp(x)
 }
 
 export interface TemplateCandidate {

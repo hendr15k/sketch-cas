@@ -8,7 +8,8 @@
 set -u
 
 PORT=3142
-SERVER=/opt/data/sketch-cas/server.py
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.." && pwd)"
+SERVER="$SCRIPT_DIR/server.py"
 LOG=$(mktemp)
 PASS=0
 FAIL=0
@@ -16,7 +17,7 @@ FAIL=0
 cleanup() { kill "$PID" 2>/dev/null || true; wait 2>/dev/null; rm -f "$LOG"; }
 trap cleanup EXIT
 
-cd /opt/data/sketch-cas
+cd "$SCRIPT_DIR"
 python3 "$SERVER" "$PORT" > "$LOG" 2>&1 &
 PID=$!
 # Wait until server is ready

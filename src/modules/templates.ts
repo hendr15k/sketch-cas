@@ -47,12 +47,17 @@ function featureFactor(type: string, f: Features): number {
       return 1.3;
 
     case 'abs_sin':
-      if (f.isPer && totalExtrema >= 2) return 0.75;
-      return 2.0;
+      // isPer is computed from zero crossings — even when individual
+      // peaks do not survive the prominence filter we still have the
+      // crossing rhythm which is enough to recognise |sin|.
+      if (f.isPer) return 0.65;
+      return 1.5;
 
     case 'square':
+      if (f.stepLike) return 0.5; // sharp transition with flat extremes
       if (f.isPer && totalExtrema >= 2) return 0.8;
-      return 2.0;
+      if (f.isPer) return 0.9;
+      return 1.5;
 
     case 'linear':
       if (totalExtrema === 0 && lowCurv) return 0.65; // no extrema + constant curvature → truly linear
@@ -67,6 +72,8 @@ function featureFactor(type: string, f: Features): number {
       return 1.8;
 
     case 'poly3':
+      if (f.tanLike) return 4.0; // sharp tan transition → poly3 overfits
+      if (f.expLike) return 4.0; // exp growth → poly3 overfits
       if (f.sqrtLike) return 2.5; // sqrt-like shape → poly3 overfits; penalize
       if (totalExtrema === 0 && f.concaveDown) return 2.0; // monotonic concave-down → poly3 overfits
       if (totalExtrema === 2) return 0.8;
@@ -74,6 +81,8 @@ function featureFactor(type: string, f: Features): number {
       return 1.5;
 
     case 'poly4':
+      if (f.tanLike) return 8.0; // sharp tan transition → poly4 overfits
+      if (f.expLike) return 8.0; // exp growth → poly4 overfits
       if (totalExtrema >= 2) return 0.9;
       if (f.sqrtLike) return 3.0; // sqrt-like shape → poly4 overfits; penalize heavily
       if (totalExtrema === 0 && f.concaveDown) return 2.5; // monotonic concave-down → poly4 overfits (ln, sqrt territory)
@@ -81,14 +90,16 @@ function featureFactor(type: string, f: Features): number {
       return 1.5;
 
     case 'exponential':
+      if (f.expLike) return 0.45; // strong bonus: monotonic concave + steepens right
       if (totalExtrema === 0 && lowCurv) return 0.6; // monotonic + no curvature changes
       if (totalExtrema === 0) return 0.75;
       if (totalExtrema === 1) return 1.2;
       return 3.0; // exponential should NEVER oscillate
 
     case 'damped':
-      if (f.isDamp) return 0.7;
-      return 2.0;
+      if (f.isDamp) return 0.45; // detected damped oscillation
+      if (f.crossings >= 3) return 0.45; // oscillation detected via crossings
+      return 1.5;
 
     case 'logarithmic':
       // ln(x) is monotonically increasing, concave down, 0 extrema
@@ -112,7 +123,8 @@ function featureFactor(type: string, f: Features): number {
       return 2.5;
 
     case 'tan':
-      // tan has inflection points, may have crossings
+      // tan has a sharp asymptote + tilted wings
+      if (f.tanLike) return 0.4; // strong bonus when tan-like feature detected
       if (f.isPer) return 1.0;
       if (totalExtrema === 0 && f.crossings >= 1) return 0.9;
       return 1.5;
@@ -138,14 +150,15 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     label: string,
     latex: string,
     params: Record<string, number | string | number[]> = {},
-    compositeOverride?: number,
+    compositeScale?: number,
   ): void {
     const t = xs.map(fn);
     const rawErr = rmse(ys, t);
     const type = (params['type'] as string) || '';
     const complexity = COMPLEXITY[type] || 1.1;
     const featFactor = featureFactor(type, f);
-    const composite = compositeOverride ?? rawErr * complexity * featFactor;
+    const scale = compositeScale ?? 1;
+    const composite = rawErr * complexity * featFactor * scale;
     candidates.push({
       label,
       latex,
@@ -179,11 +192,16 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
       }
     }
 
+    // Small phase-based tiebreak: when bestPhase is near 0 or π (mod 2π)
+    // the data aligns with a pure sin, so favor sin; when near ±π/2 favor
+    // cos. Each side is scaled asymmetrically 0.95–1.05 of the baseline.
+    const phaseTiebreak = 0.05 * Math.cos(2 * bestPhase);
     add(
       (x) => bestAmp * Math.sin(omega * x + bestPhase) + bestOff,
       'Sinus',
       buildLatex('sin', omega, bestPhase, bestAmp, bestOff),
       { type: 'sin', phase: bestPhase, amp: bestAmp, offset: bestOff },
+      1 - phaseTiebreak,
     );
 
     // Cosine: shift phase by -π/2 so cos(ωx + φ) = sin(ωx + bestPhase)
@@ -193,35 +211,121 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
       'Cosinus',
       buildLatex('cos', omega, cosPhase, bestAmp, bestOff),
       { type: 'cos', phase: cosPhase, amp: bestAmp, offset: bestOff },
+      1 + phaseTiebreak,
     );
 
-    // |sin|
-    add(
-      (x) => bestAmp * Math.abs(Math.sin(omega * x + bestPhase)) + bestOff,
-      '|Sinus|',
-      buildLatex('abs_sin', omega, bestPhase, bestAmp, bestOff),
-      { type: 'abs_sin', phase: bestPhase, amp: bestAmp, offset: bestOff },
-    );
-
-    // Square wave (sgn(sin))
-    add(
-      (x) => bestAmp * Math.sign(Math.sin(omega * x + bestPhase)) + bestOff,
-      'Rechteck',
-      buildLatex('sgn', omega, bestPhase, bestAmp, bestOff),
-      { type: 'square' },
-    );
-
-    // Damped oscillation
-    if (f.isDamp && f.pkV.length >= 2) {
-      const decay =
-        Math.log(Math.max(0.01, Math.abs(f.pkV[0]! - f.off) + 0.01)) /
-        Math.max(0.01, f.period * (f.pkV.length - 1 || 1));
-      const d = Math.abs(decay * 2);
+    // |sin| — abs(sin(ωx)) has half the period of sin(ωx).
+    // The detected period (from zero crossings) is the full abs_sin
+    // period, so use ω/2 to make the template's abs_sin match that period.
+    // The normalized data has full ±amp excursion centered at the offset,
+    // so we use the centered form amp*(1 - 2|sin(...)|) + off (mirroring
+    // the Y-flip in normalizeAndResample) and brute-force the best
+    // phase/amplitude/offset locally.
+    const omegaAbs = omega / 2;
+    {
+      let aAbsBest = f.amp, pAbsBest = bestPhase, oAbsBest = f.off, eAbsBest = Infinity;
+      for (let p = 0; p < Math.PI; p += 0.05) {
+        for (const aMul of [0.5, 1.0, 2.0]) {
+          const testAmp = f.amp * aMul;
+          for (const oDelta of [-1, -0.5, -0.2, 0, 0.2, 0.5, 1]) {
+            const testOff = f.off + oDelta;
+            const test = xs.map(
+              (x) => testAmp * (1 - 2 * Math.abs(Math.sin(omegaAbs * x + p))) + testOff,
+            );
+            const err = rmse(ys, test);
+            if (err < eAbsBest) {
+              eAbsBest = err;
+              aAbsBest = testAmp;
+              pAbsBest = p;
+              oAbsBest = testOff;
+            }
+          }
+        }
+      }
       add(
-        (x) => bestAmp * Math.exp(-d * x) * Math.sin(omega * x + bestPhase) + bestOff,
+        (x) => aAbsBest * (1 - 2 * Math.abs(Math.sin(omegaAbs * x + pAbsBest))) + oAbsBest,
+        '|Sinus|',
+        buildLatex('abs_sin', omegaAbs, pAbsBest, aAbsBest, oAbsBest),
+        { type: 'abs_sin', phase: pAbsBest, amp: aAbsBest, offset: oAbsBest, freq: freq / 2 },
+      );
+    }
+
+    // Square wave (sgn(sin)) — step-like signals deserve their own
+    // phase search because the sin-fit's bestPhase is often mistuned
+    // for a square step.
+    {
+      let aSqBest = f.amp, pSqBest = bestPhase, oSqBest = f.off, eSqBest = Infinity;
+      const omegaSq = f.isPer ? omega : omega; // same ω as sin/cos
+      for (let p = 0; p < Math.PI * 2; p += 0.05) {
+        for (const aMul of [0.5, 1.0, 2.0]) {
+          const testAmp = f.amp * aMul;
+          for (const oDelta of [-0.5, -0.2, -0.1, 0, 0.1, 0.2, 0.5]) {
+            const testOff = f.off + oDelta;
+            const test = xs.map(
+              (x) => testAmp * Math.sign(Math.sin(omegaSq * x + p)) + testOff,
+            );
+            const err = rmse(ys, test);
+            if (err < eSqBest) {
+              eSqBest = err;
+              aSqBest = testAmp;
+              pSqBest = p;
+              oSqBest = testOff;
+            }
+          }
+        }
+      }
+      add(
+        (x) => aSqBest * Math.sign(Math.sin(omegaSq * x + pSqBest)) + oSqBest,
+        'Rechteck',
+        buildLatex('sgn', omegaSq, pSqBest, aSqBest, oSqBest),
+        { type: 'square', phase: pSqBest, amp: aSqBest, offset: oSqBest },
+      );
+    }
+
+    // Damped oscillation — generate whenever the signal shows oscillation
+    // (crossings ≥ 2, regardless of whether peaks survive the smooth
+    // prominence filter).  Brute-force search over several decay and
+    // frequency candidates since the standard ω (from zero-crossing
+    // period) may be wrong when crossings drop below the isPer threshold.
+    const dampTrigger = f.isDamp || f.crossings >= 2;
+    if (dampTrigger) {
+      let dBestErr = Infinity;
+      let dBestAmp = bestAmp;
+      let dBestPhase = bestPhase;
+      let dBestOff = bestOff;
+      let dBestD = 3;
+      let dBestOmega = omega;
+      // Try a few ω candidates: the detected one plus integer harmonics.
+      const omegaTrials = [omega];
+      for (const k of [2, 3, 4]) omegaTrials.push(omega * k);
+      omegaTrials.push(Math.PI);
+      for (const oTry of omegaTrials) {
+        for (let p = 0; p < Math.PI * 2; p += 0.2) {
+          for (const dm of [1, 2, 3, 5, 8]) {
+            for (const aMul of [0.5, 1.0, 2.0]) {
+              const testAmp = f.amp * aMul;
+              const test = xs.map(
+                (x) => testAmp * Math.exp(-dm * x) * Math.sin(oTry * x + p) + f.off,
+              );
+              const err = rmse(ys, test);
+              if (err < dBestErr) {
+                dBestErr = err;
+                dBestAmp = testAmp;
+                dBestPhase = p;
+                dBestOff = f.off;
+                dBestD = dm;
+                dBestOmega = oTry;
+              }
+            }
+          }
+        }
+      }
+      const freqForDamp = dBestOmega / (2 * Math.PI);
+      add(
+        (x) => dBestAmp * Math.exp(-dBestD * x) * Math.sin(dBestOmega * x + dBestPhase) + dBestOff,
         'Gedaempft',
-        buildLatex('dmp', omega, bestPhase, bestAmp, bestOff, { d }),
-        { type: 'damped', phase: bestPhase, decay: d, amp: bestAmp, offset: bestOff },
+        buildLatex('dmp', dBestOmega, dBestPhase, dBestAmp, dBestOff, { d: dBestD }),
+        { type: 'damped', phase: dBestPhase, decay: dBestD, amp: dBestAmp, offset: dBestOff, freq: freqForDamp },
       );
     }
   }
@@ -427,38 +531,61 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     }
   }
 
-  // === TAN CANDIDATE: y = amp * tan(omega * x + phase) + off ===
+  // === TAN CANDIDATE: y = amp * clip(tan(omega * x + phase), -5, 5) + off ===
   {
-    // Tan is periodic but with discontinuities; fit using brute-force phase search
-    let bestAmp = f.amp;
-    let bestPhase = 0;
-    let bestOff = f.off;
-    let bestErr = Infinity;
-    for (let p = 0; p < Math.PI; p += 0.1) {
-      for (const aMul of [0.5, 1.0, 2.0]) {
+    // Tan has a periodicity of π/ω (one asymptote per period).  In a
+    // normalised [0,1] stroke the typical tan-shape has exactly one
+    // asymptote, so we use ω = π when no period was detected.  We also
+    // try negative amplitudes (for left/right flip) and a much wider
+    // amplitude range, since the smoothing+normalisation compresses the
+    // tan wings down to a small range around the offset.
+    const omegaTan = f.isPer ? omega : Math.PI;
+    let bestAmpTan = f.amp;
+    let bestPhaseTan = 0;
+    let bestOffTan = f.off;
+    let bestErrTan = Infinity;
+    for (let p = 0; p < Math.PI; p += 0.05) {
+      for (const aMul of [0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 3.0]) {
         const testAmp = f.amp * aMul;
-        const test = xs.map((x) => {
-          const v = Math.tan(omega * x + p);
-          return testAmp * Math.max(-5, Math.min(5, v)) + f.off;
-        });
-        const err = rmse(ys, test);
-        if (err < bestErr) {
-          bestErr = err;
-          bestAmp = testAmp;
-          bestPhase = p;
-          bestOff = f.off;
+        for (const oDelta of [-0.3, -0.1, 0, 0.1, 0.3]) {
+          const testOff = f.off + oDelta;
+          const test = xs.map((x) => {
+            const v = Math.tan(omegaTan * x + p);
+            return testAmp * Math.max(-5, Math.min(5, v)) + testOff;
+          });
+          // Try negating the amp too — this flips the negative/positive side
+          // of tan which is needed when the smoothed data's rises go
+          // the opposite way around the asymptote.
+          const testNeg = xs.map((x) => {
+            const v = Math.tan(omegaTan * x + p);
+            return -testAmp * Math.max(-5, Math.min(5, v)) + testOff;
+          });
+          const err = rmse(ys, test);
+          if (err < bestErrTan) {
+            bestErrTan = err;
+            bestAmpTan = testAmp;
+            bestPhaseTan = p;
+            bestOffTan = testOff;
+          }
+          const errNeg = rmse(ys, testNeg);
+          if (errNeg < bestErrTan) {
+            bestErrTan = errNeg;
+            bestAmpTan = -testAmp;
+            bestPhaseTan = p;
+            bestOffTan = testOff;
+          }
         }
       }
     }
-    if (bestErr < 3) {
+    if (bestErrTan < 3) {
       add(
         (x) => {
-          const v = Math.tan(omega * x + bestPhase);
-          return bestAmp * Math.max(-5, Math.min(5, v)) + bestOff;
+          const v = Math.tan(omegaTan * x + bestPhaseTan);
+          return bestAmpTan * Math.max(-5, Math.min(5, v)) + bestOffTan;
         },
         'Tangens',
-        buildLatex('tan', omega, bestPhase, bestAmp, bestOff),
-        { type: 'tan', phase: bestPhase, amp: bestAmp, offset: bestOff },
+        buildLatex('tan', omegaTan, bestPhaseTan, bestAmpTan, bestOffTan),
+        { type: 'tan', phase: bestPhaseTan, amp: bestAmpTan, offset: bestOffTan, freq: omegaTan / (2 * Math.PI) },
       );
     }
   }
