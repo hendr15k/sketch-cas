@@ -214,8 +214,7 @@ export function getFeatures(pts: Point[]): Features {
         rightSlope += ys[i + 1]! - ys[i]!;
       leftSlope /= Math.max(1, slopeWindow - 1);
       rightSlope /= Math.max(1, slopeWindow - 1);
-      const slopeRatio =
-        Math.abs(rightSlope) / Math.max(Math.abs(leftSlope), 1e-9);
+      const slopeRatio = Math.abs(rightSlope) / Math.max(Math.abs(leftSlope), 1e-9);
       // Check curvature ratio: sqrt has moderate ratio (~5), ln has high ratio (~9)
       // Use y-value at midpoint as proxy: sqrt(0.5)≈0.41, ln(0.5)≈0.50 (in [-1,1] norm)
       // midNorm = (midY - yMin) / fullRange → sqrt ≈ 0.71, ln ≈ 0.75
@@ -246,8 +245,7 @@ export function getFeatures(pts: Point[]): Features {
   const wingTilted = wingMax < amp * 0.3;
   const hasSharpTransition = largeJumps >= 2 && largeJumps <= 15;
   const stepLike = hasSharpTransition && wingFlat;
-  const tanLike =
-    hasSharpTransition && wingTilted && (pk + vl) <= 4 && crossings.length >= 1;
+  const tanLike = hasSharpTransition && wingTilted && pk + vl <= 4 && crossings.length >= 1;
 
   return {
     amp,

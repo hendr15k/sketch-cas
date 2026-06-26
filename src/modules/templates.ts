@@ -223,7 +223,10 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     // phase/amplitude/offset locally.
     const omegaAbs = omega / 2;
     {
-      let aAbsBest = f.amp, pAbsBest = bestPhase, oAbsBest = f.off, eAbsBest = Infinity;
+      let aAbsBest = f.amp,
+        pAbsBest = bestPhase,
+        oAbsBest = f.off,
+        eAbsBest = Infinity;
       for (let p = 0; p < Math.PI; p += 0.05) {
         for (const aMul of [0.5, 1.0, 2.0]) {
           const testAmp = f.amp * aMul;
@@ -254,16 +257,17 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     // phase search because the sin-fit's bestPhase is often mistuned
     // for a square step.
     {
-      let aSqBest = f.amp, pSqBest = bestPhase, oSqBest = f.off, eSqBest = Infinity;
+      let aSqBest = f.amp,
+        pSqBest = bestPhase,
+        oSqBest = f.off,
+        eSqBest = Infinity;
       const omegaSq = f.isPer ? omega : omega; // same ω as sin/cos
       for (let p = 0; p < Math.PI * 2; p += 0.05) {
         for (const aMul of [0.5, 1.0, 2.0]) {
           const testAmp = f.amp * aMul;
           for (const oDelta of [-0.5, -0.2, -0.1, 0, 0.1, 0.2, 0.5]) {
             const testOff = f.off + oDelta;
-            const test = xs.map(
-              (x) => testAmp * Math.sign(Math.sin(omegaSq * x + p)) + testOff,
-            );
+            const test = xs.map((x) => testAmp * Math.sign(Math.sin(omegaSq * x + p)) + testOff);
             const err = rmse(ys, test);
             if (err < eSqBest) {
               eSqBest = err;
@@ -325,7 +329,14 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         (x) => dBestAmp * Math.exp(-dBestD * x) * Math.sin(dBestOmega * x + dBestPhase) + dBestOff,
         'Gedaempft',
         buildLatex('dmp', dBestOmega, dBestPhase, dBestAmp, dBestOff, { d: dBestD }),
-        { type: 'damped', phase: dBestPhase, decay: dBestD, amp: dBestAmp, offset: dBestOff, freq: freqForDamp },
+        {
+          type: 'damped',
+          phase: dBestPhase,
+          decay: dBestD,
+          amp: dBestAmp,
+          offset: dBestOff,
+          freq: freqForDamp,
+        },
       );
     }
   }
@@ -585,7 +596,13 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         },
         'Tangens',
         buildLatex('tan', omegaTan, bestPhaseTan, bestAmpTan, bestOffTan),
-        { type: 'tan', phase: bestPhaseTan, amp: bestAmpTan, offset: bestOffTan, freq: omegaTan / (2 * Math.PI) },
+        {
+          type: 'tan',
+          phase: bestPhaseTan,
+          amp: bestAmpTan,
+          offset: bestOffTan,
+          freq: omegaTan / (2 * Math.PI),
+        },
       );
     }
   }
