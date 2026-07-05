@@ -21,7 +21,7 @@ header h1{font-size:16px;font-weight:700;color:#58a6ff;white-space:nowrap}
 header .sub{font-size:10px;color:#8b949e}
 .bg{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
 .b{padding:6px 10px;border:1px solid #30363d;border-radius:5px;background:#21262d;color:#c9d1d9;font-size:11px;cursor:pointer;transition:all .12s;user-select:none;white-space:nowrap}
-.b:hover{background:#30363d}.b:active{transform:scale(.95)}
+.b:hover{background:#30363d}.b:active{transform:scale(.95)}.b:focus-visible{outline:2px solid #58a6ff;outline-offset:2px;}
 .b.on{background:#1f6feb33;border-color:#1f6feb;color:#58a6ff}
 .b.red{border-color:#f85149;color:#f85149}.b.red:hover{background:#f8514922}
 .b.btn-correct{background:#21262d;color:#c9d1d9;border:1px solid #30363d;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:10px}.b.btn-correct:hover{background:#30363d;color:#e6edf3}
@@ -109,17 +109,17 @@ footer{display:flex;align-items:center;gap:10px;padding:5px 12px;background:#161
 <header>
   <div><h1>✏️ Sketch → CAS</h1><div class="sub">v6 — Algebrite · Nerdamer · Xcas · Training</div></div>
   <div class="bg">
-    <button class="b" id="bUndo" title="Undo">↩</button>
-    <button class="b" id="bRedo" title="Redo">↪</button>
-    <button class="b on" id="bGrid" title="Gitter">⊞</button>
-    <button class="b on" id="bOvl" title="Overlay">◎</button>
-    <button class="b" id="bHidePnl" title="Panel ausblenden">⏴</button>
-    <button class="b" id="bSound" title="Ton">🔊</button>
-    <button class="b" id="bExport" title="PNG">💾</button>
-    <button class="b" id="bZoomOut" title="Zoom −">−</button>
-    <button class="b" id="bZoomIn" title="Zoom +">+</button>
-    <button class="b" id="bResetView" title="Ansicht resetten">⌂</button>
-    <button class="b red" id="bClear" title="Alles löschen">✕</button>
+    <button class="b" id="bUndo" title="Undo" aria-label="Undo">↩</button>
+    <button class="b" id="bRedo" title="Redo" aria-label="Redo">↪</button>
+    <button class="b on" id="bGrid" title="Gitter" aria-label="Toggle Grid">⊞</button>
+    <button class="b on" id="bOvl" title="Overlay" aria-label="Toggle Overlay">◎</button>
+    <button class="b" id="bHidePnl" title="Panel ausblenden" aria-label="Hide Panel">⏴</button>
+    <button class="b" id="bSound" title="Ton" aria-label="Toggle Sound">🔊</button>
+    <button class="b" id="bExport" title="PNG" aria-label="Export PNG">💾</button>
+    <button class="b" id="bZoomOut" title="Zoom −" aria-label="Zoom Out">−</button>
+    <button class="b" id="bZoomIn" title="Zoom +" aria-label="Zoom In">+</button>
+    <button class="b" id="bResetView" title="Ansicht resetten" aria-label="Reset View">⌂</button>
+    <button class="b red" id="bClear" title="Alles löschen" aria-label="Clear All">✕</button>
   </div>
 </header>
 <div class="main">
@@ -137,7 +137,7 @@ footer{display:flex;align-items:center;gap:10px;padding:5px 12px;background:#161
     <div class="tp" id="tCas"><div class="es"><div class="bi">⚡</div><h3>Wähle eine Funktion oben</h3><p>Alle CAS-Engines analysieren dann: Ableitung, Integral, Laplace, Taylor…</p></div></div>
     <div class="tp" id="tInp">
       <div class="card"><div class="cr"><span>Formel eingeben</span></div>
-        <div class="cas-input"><input id="casIn" placeholder="z.B. sin(x)^2 + cos(x)^2"></div>
+        <div class="cas-input"><input id="casIn" placeholder="z.B. sin(x)^2 + cos(x)^2" aria-label="Formel eingeben"></div>
         <div class="eng-sel" id="engSel">
           <button class="b on" data-eng="all">Alle</button>
           <button class="b" data-eng="algebrite">Algebrite</button>
@@ -157,7 +157,7 @@ footer{display:flex;align-items:center;gap:10px;padding:5px 12px;background:#161
         <div id="casResult"></div>
       </div>
       <div class="card"><div class="cr"><span>Gleichung lösen</span><span class="badge blue">Multi-Solver</span></div>
-        <div class="cas-input"><input id="eqIn" placeholder="z.B. x^2 - 4 = 0"></div>
+        <div class="cas-input"><input id="eqIn" placeholder="z.B. x^2 - 4 = 0" aria-label="Gleichung eingeben"></div>
         <button class="b" id="btnSolveEq" style="margin-bottom:6px">Alle Engines</button>
         <div id="eqResult"></div>
       </div>
