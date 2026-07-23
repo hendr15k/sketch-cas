@@ -325,9 +325,9 @@ function recognize(): void {
         .map((c) => `${c.label} (${(probs[cands.indexOf(c)]! * 100).toFixed(0)}%)`)
         .join(', ');
       const discardedLabel = cands[0]?.label || 'unbekannt';
-      resEl.innerHTML = `<div style="margin:6px 0;padding:8px;background:#f8514922;border:1px solid #f85149;border-radius:5px;font-size:11px;color:#f85149;text-align:center">
+      resEl.innerHTML = `<div style="margin:6px 0;padding:8px;background:var(--red)22;border:1px solid var(--red);border-radius:5px;font-size:11px;color:var(--red);text-align:center">
         ⚠️ Zu unsicher — verworfen<br>
-        <span style="font-size:9px;color:#8b949e">Beste Optionen: ${esc(topLabels)}</span>
+        <span style="font-size:9px;color:var(--chalk-dim)">Beste Optionen: ${esc(topLabels)}</span>
       </div>
       <div style="text-align:center;padding:8px"><button class="b btn-correct" data-type="${esc(matchType)}" data-label="${esc(discardedLabel)}">📝 Trotzdem korrigieren</button></div>`;
     }
@@ -356,7 +356,7 @@ function renderRes(
   // Auto-save badge
   let autoSaveBadge = '';
   if (autoSaved) {
-    autoSaveBadge = `<div style="margin:6px 0;padding:6px 8px;background:#23863622;border:1px solid #238636;border-radius:5px;font-size:10px;color:#238636;text-align:center">🤖 Auto-gespeichert als Trainingsbeispiel</div>`;
+    autoSaveBadge = `<div style="margin:6px 0;padding:6px 8px;background:var(--green)22;border:1px solid var(--green);border-radius:5px;font-size:10px;color:var(--green);text-align:center">🤖 Auto-gespeichert als Trainingsbeispiel</div>`;
   }
 
   // Training match badge
@@ -364,14 +364,14 @@ function renderRes(
   if (trainMatches && trainMatches.length > 0 && trainMatches[0]!.rmse < 0.15) {
     const tm = trainMatches[0]!;
     const simPct = Math.round((1 - tm.rmse) * 100);
-    trainBadge = `<div style="margin:6px 0;padding:6px 8px;background:#58a6ff22;border:1px solid #58a6ff;border-radius:5px;font-size:10px;color:#58a6ff;text-align:center">🎯 Training: ${esc(tm.example.label)} (${simPct}% Ähnlichkeit)</div>`;
+    trainBadge = `<div style="margin:6px 0;padding:6px 8px;background:var(--blue)22;border:1px solid var(--blue);border-radius:5px;font-size:10px;color:var(--blue);text-align:center">🎯 Training: ${esc(tm.example.label)} (${simPct}% Ähnlichkeit)</div>`;
   }
 
   // Probability distribution header
   let probHeader = '';
   if (probs && probs.length > 0) {
     const topP = probs[0]! * 100;
-    const color = topP >= 70 ? '#238636' : topP >= 40 ? '#f0883e' : '#f85149';
+    const color = topP >= 70 ? 'var(--green)' : topP >= 40 ? 'var(--orange)' : 'var(--red)';
     probHeader = `<div style="margin:4px 0;padding:4px 8px;background:${color}11;border:1px solid ${color}44;border-radius:4px;font-size:9px;color:${color};display:flex;justify-content:space-between">
       <span>📊 Wahrscheinlichkeiten</span>
       <span>Beste: ${topP.toFixed(1)}%</span>
@@ -383,14 +383,14 @@ function renderRes(
     const pct = Math.max(0, Math.min(100, 100 * (1 - (c.err - mn) / (mx - mn + 0.001))));
     const cls = i === 0 ? 'best' : '';
     const badge = i === 0 ? '<span class="badge">Best</span>' : '';
-    const bgColor = i === 0 ? '#238636' : '#58a6ff';
+    const bgColor = i === 0 ? 'var(--green)' : 'var(--blue)';
     const prob = probs ? (probs[i]! * 100).toFixed(1) : null;
     const probColor = prob
       ? Number(prob) >= 70
-        ? '#238636'
+        ? 'var(--green)'
         : Number(prob) >= 40
-          ? '#f0883e'
-          : '#f85149'
+          ? 'var(--orange)'
+          : 'var(--red)'
       : bgColor;
 
     h += `<div class="card ${cls}" onclick="window._casTab()">`;
@@ -450,11 +450,11 @@ function renderCAS(c: TemplateCandidate): void {
     }
     if (results.length === 0) return;
 
-    h += `<div style="margin-top:8px"><div style="font-size:10px;font-weight:600;color:#c9d1d9;margin-bottom:4px">${opLabels[op]}</div>`;
+    h += `<div style="margin-top:8px"><div style="font-size:10px;font-weight:600;color:var(--chalk);margin-bottom:4px">${opLabels[op]}</div>`;
 
     results.forEach((r) => {
       if (r.error) {
-        h += `<div class="ci"><div class="cil gen">${r.engine}</div><div style="color:#f85149;font-size:10px">${esc(r.error)}</div></div>`;
+        h += `<div class="ci"><div class="cil gen">${r.engine}</div><div style="color:var(--red);font-size:10px">${esc(r.error)}</div></div>`;
       } else if (r.result) {
         const cls = r.tag === 'alg' ? 'alg' : r.tag === 'ner' ? 'ner' : 'xca';
         h += `<div class="ci"><div class="cil ${cls}">${r.engine}</div><div class="civ" data-latex="${esc(r.result.latex)}"></div></div>`;
@@ -497,19 +497,19 @@ function openCorrectionDialog(matchedType: string, currentLabel: string): void {
     'Dämpfte Sinus',
   ];
   let h = `<div style="position:fixed;inset:0;background:#000a;z-index:9999;display:flex;align-items:center;justify-content:center" id="corrDlg">`;
-  h += `<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;max-width:320px;width:90%">`;
-  h += `<div style="font-size:13px;font-weight:600;color:#e6edf3;margin-bottom:8px">📝 Erkennung korrigieren</div>`;
-  h += `<div style="font-size:10px;color:#8b949e;margin-bottom:10px">Aktuell erkannt als: <b>${esc(currentLabel)}</b></div>`;
-  h += `<div style="font-size:10px;color:#c9d1d9;margin-bottom:6px">Schnellauswahl:</div>`;
+  h += `<div style="background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:16px;max-width:320px;width:90%">`;
+  h += `<div style="font-size:13px;font-weight:600;color:var(--chalk);margin-bottom:8px">📝 Erkennung korrigieren</div>`;
+  h += `<div style="font-size:10px;color:var(--chalk-dim);margin-bottom:10px">Aktuell erkannt als: <b>${esc(currentLabel)}</b></div>`;
+  h += `<div style="font-size:10px;color:var(--chalk);margin-bottom:6px">Schnellauswahl:</div>`;
   h += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px" id="corrQuick">`;
   labels.forEach((l) => {
-    h += `<button class="b" style="font-size:9px;padding:3px 6px;background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;cursor:pointer" data-v="${esc(l)}">${esc(l)}</button>`;
+    h += `<button class="b" style="font-size:9px;padding:3px 6px;background:var(--ink-3);color:var(--chalk);border:1px solid var(--line);border-radius:4px;cursor:pointer" data-v="${esc(l)}">${esc(l)}</button>`;
   });
   h += `</div>`;
-  h += `<input id="corrInput" type="text" placeholder="Oder eingeben: sin(x)" style="width:100%;padding:6px 8px;background:#0d1117;border:1px solid #30363d;border-radius:5px;color:#e6edf3;font-size:12px;margin-bottom:10px" value="">`;
+  h += `<input id="corrInput" type="text" placeholder="Oder eingeben: sin(x)" style="width:100%;padding:6px 8px;background:var(--well);border:1px solid var(--line);border-radius:5px;color:var(--chalk);font-size:12px;margin-bottom:10px" value="">`;
   h += `<div style="display:flex;gap:6px">`;
-  h += `<button class="b" style="flex:1;background:#238636;color:#fff;border:none;padding:6px;border-radius:5px;cursor:pointer;font-size:11px" id="corrSave">Speichern</button>`;
-  h += `<button class="b" style="flex:1;background:#21262d;color:#8b949e;border:1px solid #30363d;padding:6px;border-radius:5px;cursor:pointer;font-size:11px" id="corrCancel">Abbrechen</button>`;
+  h += `<button class="b" style="flex:1;background:var(--green);color:#fff;border:none;padding:6px;border-radius:5px;cursor:pointer;font-size:11px" id="corrSave">Speichern</button>`;
+  h += `<button class="b" style="flex:1;background:var(--ink-3);color:var(--chalk-dim);border:1px solid var(--line);padding:6px;border-radius:5px;cursor:pointer;font-size:11px" id="corrCancel">Abbrechen</button>`;
   h += `</div>`;
   h += `</div></div>`;
 
@@ -594,7 +594,7 @@ function renderH(): void {
 
   let h = '';
   hist.forEach((x, i) => {
-    h += `<div class="card" style="cursor:pointer" data-hi="${i}"><div style="display:flex;justify-content:space-between"><span style="font-size:11px">${esc(x.label)}</span><span style="font-size:9px;color:#8b949e">${esc(x.time)}</span></div><div class="cl" style="font-size:9px;margin-top:2px">${esc(x.latex)}</div></div>`;
+    h += `<div class="card" style="cursor:pointer" data-hi="${i}"><div style="display:flex;justify-content:space-between"><span style="font-size:11px">${esc(x.label)}</span><span style="font-size:9px;color:var(--chalk-dim)">${esc(x.time)}</span></div><div class="cl" style="font-size:9px;margin-top:2px">${esc(x.latex)}</div></div>`;
   });
   el.innerHTML = h;
   el.querySelectorAll<HTMLElement>('[data-hi]').forEach((card) => {
@@ -714,9 +714,10 @@ function renderCasResult(op: CasOperation, raw: string): void {
     results.forEach((r) => {
       if (r.error) {
         const errClass = (r as { loading?: boolean }).loading ? 'card xcas' : 'card';
-        h += `<div class="${errClass}"><div class="cr"><span>${r.engine}</span><span class="badge red">Fehler</span></div><div style="color:#f85149;font-size:11px">${esc(r.error)}</div></div>`;
+        h += `<div class="${errClass}"><div class="cr"><span>${r.engine}</span><span class="badge red">Fehler</span></div><div style="color:var(--red);font-size:11px">${esc(r.error)}</div></div>`;
       } else if (r.result) {
-        const bc = r.tag === 'alg' ? '#f0883e' : r.tag === 'ner' ? '#1f6feb' : '#da3688';
+        const bc =
+          r.tag === 'alg' ? 'var(--orange)' : r.tag === 'ner' ? 'var(--blue)' : 'var(--magenta)';
         const badge = r.tag === 'alg' ? 'orange' : r.tag === 'ner' ? 'blue' : 'pink';
         h += `<div class="card" style="border-color:${bc}"><div class="cr"><span>${r.engine}</span><span class="badge ${badge}">${op.toUpperCase()}</span></div>`;
         h += `<div class="civ" data-latex="${esc(r.result.latex)}"></div>`;
@@ -752,9 +753,9 @@ function multiSolveEq(): void {
       const r = (
         window as unknown as { Algebrite: { roots: (e: string) => { toString: () => string } } }
       ).Algebrite.roots(expr).toString();
-      h += `<div class="card" style="border-color:#f0883e"><div class="cr"><span>Algebrite</span><span class="badge orange">Roots</span></div><div class="civ" data-latex="x=${esc(exprToLatex(r))}"></div><div class="cl" onclick="window.cpT(this)">${esc(r)}</div></div>`;
+      h += `<div class="card" style="border-color:var(--orange)"><div class="cr"><span>Algebrite</span><span class="badge orange">Roots</span></div><div class="civ" data-latex="x=${esc(exprToLatex(r))}"></div><div class="cl" onclick="window.cpT(this)">${esc(r)}</div></div>`;
     } catch (e) {
-      h += `<div class="card" style="border-color:#f85149"><div class="cr"><span>Algebrite</span><span class="badge red">Fehler</span></div><div style="color:#f85149;font-size:11px">${esc((e as Error).message)}</div></div>`;
+      h += `<div class="card" style="border-color:var(--red)"><div class="cr"><span>Algebrite</span><span class="badge red">Fehler</span></div><div style="color:var(--red);font-size:11px">${esc((e as Error).message)}</div></div>`;
     }
   }
 
@@ -766,9 +767,9 @@ function multiSolveEq(): void {
         }
       ).nerdamer.solveEquations(expr);
       const lt = 'x \\in \\{' + sol.map((v) => exprToLatex(v.toString())).join(',\\;') + '\\}';
-      h += `<div class="card" style="border-color:#1f6feb"><div class="cr"><span>Nerdamer</span><span class="badge blue">Solve</span></div><div class="civ" data-latex="${esc(lt)}"></div><div class="cl" onclick="window.cpT(this)">${esc(sol.toString())}</div></div>`;
+      h += `<div class="card" style="border-color:var(--blue)"><div class="cr"><span>Nerdamer</span><span class="badge blue">Solve</span></div><div class="civ" data-latex="${esc(lt)}"></div><div class="cl" onclick="window.cpT(this)">${esc(sol.toString())}</div></div>`;
     } catch (e) {
-      h += `<div class="card" style="border-color:#f85149"><div class="cr"><span>Nerdamer</span><span class="badge red">Fehler</span></div><div style="color:#f85149;font-size:11px">${esc((e as Error).message)}</div></div>`;
+      h += `<div class="card" style="border-color:var(--red)"><div class="cr"><span>Nerdamer</span><span class="badge red">Fehler</span></div><div style="color:var(--red);font-size:11px">${esc((e as Error).message)}</div></div>`;
     }
   }
 
@@ -782,9 +783,9 @@ function multiSolveEq(): void {
     if (casevalFn) {
       try {
         const sol = casevalFn('solve(' + expr + ',x)').toString();
-        h += `<div class="card" style="border-color:#da3688"><div class="cr"><span>Xcas(Giac)</span><span class="badge pink">Solve</span></div><div class="civ" data-latex="x=${esc(exprToLatex(sol))}"></div><div class="cl" onclick="window.cpT(this)">${esc(sol)}</div></div>`;
+        h += `<div class="card" style="border-color:var(--magenta)"><div class="cr"><span>Xcas(Giac)</span><span class="badge pink">Solve</span></div><div class="civ" data-latex="x=${esc(exprToLatex(sol))}"></div><div class="cl" onclick="window.cpT(this)">${esc(sol)}</div></div>`;
       } catch (e) {
-        h += `<div class="card" style="border-color:#f85149"><div class="cr"><span>Xcas(Giac)</span><span class="badge red">Fehler</span></div><div style="color:#f85149;font-size:11px">${esc((e as Error).message)}</div></div>`;
+        h += `<div class="card" style="border-color:var(--red)"><div class="cr"><span>Xcas(Giac)</span><span class="badge red">Fehler</span></div><div style="color:var(--red);font-size:11px">${esc((e as Error).message)}</div></div>`;
       }
     }
   }
@@ -1235,9 +1236,9 @@ function endPractice(): void {
   renderTrainingList();
   const resultEl = document.getElementById('trResult');
   if (resultEl) {
-    const scoreClass = score >= 80 ? '#238636' : score >= 50 ? '#f0883e' : '#f85149';
+    const scoreClass = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--orange)' : 'var(--red)';
     const scoreLabel = score >= 80 ? 'Sehr gut!' : score >= 50 ? 'Gut!' : 'Weiter üben!';
-    resultEl.innerHTML = `<div class="card" style="border-color:${scoreClass}"><div class="tr-score" style="color:${scoreClass}">${score}%</div><div style="text-align:center;font-size:12px;color:${scoreClass};margin-bottom:6px">${scoreLabel}</div><div class="card" style="margin:0"><div class="cr"><span>Vergleich mit: ${esc(target.label)}</span><span class="badge">Referenz</span></div><div style="font-size:10px;color:#8b949e">RMSE-Fehler: ${err.toFixed(4)}</div></div></div>`;
+    resultEl.innerHTML = `<div class="card" style="border-color:${scoreClass}"><div class="tr-score" style="color:${scoreClass}">${score}%</div><div style="text-align:center;font-size:12px;color:${scoreClass};margin-bottom:6px">${scoreLabel}</div><div class="card" style="margin:0"><div class="cr"><span>Vergleich mit: ${esc(target.label)}</span><span class="badge">Referenz</span></div><div style="font-size:10px;color:var(--chalk-dim)">RMSE-Fehler: ${err.toFixed(4)}</div></div></div>`;
   }
 
   toast(
@@ -1278,7 +1279,7 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
     h += `<div class="card"><div class="cr"><span>Gespeicherte Ziele</span><span class="badge blue">${trainData.targets.length}</span></div>`;
     if (trainData.targets.length === 0) {
       h +=
-        '<div style="text-align:center;padding:12px;color:#484f58;font-size:11px">Noch keine Ziele gespeichert.</div>';
+        '<div style="text-align:center;padding:12px;color:var(--chalk-faint);font-size:11px">Noch keine Ziele gespeichert.</div>';
     } else {
       h += '<div style="max-height:250px;overflow-y:auto">';
       trainData.targets.forEach((t) => {
@@ -1293,10 +1294,10 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
     h += `<div class="card"><div class="cr"><span>Zum Üben auswählen</span><span class="badge">Practice</span></div>`;
     if (trainData.targets.length === 0) {
       h +=
-        '<div style="text-align:center;padding:12px;color:#484f58;font-size:11px">Keine Ziele vorhanden. Erst welche aufzeichnen!</div>';
+        '<div style="text-align:center;padding:12px;color:var(--chalk-faint);font-size:11px">Keine Ziele vorhanden. Erst welche aufzeichnen!</div>';
     } else {
       // Smart Practice button: auto-pick weakest target
-      h += `<div style="margin-bottom:8px;text-align:center"><button class="b" id="btnSmartPractice" style="background:#8957e5;color:#fff;border:none;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px">🎯 Smart Üben (Schwächstes Ziel)</button></div>`;
+      h += `<div style="margin-bottom:8px;text-align:center"><button class="b" id="btnSmartPractice" style="background:var(--blue);color:#fff;border:none;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px">🎯 Smart Üben (Schwächstes Ziel)</button></div>`;
       h += '<div style="max-height:400px;overflow-y:auto">';
       trainData.targets.forEach((t) => {
         const atts = trainData.attempts.filter((a) => a.targetId === t.id);
@@ -1347,24 +1348,24 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
     const tracingLabel = getState().traceLabel || '';
 
     if (tracingActive) {
-      h += '<div class="card" style="border-color:#58a6ff">';
+      h += '<div class="card" style="border-color:var(--blue)">';
       h +=
         '<div class="cr"><span>🖊 Aktives Nachzeichnen</span><span class="badge blue">Trace</span></div>';
       h += '<div style="text-align:center;padding:12px">';
       h += '<div style="font-size:20px;margin-bottom:8px">✏️</div>';
       h +=
-        '<div style="font-size:13px;color:#e6edf3;font-weight:600">Zeichne über: ' +
+        '<div style="font-size:13px;color:var(--chalk);font-weight:600">Zeichne über: ' +
         esc(tracingLabel) +
         '</div>';
       h +=
-        '<div style="font-size:10px;color:#8b949e;margin:6px 0">Male die Funktion auf dem Canvas nach</div>';
+        '<div style="font-size:10px;color:var(--chalk-dim);margin:6px 0">Male die Funktion auf dem Canvas nach</div>';
       h += '<button class="b red" id="btnStopTrace" style="margin-top:8px">⏹ Stopp</button>';
       h += '</div></div>';
     } else {
       h +=
         '<div class="card"><div class="cr"><span>Funktion wählen</span><span class="badge">Nachzeichnen</span></div>';
       h +=
-        '<div style="font-size:10px;color:#8b949e;margin-bottom:8px">Wähle eine Funktion oder gib eine eigene ein. Die Funktion erscheint auf dem Canvas — zeichne sie nach. Dein Zeichnung wird automatisch als Trainingsbeispiel gespeichert.</div>';
+        '<div style="font-size:10px;color:var(--chalk-dim);margin-bottom:8px">Wähle eine Funktion oder gib eine eigene ein. Die Funktion erscheint auf dem Canvas — zeichne sie nach. Dein Zeichnung wird automatisch als Trainingsbeispiel gespeichert.</div>';
       h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
       traceFns.forEach((fn) => {
         h +=
@@ -1381,18 +1382,18 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
       h += '</div></div>';
 
       // Custom function input
-      h += '<div class="card" style="border-color:#da3688">';
+      h += '<div class="card" style="border-color:var(--magenta)">';
       h +=
         '<div class="cr"><span>Eigene Funktion</span><span class="badge pink">Custom</span></div>';
       h +=
-        '<div style="font-size:10px;color:#8b949e;margin-bottom:6px">Gib einen Ausdruck ein (z.B. <code>sin(2*x)</code>, <code>x^2 - 1</code>, <code>exp(-x)*cos(x)</code>)</div>';
+        '<div style="font-size:10px;color:var(--chalk-dim);margin-bottom:6px">Gib einen Ausdruck ein (z.B. <code>sin(2*x)</code>, <code>x^2 - 1</code>, <code>exp(-x)*cos(x)</code>)</div>';
       h += '<div style="display:flex;gap:4px">';
       h +=
-        '<input id="traceCustomInput" type="text" placeholder="z.B. sin(2*x), x^3, exp(-x)" style="flex:1;padding:6px 8px;background:#0d1117;border:1px solid #30363d;border-radius:5px;color:#e6edf3;font-size:12px;font-family:monospace">';
+        '<input id="traceCustomInput" type="text" placeholder="z.B. sin(2*x), x^3, exp(-x)" style="flex:1;padding:6px 8px;background:var(--well);border:1px solid var(--line);border-radius:5px;color:var(--chalk);font-size:12px;font-family:monospace">';
       h += '<button class="b grn" id="btnTraceCustom" style="padding:6px 12px">🖊 Start</button>';
       h += '</div>';
       h +=
-        '<div style="font-size:9px;color:#484f58;margin-top:4px">Unterstützt: sin, cos, tan, exp, log, ln, abs, sqrt, ^, pi, e, Klammern</div>';
+        '<div style="font-size:9px;color:var(--chalk-faint);margin-top:4px">Unterstützt: sin, cos, tan, exp, log, ln, abs, sqrt, ^, pi, e, Klammern</div>';
       h += '</div>';
 
       // Show saved trace examples count
@@ -1405,7 +1406,7 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
         '</span></div>';
       if (traceExamples === 0) {
         h +=
-          '<div style="text-align:center;padding:8px;color:#484f58;font-size:11px">Noch keine Nachzeichnungen gespeichert.</div>';
+          '<div style="text-align:center;padding:8px;color:var(--chalk-faint);font-size:11px">Noch keine Nachzeichnungen gespeichert.</div>';
       } else {
         // Group by type
         const grouped: Record<string, number> = {};
@@ -1418,7 +1419,7 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
         h += '<div style="padding:4px 0">';
         Object.entries(grouped).forEach(([t, cnt]) => {
           h +=
-            '<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:10px;color:#c9d1d9"><span>' +
+            '<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:10px;color:var(--chalk)"><span>' +
             esc(t) +
             '</span><span>' +
             cnt +
@@ -1446,12 +1447,12 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
     });
 
     h += '<div class="tr-stat">';
-    h += `<div class="card"><div style="font-size:9px;color:#8b949e">Ziele</div><div class="sv2">${totalTargets}</div></div>`;
-    h += `<div class="card"><div style="font-size:9px;color:#8b949e">Versuche</div><div class="sv2">${totalAttempts}</div></div>`;
-    h += `<div class="card"><div style="font-size:9px;color:#8b949e">Ø Score</div><div class="sv2">${avgScore}%</div></div>`;
+    h += `<div class="card"><div style="font-size:9px;color:var(--chalk-dim)">Ziele</div><div class="sv2">${totalTargets}</div></div>`;
+    h += `<div class="card"><div style="font-size:9px;color:var(--chalk-dim)">Versuche</div><div class="sv2">${totalAttempts}</div></div>`;
+    h += `<div class="card"><div style="font-size:9px;color:var(--chalk-dim)">Ø Score</div><div class="sv2">${avgScore}%</div></div>`;
     h += '</div><div class="tr-stat">';
-    h += `<div class="card"><div style="font-size:9px;color:#8b949e">Bestes Ergebnis</div><div class="sv2" style="color:#238636">${bestScore}%</div></div>`;
-    h += `<div class="card"><div style="font-size:9px;color:#8b949e">Korrekturen</div><div class="sv2" style="color:#58a6ff">${trainData.corrections.length}</div></div>`;
+    h += `<div class="card"><div style="font-size:9px;color:var(--chalk-dim)">Bestes Ergebnis</div><div class="sv2" style="color:var(--green)">${bestScore}%</div></div>`;
+    h += `<div class="card"><div style="font-size:9px;color:var(--chalk-dim)">Korrekturen</div><div class="sv2" style="color:var(--blue)">${trainData.corrections.length}</div></div>`;
     h += '</div>';
 
     if (totalTargets > 0) {
@@ -1869,7 +1870,7 @@ function exportPNG(): void {
   tmp.width = canvas.width;
   tmp.height = canvas.height;
   const tc = tmp.getContext('2d')!;
-  tc.fillStyle = '#0d1117';
+  tc.fillStyle = 'var(--well)';
   tc.fillRect(0, 0, tmp.width, tmp.height);
   tc.drawImage(ac, 0, 0);
   tc.drawImage(canvas, 0, 0);

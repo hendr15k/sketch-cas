@@ -15,9 +15,9 @@ export function drawBode(c: TemplateCandidate): void {
     '<div class="card best">' +
     '<div class="cr"><span>Frequenzgang</span><span class="badge">Bode</span></div>' +
     '<canvas class="bode-canvas" id="bodeMag"></canvas>' +
-    '<div style="text-align:center;font-size:9px;color:#8b949e;margin:2px 0">|H(j omega)| dB</div>' +
+    '<div style="text-align:center;font-size:9px;color:#94a5bc;margin:2px 0">|H(j omega)| dB</div>' +
     '<canvas class="bode-canvas" id="bodePhase" style="margin-top:4px"></canvas>' +
-    '<div style="text-align:center;font-size:9px;color:#8b949e">Phase (Grad)</div>' +
+    '<div style="text-align:center;font-size:9px;color:#94a5bc">Phase (Grad)</div>' +
     '</div>';
 
   const t = c.params['type'] as string;
@@ -48,9 +48,9 @@ export function drawBode(c: TemplateCandidate): void {
     // Background and grid
     for (const ctx of [magCtx, phCtx]) {
       ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = '#0d1117';
+      ctx.fillStyle = '#0a101a';
       ctx.fillRect(0, 0, W, H);
-      ctx.strokeStyle = '#21262d';
+      ctx.strokeStyle = '#1a2536';
       ctx.lineWidth = 0.5;
       for (let i = 0; i <= 6; i++) {
         const x = (i / 6) * W;
@@ -106,7 +106,7 @@ export function drawBode(c: TemplateCandidate): void {
     const minDB = Math.min(-40, maxDB - 60);
 
     // Draw magnitude
-    magCtx.strokeStyle = '#58a6ff';
+    magCtx.strokeStyle = '#5cc8ff';
     magCtx.lineWidth = 1.5;
     magCtx.beginPath();
     for (let i = 0; i < N; i++) {
@@ -119,7 +119,7 @@ export function drawBode(c: TemplateCandidate): void {
     magCtx.stroke();
 
     // Draw phase
-    phCtx.strokeStyle = '#f0883e';
+    phCtx.strokeStyle = '#ff8a4c';
     phCtx.lineWidth = 1.5;
     phCtx.beginPath();
     for (let i = 0; i < N; i++) {
@@ -131,7 +131,7 @@ export function drawBode(c: TemplateCandidate): void {
     phCtx.stroke();
 
     // Frequency labels
-    magCtx.fillStyle = '#6e7681';
+    magCtx.fillStyle = '#586a84';
     magCtx.font = '8px monospace';
     for (const f of [0.01, 0.1, 1, 10, 100]) {
       const x = ((Math.log10(f) - Math.log10(fMin)) / (Math.log10(fMax) - Math.log10(fMin))) * W;

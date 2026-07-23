@@ -190,7 +190,7 @@ function setupPointerEvents(): void {
     if (state!.undoStack.length > 100) state!.undoStack.shift();
     state!.currentStroke = {
       points: [getPointerPos(e)],
-      color: '#58a6ff',
+      color: '#5cc8ff',
       width: 2.5,
     };
   });
@@ -293,9 +293,9 @@ function drawAxes(): void {
   const px0 = nx(0);
   const py0 = ny(0);
 
-  ax.strokeStyle = '#30363d';
+  ax.strokeStyle = '#22314a';
   ax.lineWidth = 1;
-  ax.fillStyle = '#6e7681';
+  ax.fillStyle = '#586a84';
   ax.font = '9px monospace';
 
   // ── Pixel-based grid (always fixed 50px on screen, dense zoom handled) ───────
@@ -327,7 +327,7 @@ function drawAxes(): void {
   }
 
   // ── Axes ────────────────────────────────────────────────────────────────────
-  ax.strokeStyle = '#484f58';
+  ax.strokeStyle = '#33486b';
   ax.lineWidth = 1.5;
   if (py0 >= plotTop && py0 <= plotBottom) {
     ax.beginPath();
@@ -376,7 +376,7 @@ function drawAxes(): void {
   const yMin = modelY1; // bottom of visible range
   const yMax = modelY0; // top of visible range
   ax.font = '8px monospace';
-  ax.fillStyle = 'rgba(88,166,255,0.6)';
+  ax.fillStyle = 'rgba(92,200,255,0.6)';
   ax.fillText(
     `x:[${xMin.toFixed(2)},${xMax.toFixed(2)}]  y:[${yMin.toFixed(2)},${yMax.toFixed(2)}]${zoom !== 1 ? `  ${zoom.toFixed(1)}×` : ''}`,
     4,
@@ -436,7 +436,7 @@ function drawTraceTarget(points: Point[]): void {
   if (!state || points.length < 2) return;
   const { mainCtx: ctx } = state;
   const bounds = getStrokeBounds();
-  ctx.strokeStyle = 'rgba(88,166,255,0.35)';
+  ctx.strokeStyle = 'rgba(92,200,255,0.35)';
   ctx.lineWidth = 3;
   ctx.setLineDash([8, 6]);
   ctx.beginPath();
@@ -502,8 +502,8 @@ export function redraw(): void {
   // Trace target (light blue dashed reference)
   if (state.traceTarget) drawTraceTarget(state.traceTarget);
   if (state.showOverlay) {
-    if (state.overlayPoints) drawOverlayPath(state.overlayPoints, '#f0883e');
-    if (state.customPoints) drawOverlayPath(state.customPoints, '#da3688', false);
+    if (state.overlayPoints) drawOverlayPath(state.overlayPoints, '#ff8a4c');
+    if (state.customPoints) drawOverlayPath(state.customPoints, '#ff6ac1', false);
   }
 }
 
