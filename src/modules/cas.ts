@@ -438,6 +438,65 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
         (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '')
       );
     }
+    case 'gaussian': {
+      const gA = (p['fA'] as number) ?? 1;
+      const mu = (p['mu'] as number) ?? 0.5;
+      const sigma = (p['sigma'] as number) ?? 0.2;
+      const gOff = (p['offset'] as number) ?? 0;
+      return (
+        F(gA, 4) +
+        '*exp(-(x-' +
+        F(mu, 4) +
+        ')^2/(2*' +
+        F(sigma, 4) +
+        '^2))' +
+        (Math.abs(gOff) > 0.05 ? '+' + F(gOff, 4) : '')
+      );
+    }
+    case 'sigmoid': {
+      const sA = (p['fA'] as number) ?? 1;
+      const k = (p['k'] as number) ?? 10;
+      const x0 = (p['x0'] as number) ?? 0.5;
+      const sOff = (p['offset'] as number) ?? 0;
+      return (
+        F(sA, 4) +
+        '/(1+exp(' +
+        F(-k, 4) +
+        '*(x-' +
+        F(x0, 4) +
+        ')))' +
+        (Math.abs(sOff) > 0.05 ? '+' + F(sOff, 4) : '')
+      );
+    }
+    case 'tanh': {
+      const tA = (p['fA'] as number) ?? 1;
+      const k = (p['k'] as number) ?? 10;
+      const x0 = (p['x0'] as number) ?? 0.5;
+      const tOff = (p['offset'] as number) ?? 0;
+      return (
+        F(tA, 4) +
+        '*tanh(' +
+        F(k, 4) +
+        '*(x-' +
+        F(x0, 4) +
+        '))' +
+        (Math.abs(tOff) > 0.05 ? '+' + F(tOff, 4) : '')
+      );
+    }
+    case 'sawtooth': {
+      const sA = (p['amp'] as number) ?? a;
+      const sPh = (p['phase'] as number) ?? ph;
+      const sOff = (p['offset'] as number) ?? o;
+      return (
+        F(sA, 4) +
+        '*sawtooth(' +
+        F(2 * Math.PI * f, 4) +
+        '*x' +
+        (Math.abs(sPh) > 0.05 ? '+' + F(sPh, 4) : '') +
+        ')' +
+        (Math.abs(sOff) > 0.05 ? '+' + F(sOff, 4) : '')
+      );
+    }
     case 'linear': {
       const m = (p['m'] as number) ?? a * 2;
       const b = (p['b'] as number) ?? o - a;

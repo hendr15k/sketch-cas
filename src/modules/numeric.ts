@@ -92,6 +92,34 @@ export function evalTemplate(x: number, candidate: { params: Record<string, unkn
       const val = Math.tan(omega * x + pPhase);
       return a * Math.max(-5, Math.min(5, val)) + off;
     }
+    case 'gaussian': {
+      const a = (p['fA'] as number) ?? 1;
+      const mu = (p['mu'] as number) ?? 0.5;
+      const sigma = (p['sigma'] as number) ?? 0.2;
+      const off = (p['offset'] as number) ?? 0;
+      return a * Math.exp(-((x - mu) ** 2) / (2 * sigma * sigma)) + off;
+    }
+    case 'sigmoid': {
+      const a = (p['fA'] as number) ?? 1;
+      const k = (p['k'] as number) ?? 10;
+      const x0 = (p['x0'] as number) ?? 0.5;
+      const off = (p['offset'] as number) ?? 0;
+      return a / (1 + Math.exp(-k * (x - x0))) + off;
+    }
+    case 'tanh': {
+      const a = (p['fA'] as number) ?? 1;
+      const k = (p['k'] as number) ?? 10;
+      const x0 = (p['x0'] as number) ?? 0.5;
+      const off = (p['offset'] as number) ?? 0;
+      return a * Math.tanh(k * (x - x0)) + off;
+    }
+    case 'sawtooth': {
+      const a = (p['amp'] as number) ?? 1;
+      const ph = (p['phase'] as number) ?? 0;
+      const off = (p['offset'] as number) ?? 0;
+      const t = (omega * x + ph) / (2 * Math.PI);
+      return a * (2 * (t - Math.floor(t)) - 1) + off;
+    }
     default:
       return 0;
   }

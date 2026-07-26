@@ -247,6 +247,32 @@ export function getFeatures(pts: Point[]): Features {
   const stepLike = hasSharpTransition && wingFlat;
   const tanLike = hasSharpTransition && wingTilted && pk + vl <= 4 && crossings.length >= 1;
 
+  let gaussLike = false;
+  let sigmoidLike = false;
+  if (pk === 1 && vl === 0 && concaveDown) {
+    const peakIdx = pkV.length > 0 ? ys.indexOf(pkV[0]!) : Math.floor(ys.length / 2);
+    const leftWing = peakIdx / ys.length;
+    const rightWing = (ys.length - 1 - peakIdx) / ys.length;
+    const symmetry = Math.min(leftWing, rightWing) / Math.max(leftWing, rightWing);
+    gaussLike = symmetry > 0.4 && amp > 0.2;
+  }
+  {
+    const totalExtrema = pk + vl;
+    if (totalExtrema <= 1 && ys.length > 10) {
+      const q = Math.floor(ys.length / 4);
+      let d2Left = 0;
+      let d2Right = 0;
+      for (let i = 2; i < q; i++) d2Left += ys[i + 1]! - 2 * ys[i]! + ys[i - 1]!;
+      for (let i = ys.length - q; i < ys.length - 2; i++)
+        d2Right += ys[i + 1]! - 2 * ys[i]! + ys[i - 1]!;
+      d2Left /= Math.max(1, q - 2);
+      d2Right /= Math.max(1, q - 2);
+      const inflection =
+        d2Left * d2Right < 0 && Math.abs(d2Left) > 1e-6 && Math.abs(d2Right) > 1e-6;
+      sigmoidLike = inflection && amp > 0.15;
+    }
+  }
+
   return {
     amp,
     off,
@@ -264,6 +290,8 @@ export function getFeatures(pts: Point[]): Features {
     concaveDown,
     stepLike,
     tanLike,
+    gaussLike,
+    sigmoidLike,
   };
 }
 

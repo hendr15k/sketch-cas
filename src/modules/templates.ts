@@ -27,6 +27,10 @@ const COMPLEXITY: Record<string, number> = {
   sqrt: 1.1,
   reciprocal: 1.1,
   tan: 1.1,
+  gaussian: 1.15,
+  sigmoid: 1.15,
+  sawtooth: 1.1,
+  tanh: 1.1,
 };
 
 // Feature consistency factors (lower = better fit for this type)
@@ -128,6 +132,29 @@ function featureFactor(type: string, f: Features): number {
       if (f.isPer) return 1.0;
       if (totalExtrema === 0 && f.crossings >= 1) return 0.9;
       return 1.5;
+
+    case 'gaussian':
+      if (f.gaussLike) return 0.45;
+      if (totalExtrema === 1 && f.concaveDown) return 0.7;
+      if (totalExtrema === 1) return 1.0;
+      return 2.5;
+
+    case 'sigmoid':
+      if (f.sigmoidLike) return 0.45;
+      if (totalExtrema <= 1 && f.concaveDown) return 0.9;
+      if (totalExtrema === 0) return 1.0;
+      return 2.5;
+
+    case 'sawtooth':
+      if (f.isPer) return 0.7;
+      if (f.crossings >= 2) return 0.9;
+      return 1.5;
+
+    case 'tanh':
+      if (f.sigmoidLike) return 0.5;
+      if (totalExtrema <= 1) return 0.9;
+      if (totalExtrema === 0) return 1.0;
+      return 2.5;
 
     default:
       return 1.0;
@@ -387,8 +414,8 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
             buildLatexPoly(cc),
             { type: 'poly' + degree, coeffs: cc },
           );
-        } catch (e) {
-          console.log('[DEBUG] poly' + degree + ' add ERROR:', (e as Error).message);
+        } catch {
+          // polynomial fit failed for this degree — skip silently
         }
       }
     }
@@ -607,6 +634,161 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
           amp: bestAmpTan,
           offset: bestOffTan,
           freq: omegaTan / (2 * Math.PI),
+        },
+      );
+    }
+  }
+
+  // === GAUSSIAN CANDIDATE: y = amp * exp(-((x - mu)^2) / (2*sigma^2)) + off ===
+  {
+    let bestAmp = f.amp;
+    let bestMu = 0.5;
+    let bestSigma = 0.2;
+    let bestOff = f.off;
+    let bestErr = Infinity;
+    for (const mu of [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) {
+      for (const sigma of [0.05, 0.1, 0.15, 0.2, 0.3, 0.4]) {
+        for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
+          const testAmp = f.amp * aMul;
+          for (const oDelta of [-0.3, -0.1, 0, 0.1, 0.3]) {
+            const testOff = f.off + oDelta;
+            const test = xs.map(
+              (x) => testAmp * Math.exp(-((x - mu) ** 2) / (2 * sigma * sigma)) + testOff,
+            );
+            const err = rmse(ys, test);
+            if (err < bestErr) {
+              bestErr = err;
+              bestAmp = testAmp;
+              bestMu = mu;
+              bestSigma = sigma;
+              bestOff = testOff;
+            }
+          }
+        }
+      }
+    }
+    if (bestErr < 3) {
+      add(
+        (x) => bestAmp * Math.exp(-((x - bestMu) ** 2) / (2 * bestSigma * bestSigma)) + bestOff,
+        'Gauß',
+        buildLatex('gauss', 0, 0, bestAmp, bestOff, { mu: bestMu, sigma: bestSigma }),
+        { type: 'gaussian', fA: bestAmp, mu: bestMu, sigma: bestSigma, offset: bestOff },
+      );
+    }
+  }
+
+  // === SIGMOID CANDIDATE: y = amp / (1 + exp(-k*(x - x0))) + off ===
+  {
+    let bestAmp = f.amp * 2;
+    let bestK = 10;
+    let bestX0 = 0.5;
+    let bestOff = f.off - f.amp;
+    let bestErr = Infinity;
+    for (const x0 of [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) {
+      for (const k of [3, 5, 8, 10, 15, 20, 30]) {
+        for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
+          const testAmp = f.amp * 2 * aMul;
+          for (const oDelta of [-0.3, -0.1, 0, 0.1, 0.3]) {
+            const testOff = f.off - f.amp + oDelta;
+            const test = xs.map((x) => testAmp / (1 + Math.exp(-k * (x - x0))) + testOff);
+            const err = rmse(ys, test);
+            if (err < bestErr) {
+              bestErr = err;
+              bestAmp = testAmp;
+              bestK = k;
+              bestX0 = x0;
+              bestOff = testOff;
+            }
+          }
+        }
+      }
+    }
+    if (bestErr < 3) {
+      add(
+        (x) => bestAmp / (1 + Math.exp(-bestK * (x - bestX0))) + bestOff,
+        'Sigmoid',
+        buildLatex('sigmoid', 0, 0, bestAmp, bestOff, { k: bestK, x0: bestX0 }),
+        { type: 'sigmoid', fA: bestAmp, k: bestK, x0: bestX0, offset: bestOff },
+      );
+    }
+  }
+
+  // === TANH CANDIDATE: y = amp * tanh(k*(x - x0)) + off ===
+  {
+    let bestAmp = f.amp;
+    let bestK = 10;
+    let bestX0 = 0.5;
+    let bestOff = f.off;
+    let bestErr = Infinity;
+    for (const x0 of [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) {
+      for (const k of [3, 5, 8, 10, 15, 20, 30]) {
+        for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
+          const testAmp = f.amp * aMul;
+          for (const oDelta of [-0.3, -0.1, 0, 0.1, 0.3]) {
+            const testOff = f.off + oDelta;
+            const test = xs.map((x) => testAmp * Math.tanh(k * (x - x0)) + testOff);
+            const err = rmse(ys, test);
+            if (err < bestErr) {
+              bestErr = err;
+              bestAmp = testAmp;
+              bestK = k;
+              bestX0 = x0;
+              bestOff = testOff;
+            }
+          }
+        }
+      }
+    }
+    if (bestErr < 3) {
+      add(
+        (x) => bestAmp * Math.tanh(bestK * (x - bestX0)) + bestOff,
+        'Tanh',
+        buildLatex('tanh', 0, 0, bestAmp, bestOff, { k: bestK, x0: bestX0 }),
+        { type: 'tanh', fA: bestAmp, k: bestK, x0: bestX0, offset: bestOff },
+      );
+    }
+  }
+
+  // === SAWTOOTH CANDIDATE: y = amp * (2*(omega*x+phase)/(2*pi) - floor(...)) - amp + off ===
+  {
+    const omegaSaw = f.isPer ? omega : 2 * Math.PI;
+    let bestAmp = f.amp;
+    let bestPhase = 0;
+    let bestOff = f.off;
+    let bestErr = Infinity;
+    for (let p = 0; p < Math.PI * 2; p += 0.1) {
+      for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
+        const testAmp = f.amp * aMul;
+        for (const oDelta of [-0.3, -0.1, 0, 0.1, 0.3]) {
+          const testOff = f.off + oDelta;
+          const test = xs.map((x) => {
+            const t = (omegaSaw * x + p) / (2 * Math.PI);
+            return testAmp * (2 * (t - Math.floor(t)) - 1) + testOff;
+          });
+          const err = rmse(ys, test);
+          if (err < bestErr) {
+            bestErr = err;
+            bestAmp = testAmp;
+            bestPhase = p;
+            bestOff = testOff;
+          }
+        }
+      }
+    }
+    if (bestErr < 3) {
+      add(
+        (x) => {
+          const t = (omegaSaw * x + bestPhase) / (2 * Math.PI);
+          return bestAmp * (2 * (t - Math.floor(t)) - 1) + bestOff;
+        },
+        'Sägezahn',
+        buildLatex('saw', omegaSaw, bestPhase, bestAmp, bestOff),
+        {
+          type: 'sawtooth',
+          phase: bestPhase,
+          amp: bestAmp,
+          offset: bestOff,
+          freq: omegaSaw / (2 * Math.PI),
         },
       );
     }

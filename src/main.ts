@@ -34,7 +34,14 @@ import {
 } from './modules/cas';
 import { drawBode } from './modules/bode';
 import { getSeedExamples } from './modules/seed-training';
-import type { TemplateCandidate, CasOperation, CasResponse } from './types';
+import type {
+  TemplateCandidate,
+  CasOperation,
+  CasResponse,
+  TrainingTarget,
+  TrainingData,
+  LabeledExample,
+} from './types';
 import { buildLatex, buildLatexPoly } from './modules/latex';
 import { fitPolynomial } from './modules/numeric';
 
@@ -227,6 +234,52 @@ function transformToModelSpace(
       params['freq'] = modelOmega / (2 * Math.PI);
       break;
     }
+    case 'gaussian': {
+      const a = (params['fA'] as number) ?? 1;
+      const mu = (params['mu'] as number) ?? 0.5;
+      const sigma = (params['sigma'] as number) ?? 0.2;
+      const off = (params['offset'] as number) ?? 0;
+      params['fA'] = ay * a;
+      params['mu'] = bx + ax * mu;
+      params['sigma'] = sigma * ax;
+      params['offset'] = ay * off + by;
+      break;
+    }
+    case 'sigmoid': {
+      const a = (params['fA'] as number) ?? 1;
+      const k = (params['k'] as number) ?? 10;
+      const x0 = (params['x0'] as number) ?? 0.5;
+      const off = (params['offset'] as number) ?? 0;
+      params['fA'] = ay * a;
+      params['k'] = k / ax;
+      params['x0'] = bx + ax * x0;
+      params['offset'] = ay * off + by;
+      break;
+    }
+    case 'tanh': {
+      const a = (params['fA'] as number) ?? 1;
+      const k = (params['k'] as number) ?? 10;
+      const x0 = (params['x0'] as number) ?? 0.5;
+      const off = (params['offset'] as number) ?? 0;
+      params['fA'] = ay * a;
+      params['k'] = k / ax;
+      params['x0'] = bx + ax * x0;
+      params['offset'] = ay * off + by;
+      break;
+    }
+    case 'sawtooth': {
+      const amp = (params['amp'] as number) ?? 0;
+      const phase = (params['phase'] as number) ?? 0;
+      const offset = (params['offset'] as number) ?? 0;
+      const freq = (params['freq'] as number) ?? 1;
+      const omega = 2 * Math.PI * freq;
+      const modelOmega = omega / ax;
+      params['amp'] = ay * amp;
+      params['phase'] = phase - (omega * bx) / ax;
+      params['offset'] = ay * offset + by;
+      params['freq'] = modelOmega / (2 * Math.PI);
+      break;
+    }
   }
 
   let latex = cand.latex;
@@ -268,12 +321,41 @@ function transformToModelSpace(
     latex = buildLatex('recip', 0, 0, params['fA'] as number, params['offset'] as number, {
       c: params['fC'] as number,
     });
+  } else if (type === 'gaussian') {
+    latex = buildLatex('gauss', 0, 0, params['fA'] as number, params['offset'] as number, {
+      mu: params['mu'] as number,
+      sigma: params['sigma'] as number,
+    });
+  } else if (type === 'sigmoid') {
+    latex = buildLatex('sigmoid', 0, 0, params['fA'] as number, params['offset'] as number, {
+      k: params['k'] as number,
+      x0: params['x0'] as number,
+    });
+  } else if (type === 'tanh') {
+    latex = buildLatex('tanh', 0, 0, params['fA'] as number, params['offset'] as number, {
+      k: params['k'] as number,
+      x0: params['x0'] as number,
+    });
+  } else if (type === 'sawtooth') {
+    const omega = 2 * Math.PI * ((params['freq'] as number) ?? 1);
+    latex = buildLatex(
+      'saw',
+      omega,
+      (params['phase'] as number) ?? 0,
+      (params['amp'] as number) ?? 0,
+      (params['offset'] as number) ?? 0,
+    );
   }
 
   return { ...cand, params, latex };
 }
 
 // ---- App State (mirrors what was in the inline script) ----
+const DEBUG = new URLSearchParams(window.location.search).has('debug');
+const debugLog = (...args: unknown[]): void => {
+  if (DEBUG) console.log(...args);
+};
+
 let best: TemplateCandidate | null = null;
 let ovlP: { x: number; y: number }[] | null = null;
 let custP: { x: number; y: number }[] | null = null;
@@ -308,27 +390,28 @@ function scheduleR(): void {
   }
 
   if (recognizeTimer) clearTimeout(recognizeTimer);
-  recognizeTimer = setTimeout(recognize, 350);
+  recognizeTimer = setTimeout(recognize, RECOGNIZE_DEBOUNCE_MS);
 }
 
 // ---- Self-Training Thresholds ----
-const AUTO_SAVE_THRESHOLD = 0.5; // Save automatically if confidence >= 50%
-const DISCARD_THRESHOLD = 0.05; // Show warning if best probability < 5% (truly uniform)
-// Note: With 13 candidates, uniform softmax ≈ 7.7% each. T=0.01 gives clear winners
-// ~90% for 10x error ratio, ~65% for 2x, ~52% for 1.1x. Only truly ambiguous
-// distributions (errors within ~5% of each other) fall below 5%.
-// near-uniform distributions (errors within ~0.1 of each other).
+const AUTO_SAVE_THRESHOLD = 0.5;
+const DISCARD_THRESHOLD = 0.05;
+const RECOGNIZE_DEBOUNCE_MS = 350;
+const SOFTMAX_TEMPERATURE = 0.01;
+const TRAINING_MATCH_RMSE_THRESHOLD = 0.15;
+const DUPLICATE_RMSE_THRESHOLD = 0.05;
+const MAX_DEDUP_EXAMPLES = 15;
+const PERTURB_X_JITTER = 0.03;
+const PERTURB_Y_JITTER = 0.04;
 
 /**
  * Convert candidate errors to softmax probabilities.
  * Lower error → higher probability.
  */
 function errorsToProbs(cands: TemplateCandidate[]): number[] {
-  const temps = 0.01; // temperature — T=0.01 gives sharp discrimination: 10x error ratio → ~90%, 2x → ~65%
   const minErr = Math.min(...cands.map((c) => c.err));
-  // Shift so minimum error maps to 0
   const shifted = cands.map((c) => Math.max(0, c.err - minErr));
-  const exps = shifted.map((e) => Math.exp(-e / temps));
+  const exps = shifted.map((e) => Math.exp(-e / SOFTMAX_TEMPERATURE));
   const sum = exps.reduce((s, v) => s + v, 0);
   return sum > 0 ? exps.map((e) => e / sum) : exps.map(() => 1 / cands.length);
 }
@@ -346,15 +429,18 @@ function recognize(): void {
   if (!cands.length) return;
 
   // Training boost: compare against stored labeled examples
-  const allExamples = [
+  const allExamples: LabeledExample[] = [
     ...trainData.targets
       .filter((t) => t.normalizedPoints?.length > 2)
-      .map((t) => ({
-        id: t.id,
-        label: t.label,
-        normalizedPoints: t.normalizedPoints,
-        matchedType: t.matchedType || '',
-      })),
+      .map(
+        (t): LabeledExample => ({
+          id: t.id,
+          timestamp: t.timestamp,
+          label: t.label,
+          normalizedPoints: t.normalizedPoints,
+          matchedType: t.matchedType || '',
+        }),
+      ),
     ...trainData.corrections,
   ];
   const trainMatches = matchTrainingExamples(pts, allExamples);
@@ -362,7 +448,7 @@ function recognize(): void {
   let trainingBoostApplied = false; // Track if training boost changed the winner
   const prevBestType = (cands[0]?.params['type'] as string) || '';
 
-  if (trainMatches.length > 0 && trainMatches[0]!.rmse < 0.15) {
+  if (trainMatches.length > 0 && trainMatches[0]!.rmse < TRAINING_MATCH_RMSE_THRESHOLD) {
     const bestMatch = trainMatches[0]!;
     const matchType = bestMatch.example.matchedType;
     // Boost the matching template type — scale with match quality
@@ -404,7 +490,7 @@ function recognize(): void {
         templateType = raw;
       }
     }
-    console.log(
+    debugLog(
       '[TRAIN-BOOST] matchType=' +
         matchType +
         ' → templateType=' +
@@ -414,12 +500,12 @@ function recognize(): void {
     );
     if (templateType) {
       // Boost strength: RMSE 0 → 0.1 (very strong), RMSE 0.15 → 0.5 (moderate)
-      const boostFactor = 0.1 + (bestMatch.rmse / 0.15) * 0.4;
+      const boostFactor = 0.1 + (bestMatch.rmse / TRAINING_MATCH_RMSE_THRESHOLD) * 0.4;
       let found = false;
       for (const c of cands) {
         const cType = (c.params['type'] as string) || '';
         if (cType === templateType) {
-          console.log(
+          debugLog(
             '[TRAIN-BOOST] ✅ Found candidate: ' +
               c.label +
               ' err=' +
@@ -433,7 +519,7 @@ function recognize(): void {
         }
       }
       if (!found) {
-        console.log(
+        debugLog(
           '[TRAIN-BOOST] ❌ No candidate with type=' +
             templateType +
             ' (candidates: ' +
@@ -455,10 +541,10 @@ function recognize(): void {
   const probs = errorsToProbs(cands);
   const bestProb = probs[0]!;
 
-  console.log('[DEBUG] ALL candidates (' + cands.length + '):');
+  debugLog('[DEBUG] ALL candidates (' + cands.length + '):');
   for (let i = 0; i < cands.length; i++) {
     const c = cands[i]!;
-    console.log(
+    debugLog(
       '[DEBUG]   ' +
         i +
         ': ' +
@@ -514,21 +600,21 @@ function recognize(): void {
   if (bestProb >= AUTO_SAVE_THRESHOLD && !trainingBoostApplied) {
     // Skip auto-save for custom/unknown types (no template to boost)
     if (!matchType || matchType === 'unknown') {
-      console.log('[SELF-TRAIN] ⏭ Skipped: no template type');
+      debugLog('[SELF-TRAIN] ⏭ Skipped: no template type');
     } else {
       // Deduplication: only save if no existing example of this type has RMSE < 0.05
       // Limit to 15 most recent examples for better training diversity
       const existingSame = trainData.corrections
         .filter((c) => c.matchedType === 'auto_' + matchType)
-        .slice(-15);
+        .slice(-MAX_DEDUP_EXAMPLES);
       const isDuplicate =
         existingSame.length > 0 &&
         existingSame.some((c) => {
           const match = matchTrainingExamples(pts, [c]);
-          return match.length > 0 && match[0]!.rmse < 0.05;
+          return match.length > 0 && match[0]!.rmse < DUPLICATE_RMSE_THRESHOLD;
         });
       if (isDuplicate) {
-        console.log('[SELF-TRAIN] ⏭ Skipped: duplicate of ' + matchType);
+        debugLog('[SELF-TRAIN] ⏭ Skipped: duplicate of ' + matchType);
       } else {
         // Auto-save as training example (only if training boost didn't change the winner)
         const autoLabel = best.label;
@@ -543,8 +629,8 @@ function recognize(): void {
         const perturbCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
         for (let pi = 0; pi < perturbCount; pi++) {
           const perturbed = pts.map((p) => ({
-            x: Math.max(0, Math.min(1, p.x + (Math.random() - 0.5) * 0.03)),
-            y: Math.max(-1, Math.min(1, p.y + (Math.random() - 0.5) * 0.04)),
+            x: Math.max(0, Math.min(1, p.x + (Math.random() - 0.5) * PERTURB_X_JITTER)),
+            y: Math.max(-1, Math.min(1, p.y + (Math.random() - 0.5) * PERTURB_Y_JITTER)),
           }));
           trainData.corrections.push({
             id: genId(),
@@ -556,13 +642,13 @@ function recognize(): void {
         }
         saveTrainData();
         autoSaved = true;
-        console.log(
+        debugLog(
           '[SELF-TRAIN] ✅ Auto-saved: ' + autoLabel + ' (p=' + (bestProb * 100).toFixed(1) + '%)',
         );
       }
     }
   } else if (trainingBoostApplied) {
-    console.log(
+    debugLog(
       '[SELF-TRAIN] ⏸️ Skipped auto-save (training boost changed winner to ' + best.label + ')',
     );
   } else if (bestProb < DISCARD_THRESHOLD) {
@@ -570,7 +656,7 @@ function recognize(): void {
     best = null;
     ovlP = null;
     getState().overlayPoints = null;
-    console.log(
+    debugLog(
       '[SELF-TRAIN] ❌ Discarded (best p=' +
         (bestProb * 100).toFixed(1) +
         '% < ' +
@@ -704,8 +790,7 @@ function renderCAS(c: TemplateCandidate): void {
     try {
       results = runCas(symExpr, op, 'all');
     } catch (e) {
-      // Nerdamer Solve.js can throw uncaught errors — ignore gracefully
-      console.log('[CAS] ' + op + ' failed:', String((e as Error).message));
+      debugLog('[CAS] ' + op + ' failed:', String((e as Error).message));
     }
     if (results.length === 0) return;
 
@@ -827,8 +912,8 @@ function saveCorrection(label: string, matchedType: string): void {
   // Also save 2 perturbed versions for training diversity
   for (let pi = 0; pi < 2; pi++) {
     const perturbed = pts.map((p) => ({
-      x: Math.max(0, Math.min(1, p.x + (Math.random() - 0.5) * 0.03)),
-      y: Math.max(-1, Math.min(1, p.y + (Math.random() - 0.5) * 0.04)),
+      x: Math.max(0, Math.min(1, p.x + (Math.random() - 0.5) * PERTURB_X_JITTER)),
+      y: Math.max(-1, Math.min(1, p.y + (Math.random() - 0.5) * PERTURB_Y_JITTER)),
     }));
     trainData.corrections.push({
       id: genId(),
@@ -1062,40 +1147,7 @@ function getSelectedEngine(): string {
 }
 
 // ---- Training System ----
-interface TrainTarget {
-  id: string;
-  timestamp: number;
-  label: string;
-  strokes: {
-    points: { x: number; y: number; pressure?: number; color?: string; width?: number }[];
-    color?: string;
-    width?: number;
-  }[];
-  normalizedPoints: { x: number; y: number }[];
-  difficulty: string;
-  matchedType?: string;
-}
-
-interface TrainAttempt {
-  timestamp: number;
-  targetId: string;
-  score: number;
-  strokes: { points: { x: number; y: number }[]; color?: string; width?: number }[];
-}
-
-interface TrainData {
-  targets: TrainTarget[];
-  attempts: TrainAttempt[];
-  corrections: {
-    id: string;
-    timestamp: number;
-    label: string;
-    normalizedPoints: { x: number; y: number }[];
-    matchedType: string;
-  }[];
-}
-
-let trainData: TrainData = { targets: [], attempts: [], corrections: [] };
+let trainData: TrainingData = { targets: [], attempts: [], corrections: [] };
 let trainCurrentMode: 'record' | 'practice' | 'trace' | 'stats' = 'record';
 let practiceActive = false;
 let activeTargetId: string | null = null;
@@ -1103,7 +1155,7 @@ let activeTargetId: string | null = null;
 function loadTrainData(): void {
   try {
     const raw = localStorage.getItem('scTrainV6');
-    if (raw) trainData = JSON.parse(raw) as TrainData;
+    if (raw) trainData = JSON.parse(raw) as TrainingData;
   } catch {
     /* ignore */
   }
@@ -1343,7 +1395,7 @@ function saveTrainingTarget(): void {
   }
 
   const matchedType = best ? (best.params['type'] as string) || '' : '';
-  const target: TrainTarget = {
+  const target: TrainingTarget = {
     id: genId(),
     timestamp: Date.now(),
     label,
@@ -2444,7 +2496,7 @@ function exposeTestAPI(): void {
     window.__sk!.zoomIn = zoomIn;
     window.__sk!.zoomOut = zoomOut;
     window.__sk!.resetView = resetView;
-    console.log('[TEST] window.__sk exposed');
+    debugLog('[TEST] window.__sk exposed');
   }
 }
 

@@ -171,6 +171,50 @@ export function buildLatex(
       result += '}';
       break;
     }
+    case 'gauss': {
+      const mu = extra?.['mu'] ?? 0.5;
+      const sigma = extra?.['sigma'] ?? 0.2;
+      result =
+        (Math.abs(amp - 1) > 0.01 ? formatNum(amp) + '\\cdot ' : '') +
+        'e^{-\\frac{(x-' +
+        formatNum(mu) +
+        ')^2}{2\\cdot ' +
+        formatNum(sigma) +
+        '^2}}';
+      break;
+    }
+    case 'sigmoid': {
+      const k = extra?.['k'] ?? 10;
+      const x0 = extra?.['x0'] ?? 0.5;
+      result =
+        (Math.abs(amp - 1) > 0.01 ? formatNum(amp) : '1') +
+        '\\,\\frac{1}{1+e^{' +
+        formatNum(-k) +
+        '(x-' +
+        formatNum(x0) +
+        ')}}';
+      break;
+    }
+    case 'tanh': {
+      const k = extra?.['k'] ?? 10;
+      const x0 = extra?.['x0'] ?? 0.5;
+      result =
+        (Math.abs(amp - 1) > 0.01 ? formatNum(amp) + '\\cdot ' : '') +
+        '\\tanh\\!\\left(' +
+        formatNum(k) +
+        '(x-' +
+        formatNum(x0) +
+        ')\\right)';
+      break;
+    }
+    case 'saw': {
+      result =
+        (Math.abs(amp - 1) > 0.01 ? formatNum(amp) + '\\cdot ' : '') +
+        '\\mathrm{saw}\\!\\left(' +
+        arg +
+        '\\right)';
+      break;
+    }
   }
 
   if (Math.abs(offset) > 0.01 && type !== 'lin') {

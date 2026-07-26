@@ -53,6 +53,8 @@ export interface Features {
   stepLike: boolean; // true for square-like signals: sharp transitions + flat extremes
   tanLike: boolean; // true for tan-like signals: sharp transition + wings tilted toward center
   expLike: boolean; // true for monotonic concave curves whose right-side slope is steeper than left ← exp(x)
+  gaussLike: boolean; // true for bell-shaped: single peak, symmetric, concave down
+  sigmoidLike: boolean; // true for S-shaped monotonic curves (concave→convex inflection)
 }
 
 export interface TemplateCandidate {
