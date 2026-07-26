@@ -668,6 +668,7 @@ function makeNumFn(expr: string): (x: number) => number {
       'Math.pow($1,$2)',
     )
     // Step 2: Replace function names (use lookbehind for letters only, not digits)
+    .replace(/(?<![a-zA-Z])ln(?![a-zA-Z])/g, 'Math.log')
     .replace(
       /(?<![a-zA-Z])(sin|cos|tan|abs|sqrt|exp|log|asin|acos|atan|sinh|cosh|tanh)(?![a-zA-Z])/g,
       'Math.$1',
@@ -1870,7 +1871,8 @@ function exportPNG(): void {
   tmp.width = canvas.width;
   tmp.height = canvas.height;
   const tc = tmp.getContext('2d')!;
-  tc.fillStyle = 'var(--well)';
+  tc.fillStyle =
+    getComputedStyle(document.documentElement).getPropertyValue('--well').trim() || '#1a1a2e';
   tc.fillRect(0, 0, tmp.width, tmp.height);
   tc.drawImage(ac, 0, 0);
   tc.drawImage(canvas, 0, 0);

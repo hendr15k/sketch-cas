@@ -68,7 +68,7 @@ function formatNum(n: number, decimalPlaces?: number): string {
     return '' + Math.round(n);
   }
   return n
-    .toFixed(decimalPlaces || 2)
+    .toFixed(decimalPlaces ?? 2)
     .replace(/0+$/, '')
     .replace(/\.$/, '');
 }

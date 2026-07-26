@@ -89,7 +89,7 @@ export function getFeatures(pts: Point[]): Features {
     // Also detect crossing when a point is within epsilon of the midpoint
     const aNear = Math.abs(a) < nearZeroEps;
     const bNear = Math.abs(b) < nearZeroEps;
-    if (signChange || (aNear && !bNear) || (bNear && !aNear)) {
+    if (signChange || (bNear && !aNear)) {
       const denom = ys[i]! - ys[i - 1]!;
       if (Math.abs(denom) > 1e-12) {
         crossings.push((i - 1 + (off - ys[i - 1]!) / denom) / (ys.length - 1));

@@ -82,7 +82,9 @@ export function drawBode(c: TemplateCandidate): void {
       let phase: number;
 
       if (t === 'sin' || t === 'cos' || t === 'abs_sin') {
-        mag = amp / Math.sqrt(Math.pow(w * w - om0 * om0, 2) + Math.pow(w * om0 * 0.5, 2) + 0.001);
+        mag =
+          (amp * om0 * om0) /
+          Math.sqrt(Math.pow(w * w - om0 * om0, 2) + Math.pow(w * om0 * 0.5, 2) + 0.001);
         phase = -Math.atan2(w * om0 * 0.5, om0 * om0 - w * w) * (180 / Math.PI);
       } else if (t === 'exponential' || t === 'heaviside') {
         const tau = 1 / freq;
@@ -95,7 +97,7 @@ export function drawBode(c: TemplateCandidate): void {
           Math.sqrt(Math.pow(om0 * om0 - w * w, 2) + Math.pow(2 * z * om0 * w, 2) + 0.001);
         phase = -Math.atan2(2 * z * om0 * w, om0 * om0 - w * w) * (180 / Math.PI);
       } else {
-        mag = amp / (1 + w / om0);
+        mag = amp / Math.sqrt(1 + Math.pow(w / om0, 2));
         phase = -Math.atan(w / om0) * (180 / Math.PI);
       }
       magData.push(mag);

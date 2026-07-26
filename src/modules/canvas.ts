@@ -401,7 +401,7 @@ function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
     const midX = (p0.x + p1.x) / 2;
     const midY = (p0.y + p1.y) / 2;
     if (i < s.points.length - 2) {
-      ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
+      ctx.quadraticCurveTo(midX, midY, p1.x, p1.y);
     } else {
       ctx.lineTo(p1.x, p1.y);
     }
@@ -588,6 +588,7 @@ export function clearAll(): void {
   state.zoom = 1;
   state.panX = 0;
   state.panY = 0;
+  drawAxes();
   redraw();
 }
 
