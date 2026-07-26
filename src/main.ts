@@ -594,7 +594,7 @@ function recognize(): void {
     return;
   }
 
-  renderRes(cands, trainMatches, probs, autoSaved);
+  renderRes([best, ...cands.slice(1)], trainMatches, probs, autoSaved);
   renderCAS(best);
   drawBode(best);
   addH(best);
