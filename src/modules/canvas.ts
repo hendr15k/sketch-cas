@@ -640,3 +640,19 @@ export function resetView(): void {
   drawAxes();
   redraw();
 }
+
+/**
+ * Returns the affine transform from canvas pixel coords to model coords.
+ * model_x = sx * px + tx, model_y = sy * py + ty
+ */
+export function getModelTransform(): { sx: number; tx: number; sy: number; ty: number } {
+  if (!state) return { sx: 1, tx: 0, sy: 1, ty: 0 };
+  const p = ppu();
+  const plotBottom = state.height - 30;
+  return {
+    sx: 1 / p,
+    tx: -state.width / 2 / p + state.panX,
+    sy: -1 / p,
+    ty: plotBottom / p + state.panY - 1,
+  };
+}

@@ -35,6 +35,243 @@ import {
 import { drawBode } from './modules/bode';
 import { getSeedExamples } from './modules/seed-training';
 import type { TemplateCandidate, CasOperation, CasResponse } from './types';
+import { buildLatex, buildLatexPoly } from './modules/latex';
+import { fitPolynomial } from './modules/numeric';
+
+/**
+ * Transform a candidate's fitted parameters from normalized [0,1]×[-1,1]
+ * space to model (canvas grid) coordinates so the displayed formula matches
+ * what the user sees on the axes.
+ *
+ * The affine mapping is:
+ *   model_x = ax * nx + bx
+ *   model_y = ay * ny + by
+ */
+function transformToModelSpace(
+  cand: TemplateCandidate,
+  bounds: { xMin: number; xMax: number; yMin: number; yMax: number },
+): TemplateCandidate {
+  const p = getState().zoom * ((getState().height - 60) / 2);
+  const xRange = bounds.xMax - bounds.xMin || 1;
+  const yRange = bounds.yMax - bounds.yMin || 1;
+  const plotBottom = getState().height - 30;
+  const yMid = (bounds.yMin + bounds.yMax) / 2;
+
+  const ax = xRange / p;
+  const bx = (bounds.xMin - getState().width / 2) / p + getState().panX;
+  const ay = yRange / (2 * p);
+  const by = (plotBottom - yMid) / p + getState().panY - 1;
+
+  const params = { ...cand.params };
+  const type = params['type'] as string;
+
+  switch (type) {
+    case 'linear': {
+      const m = (params['m'] as number) ?? 0;
+      const b = (params['b'] as number) ?? 0;
+      params['m'] = (ay * m) / ax;
+      params['b'] = ay * b + by - (ay * m * bx) / ax;
+      params['amp'] = params['m'];
+      params['offset'] = params['b'];
+      break;
+    }
+    case 'poly2':
+    case 'poly3':
+    case 'poly4': {
+      const coeffs = params['coeffs'] as number[] | undefined;
+      if (coeffs) {
+        const degree = coeffs.length - 1;
+        const N = 200;
+        const mxs: number[] = [];
+        const mys: number[] = [];
+        for (let i = 0; i < N; i++) {
+          const mx = bx + ax * (i / (N - 1));
+          const nx = (mx - bx) / ax;
+          let ny = 0;
+          for (let j = 0; j <= degree; j++) ny += coeffs[j]! * Math.pow(nx, j);
+          mxs.push(mx);
+          mys.push(ay * ny + by);
+        }
+        const newCoeffs = fitPolynomial(mxs, mys, degree);
+        if (newCoeffs) params['coeffs'] = newCoeffs;
+      }
+      break;
+    }
+    case 'sin':
+    case 'cos': {
+      const amp = (params['amp'] as number) ?? 0;
+      const phase = (params['phase'] as number) ?? 0;
+      const offset = (params['offset'] as number) ?? 0;
+      const freq = (params['freq'] as number) ?? 1;
+      const omega = 2 * Math.PI * freq;
+      const modelOmega = omega / ax;
+      let modelAmp = ay * amp;
+      let modelPhase = phase - (omega * bx) / ax;
+      if (modelAmp < 0) {
+        modelAmp = -modelAmp;
+        modelPhase += Math.PI;
+      }
+      params['amp'] = modelAmp;
+      params['phase'] = modelPhase;
+      params['offset'] = ay * offset + by;
+      params['freq'] = modelOmega / (2 * Math.PI);
+      break;
+    }
+    case 'abs_sin': {
+      const amp = (params['amp'] as number) ?? 0;
+      const phase = (params['phase'] as number) ?? 0;
+      const offset = (params['offset'] as number) ?? 0;
+      const freq = (params['freq'] as number) ?? 1;
+      const omega = 2 * Math.PI * freq;
+      const modelOmega = omega / ax;
+      params['amp'] = Math.abs(ay) * amp;
+      params['phase'] = phase - (omega * bx) / ax;
+      params['offset'] = ay * offset + by;
+      params['freq'] = modelOmega / (2 * Math.PI);
+      break;
+    }
+    case 'square': {
+      const amp = (params['amp'] as number) ?? 0;
+      const phase = (params['phase'] as number) ?? 0;
+      const offset = (params['offset'] as number) ?? 0;
+      const freq = (params['freq'] as number) ?? 1;
+      const omega = 2 * Math.PI * freq;
+      const modelOmega = omega / ax;
+      let modelAmp = ay * amp;
+      let modelPhase = phase - (omega * bx) / ax;
+      if (modelAmp < 0) {
+        modelAmp = -modelAmp;
+        modelPhase += Math.PI;
+      }
+      params['amp'] = modelAmp;
+      params['phase'] = modelPhase;
+      params['offset'] = ay * offset + by;
+      params['freq'] = modelOmega / (2 * Math.PI);
+      break;
+    }
+    case 'damped': {
+      const amp = (params['amp'] as number) ?? 0;
+      const phase = (params['phase'] as number) ?? 0;
+      const offset = (params['offset'] as number) ?? 0;
+      const decay = (params['decay'] as number) ?? 3;
+      const freq = (params['freq'] as number) ?? 1;
+      const omega = 2 * Math.PI * freq;
+      const modelOmega = omega / ax;
+      let modelAmp = ay * amp * Math.exp((decay * bx) / ax);
+      let modelPhase = phase - (omega * bx) / ax;
+      if (modelAmp < 0) {
+        modelAmp = -modelAmp;
+        modelPhase += Math.PI;
+      }
+      params['amp'] = modelAmp;
+      params['phase'] = modelPhase;
+      params['offset'] = ay * offset + by;
+      params['decay'] = decay / ax;
+      params['freq'] = modelOmega / (2 * Math.PI);
+      break;
+    }
+    case 'exponential': {
+      const a = (params['fA'] as number) ?? 1;
+      const b = (params['fB'] as number) ?? 1;
+      const c = (params['fC'] as number) ?? 0;
+      params['fA'] = ay * a * Math.exp((-b * bx) / ax);
+      params['fB'] = b / ax;
+      params['fC'] = ay * c + by;
+      params['amp'] = params['fA'];
+      params['offset'] = params['fC'];
+      break;
+    }
+    case 'logarithmic': {
+      const a = (params['fA'] as number) ?? 1;
+      const c = (params['fC'] as number) ?? 0.01;
+      const off = (params['offset'] as number) ?? 0;
+      const modelC = c * ax - bx;
+      params['fA'] = ay * a;
+      params['fC'] = Math.max(0.001, modelC);
+      params['offset'] = ay * off + by - ay * a * Math.log(Math.max(1e-10, ax));
+      break;
+    }
+    case 'sqrt': {
+      const a = (params['fA'] as number) ?? 1;
+      const off = (params['offset'] as number) ?? 0;
+      params['fA'] = ay * a * Math.sqrt(ax);
+      params['offset'] = ay * off + by;
+      break;
+    }
+    case 'reciprocal': {
+      const a = (params['fA'] as number) ?? 1;
+      const c = (params['fC'] as number) ?? 0.01;
+      const off = (params['offset'] as number) ?? 0;
+      const modelC = c * ax - bx;
+      params['fA'] = ay * a * ax;
+      params['fC'] = Math.max(0.001, modelC);
+      params['offset'] = ay * off + by;
+      break;
+    }
+    case 'tan': {
+      const amp = (params['amp'] as number) ?? 0;
+      const phase = (params['phase'] as number) ?? 0;
+      const offset = (params['offset'] as number) ?? 0;
+      const freq = (params['freq'] as number) ?? 1;
+      const omega = 2 * Math.PI * freq;
+      const modelOmega = omega / ax;
+      let modelAmp = ay * amp;
+      let modelPhase = phase - (omega * bx) / ax;
+      if (modelAmp < 0) {
+        modelAmp = -modelAmp;
+        modelPhase += Math.PI;
+      }
+      params['amp'] = modelAmp;
+      params['phase'] = modelPhase;
+      params['offset'] = ay * offset + by;
+      params['freq'] = modelOmega / (2 * Math.PI);
+      break;
+    }
+  }
+
+  let latex = cand.latex;
+  if (type === 'linear') {
+    latex = buildLatex('lin', 0, 0, params['m'] as number, params['b'] as number);
+  } else if (type.startsWith('poly')) {
+    const cc = params['coeffs'] as number[] | undefined;
+    if (cc) latex = buildLatexPoly(cc);
+  } else if (
+    type === 'sin' ||
+    type === 'cos' ||
+    type === 'abs_sin' ||
+    type === 'square' ||
+    type === 'damped' ||
+    type === 'tan'
+  ) {
+    const omega = 2 * Math.PI * ((params['freq'] as number) ?? 1);
+    const extra = type === 'damped' ? { d: params['decay'] as number } : undefined;
+    const lt = type === 'square' ? 'sgn' : type === 'damped' ? 'dmp' : type;
+    latex = buildLatex(
+      lt,
+      omega,
+      (params['phase'] as number) ?? 0,
+      (params['amp'] as number) ?? 0,
+      (params['offset'] as number) ?? 0,
+      extra,
+    );
+  } else if (type === 'exponential') {
+    latex = buildLatex('exp', 0, 0, params['fA'] as number, params['fC'] as number, {
+      b: params['fB'] as number,
+    });
+  } else if (type === 'logarithmic') {
+    latex = buildLatex('ln', 0, 0, params['fA'] as number, params['offset'] as number, {
+      c: params['fC'] as number,
+    });
+  } else if (type === 'sqrt') {
+    latex = buildLatex('sqrt', 0, 0, params['fA'] as number, params['offset'] as number);
+  } else if (type === 'reciprocal') {
+    latex = buildLatex('recip', 0, 0, params['fA'] as number, params['offset'] as number, {
+      c: params['fC'] as number,
+    });
+  }
+
+  return { ...cand, params, latex };
+}
 
 // ---- App State (mirrors what was in the inline script) ----
 let best: TemplateCandidate | null = null;
@@ -241,6 +478,28 @@ function recognize(): void {
   // Sync to canvas state so redraw() can render the template overlay
   getState().overlayPoints = ovlP;
   redraw(); // Render the template overlay curve on the canvas
+
+  // Transform best candidate from normalized space to model coordinates
+  // so the displayed formula matches what the user sees on the grid.
+  {
+    const allPts: { x: number; y: number }[] = [];
+    strokes.forEach((s) => {
+      s.points.forEach((p) => allPts.push(p));
+    });
+    if (allPts.length >= 2) {
+      let xMin = Infinity,
+        xMax = -Infinity,
+        yMin = Infinity,
+        yMax = -Infinity;
+      for (const p of allPts) {
+        if (p.x < xMin) xMin = p.x;
+        if (p.x > xMax) xMax = p.x;
+        if (p.y < yMin) yMin = p.y;
+        if (p.y > yMax) yMax = p.y;
+      }
+      best = transformToModelSpace(best, { xMin, xMax, yMin, yMax });
+    }
+  }
 
   // Score display uses raw RMSE (not composite) for user-friendly percentage
   const rawErr = (best.params['rawErr'] as number) ?? best.err;
