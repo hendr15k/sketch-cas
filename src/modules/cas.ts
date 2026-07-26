@@ -366,7 +366,9 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
         F(a, 4) +
         '*abs(sin(' +
         F(2 * Math.PI * f, 4) +
-        '*x))' +
+        '*x' +
+        (Math.abs(ph) > 0.05 ? '+' + F(ph, 4) : '') +
+        '))' +
         (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '')
       );
     case 'damped':
@@ -376,7 +378,10 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
         F((p['decay'] as number) || f * 2, 4) +
         '*x)*sin(' +
         F(2 * Math.PI * f, 4) +
-        '*x)'
+        '*x' +
+        (Math.abs(ph) > 0.05 ? '+' + F(ph, 4) : '') +
+        ')' +
+        (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '')
       );
     case 'heaviside':
       return F(a, 4) + '*(x>=0?1:0)' + (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '');

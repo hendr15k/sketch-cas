@@ -2085,9 +2085,11 @@ function playAudio(): void {
         case 'square':
           y = amp * Math.sign(Math.sin(om * x + ph)) + off;
           break;
-        case 'damped':
-          y = amp * Math.exp(-freq * x) * Math.sin(om * x + ph) + off;
+        case 'damped': {
+          const decay = (p['decay'] as number) || freq * 2;
+          y = amp * Math.exp(-decay * x) * Math.sin(om * x + ph) + off;
           break;
+        }
         case 'exponential': {
           const aExp = (p['fA'] as number) || 1;
           const cExp = (p['fC'] as number) || 0;

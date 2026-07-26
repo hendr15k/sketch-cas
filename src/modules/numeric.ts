@@ -34,7 +34,7 @@ export function evalTemplate(x: number, candidate: { params: Record<string, unkn
     case 'cos':
       return amp * Math.cos(omega * x + phase) + offset;
     case 'abs_sin':
-      return amp * Math.abs(Math.sin(omega * x + phase)) + offset;
+      return amp * (1 - 2 * Math.abs(Math.sin(omega * x + phase))) + offset;
     case 'square':
       return amp * Math.sign(Math.sin(omega * x + phase)) + offset;
     case 'heaviside':

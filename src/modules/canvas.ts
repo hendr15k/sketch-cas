@@ -444,14 +444,16 @@ function drawTraceTarget(points: Point[]): void {
     const p = points[i]!;
     let cx: number, cy: number;
     if (bounds) {
-      // Inverse of normalizeAndResample: map [0,1]×[-1,1] back to canvas pixels
       const xRange = bounds.xMax - bounds.xMin || 1;
       const yRange = bounds.yMax - bounds.yMin || 1;
       cx = p.x * xRange + bounds.xMin;
       cy = bounds.yMin + ((1 - p.y) * yRange) / 2;
     } else {
-      cx = p.x;
-      cy = p.y;
+      const plotTop = 30;
+      const plotBottom = state.height - 30;
+      const plotH = plotBottom - plotTop;
+      cx = p.x * state.width;
+      cy = plotTop + ((1 - p.y) / 2) * plotH;
     }
     if (i === 0) ctx.moveTo(cx, cy);
     else ctx.lineTo(cx, cy);
