@@ -261,7 +261,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         pSqBest = bestPhase,
         oSqBest = f.off,
         eSqBest = Infinity;
-      const omegaSq = f.isPer ? omega : omega; // same ω as sin/cos
+      const omegaSq = f.isPer ? omega : Math.PI;
       for (let p = 0; p < Math.PI * 2; p += 0.05) {
         for (const aMul of [0.5, 1.0, 2.0]) {
           const testAmp = f.amp * aMul;
@@ -463,6 +463,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     let bestA = 1;
     let bestOff = 0;
     let bestErr = Infinity;
+    let bestShift = 0;
     // Try a few horizontal shifts (x + shift) to handle strokes that
     // start at non-zero x in the normalized grid.
     for (const shift of [0, 0.01, 0.05]) {
@@ -488,11 +489,12 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         bestErr = err;
         bestA = a;
         bestOff = off;
+        bestShift = shift;
       }
     }
     if (bestErr < 3) {
       add(
-        (x) => bestA * Math.sqrt(Math.max(0, x)) + bestOff,
+        (x) => bestA * Math.sqrt(Math.max(0, x + bestShift)) + bestOff,
         'Wurzelfunktion',
         buildLatex('sqrt', 0, 0, bestA, bestOff),
         { type: 'sqrt', fA: bestA, offset: bestOff },

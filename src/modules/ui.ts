@@ -23,7 +23,8 @@ export function esc(s: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
 }
 
 /**
@@ -42,7 +43,7 @@ export function updateScore(points: string, match: string, fit: string): void {
  * Generate an empty-state HTML block.
  */
 export function emptyState(icon: string, title: string, desc: string): string {
-  return `<div class="es"><div class="bi">${icon}</div><h3>${title}</h3><p>${desc}</p></div>`;
+  return `<div class="es"><div class="bi">${icon}</div><h3>${esc(title)}</h3><p>${esc(desc)}</p></div>`;
 }
 
 /**

@@ -240,7 +240,7 @@ export function getFeatures(pts: Point[]): Features {
     if (Math.abs(ys[i]! - ys[i - 1]!) > jumpThresh) largeJumps++;
   }
   // Wing magnitude: how close the boundary y-values are to ±amp versus 0.
-  const wingMax = Math.max(Math.abs(ys[0]!), Math.abs(ys[ys.length - 1]!));
+  const wingMax = Math.max(Math.abs(ys[0]! - off), Math.abs(ys[ys.length - 1]! - off));
   const wingFlat = wingMax > amp * 0.7;
   const wingTilted = wingMax < amp * 0.3;
   const hasSharpTransition = largeJumps >= 2 && largeJumps <= 15;

@@ -83,7 +83,7 @@ export function drawBode(c: TemplateCandidate): void {
 
       if (t === 'sin' || t === 'cos' || t === 'abs_sin') {
         mag = amp / Math.sqrt(Math.pow(w * w - om0 * om0, 2) + Math.pow(w * om0 * 0.5, 2) + 0.001);
-        phase = -Math.atan2(w * om0 * 0.5, w * w - om0 * om0) * (180 / Math.PI);
+        phase = -Math.atan2(w * om0 * 0.5, om0 * om0 - w * w) * (180 / Math.PI);
       } else if (t === 'exponential' || t === 'heaviside') {
         const tau = 1 / freq;
         mag = amp / Math.sqrt(1 + Math.pow(w * tau, 2));

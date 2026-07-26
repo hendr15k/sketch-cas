@@ -27,14 +27,14 @@ export function exprToLatex(s: string): string {
   while (i < s.length) {
     // sqrt with balanced parens
     if (s.startsWith('sqrt(', i)) {
-      const end = findBalanced(s, i + 5);
+      const end = findBalanced(s, i + 4);
       result += '\\sqrt{' + exprToLatex(s.substring(i + 5, end)) + '}';
       i = end + 1;
       continue;
     }
     // abs with balanced parens
     if (s.startsWith('abs(', i)) {
-      const end = findBalanced(s, i + 4);
+      const end = findBalanced(s, i + 3);
       result += '\\left|' + exprToLatex(s.substring(i + 4, end)) + '\\right|';
       i = end + 1;
       continue;
@@ -48,9 +48,9 @@ export function exprToLatex(s: string): string {
     .replace(/asin\(/g, '\\arcsin(')
     .replace(/acos\(/g, '\\arccos(')
     .replace(/atan\(/g, '\\arctan(')
-    .replace(/sin\(/g, '\\sin(')
-    .replace(/cos\(/g, '\\cos(')
-    .replace(/tan\(/g, '\\tan(')
+    .replace(/\bsin\(/g, '\\sin(')
+    .replace(/\bcos\(/g, '\\cos(')
+    .replace(/\btan\(/g, '\\tan(')
     .replace(/sinh\(/g, '\\sinh(')
     .replace(/cosh\(/g, '\\cosh(')
     .replace(/tanh\(/g, '\\tanh(')

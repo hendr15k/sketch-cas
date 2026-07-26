@@ -319,7 +319,7 @@ function drawAxes(): void {
   const yFirst = Math.ceil(plotTop / gridStep) * gridStep;
   for (let py = yFirst; py < plotBottom; py += gridStep) {
     const my = canvasToModelY(py);
-    if (my < modelY0 || my > modelY1) continue;
+    if (my > modelY0 || my < modelY1) continue;
     ax.beginPath();
     ax.moveTo(0, py);
     ax.lineTo(W, py);
@@ -401,7 +401,7 @@ function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
     const midX = (p0.x + p1.x) / 2;
     const midY = (p0.y + p1.y) / 2;
     if (i < s.points.length - 2) {
-      ctx.quadraticCurveTo(p0.x, p0.y, midX, midY);
+      ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
     } else {
       ctx.lineTo(p1.x, p1.y);
     }
