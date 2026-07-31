@@ -72,18 +72,23 @@ export function evalTemplate(x: number, candidate: { params: Record<string, unkn
       const a = (p['fA'] as number) ?? 1;
       const c = (p['fC'] as number) ?? 0.01;
       const off = (p['offset'] as number) ?? 0;
-      return a * Math.log(x + c) + off;
+      const arg = x + c;
+      if (arg <= 0) return off;
+      return a * Math.log(arg) + off;
     }
     case 'sqrt': {
       const a = (p['fA'] as number) ?? 1;
       const off = (p['offset'] as number) ?? 0;
+      if (x < 0) return off;
       return a * Math.sqrt(x) + off;
     }
     case 'reciprocal': {
       const a = (p['fA'] as number) ?? 1;
       const c = (p['fC'] as number) ?? 0.01;
       const off = (p['offset'] as number) ?? 0;
-      return a / (x + c) + off;
+      const arg = x + c;
+      if (arg === 0) return off;
+      return a / arg + off;
     }
     case 'tan': {
       const a = (p['amp'] as number) ?? 1;

@@ -106,6 +106,7 @@ export function drawBode(c: TemplateCandidate): void {
 
     const maxDB = 20 * Math.log10(Math.max(...magData) + 0.001);
     const minDB = Math.min(-40, maxDB - 60);
+    const dbRange = maxDB - minDB || 1;
 
     // Draw magnitude
     magCtx.strokeStyle = '#5cc8ff';
@@ -114,19 +115,20 @@ export function drawBode(c: TemplateCandidate): void {
     for (let i = 0; i < N; i++) {
       const x = (i / (N - 1)) * W;
       const db = 20 * Math.log10(magData[i]! + 0.001);
-      const y = H - ((db - minDB) / (maxDB - minDB + 1)) * H;
+      const y = H - ((db - minDB) / dbRange) * H;
       if (i === 0) magCtx.moveTo(x, y);
       else magCtx.lineTo(x, y);
     }
     magCtx.stroke();
 
-    // Draw phase
+    // Draw phase (clamped to ±180°)
     phCtx.strokeStyle = '#ff8a4c';
     phCtx.lineWidth = 1.5;
     phCtx.beginPath();
     for (let i = 0; i < N; i++) {
       const x = (i / (N - 1)) * W;
-      const y = H / 2 - (phData[i]! / 180) * (H / 2);
+      const phaseClamped = Math.min(180, Math.max(-180, phData[i]!));
+      const y = H / 2 - (phaseClamped / 180) * (H / 2);
       if (i === 0) phCtx.moveTo(x, y);
       else phCtx.lineTo(x, y);
     }

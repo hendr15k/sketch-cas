@@ -2,7 +2,7 @@
 // Recognition: Feature Extraction, Normalization, Resampling
 // ============================================================
 
-import type { Point, Features } from '../types';
+import type { Point, Features, LabeledExample } from '../types';
 import { rmse } from './numeric';
 
 /**
@@ -293,13 +293,6 @@ export function getFeatures(pts: Point[]): Features {
     gaussLike,
     sigmoidLike,
   };
-}
-
-export interface LabeledExample {
-  id: string;
-  label: string;
-  normalizedPoints: Point[];
-  matchedType: string;
 }
 
 export interface TrainingMatch {

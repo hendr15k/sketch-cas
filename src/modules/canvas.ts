@@ -594,13 +594,11 @@ export function clearAll(): void {
   redraw();
 }
 
-/** Zoom in toward viewport center */
-export function zoomIn(): void {
+function zoomBy(factor: number): void {
   if (!state) return;
   const oldZoom = state.zoom;
-  state.zoom = Math.min(20, state.zoom * 1.3);
+  state.zoom = Math.min(20, Math.max(0.25, state.zoom * factor));
   if (state.zoom === oldZoom) return;
-  // Adjust pan so zoom is toward viewport center (same as wheel zoom formula)
   const plotHH = state.height - 60;
   const ppu_old = oldZoom * (plotHH / 2);
   const ppu_new = state.zoom * (plotHH / 2);
@@ -614,23 +612,14 @@ export function zoomIn(): void {
   redraw();
 }
 
+/** Zoom in toward viewport center */
+export function zoomIn(): void {
+  zoomBy(1.3);
+}
+
 /** Zoom out from viewport center */
 export function zoomOut(): void {
-  if (!state) return;
-  const oldZoom = state.zoom;
-  state.zoom = Math.max(0.25, state.zoom / 1.3);
-  if (state.zoom === oldZoom) return;
-  const plotHH = state.height - 60;
-  const ppu_old = oldZoom * (plotHH / 2);
-  const ppu_new = state.zoom * (plotHH / 2);
-  const cx = state.width / 2;
-  const cy = state.height / 2;
-  const mx_b = (cx - state.width / 2) / ppu_old + state.panX;
-  const my_b = (state.height - 30 - cy) / ppu_old + state.panY - 1;
-  state.panX = mx_b - (cx - state.width / 2) / ppu_new;
-  state.panY = my_b + 1 - (state.height - 30 - cy) / ppu_new;
-  drawAxes();
-  redraw();
+  zoomBy(1 / 1.3);
 }
 
 /** Reset zoom and pan to default */

@@ -395,7 +395,7 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
 
   // === POLYNOMIAL CANDIDATES ===
   {
-    const labels = ['Linear', 'Linear', 'Quadratisch', 'Kubisch', 'Quartisch'];
+    const labels = ['Quadratisch', 'Kubisch', 'Quartisch'];
     for (const degree of [2, 3, 4]) {
       const cc = fitPolynomial(xs, ys, degree);
       if (cc) {

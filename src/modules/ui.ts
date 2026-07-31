@@ -2,16 +2,17 @@
 // UI Helper Functions
 // ============================================================
 
-/**
- * Show a brief toast notification at the bottom of the screen.
- */
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function toast(message: string): void {
   const t = document.getElementById('toast');
   if (!t) return;
   t.textContent = message;
   t.classList.add('show');
-  setTimeout(() => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
     t.classList.remove('show');
+    toastTimer = null;
   }, 1500);
 }
 

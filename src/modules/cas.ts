@@ -113,19 +113,11 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
       return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
     }
     case 'solve': {
-      // nerdamer.solveEquations natively supports '=' syntax — no manual parsing needed
       try {
-        const sol = nerdamer.solveEquations(e) as unknown as {
-          [key: string]: { toString(): string };
-        };
-        const lt =
-          'x \\in \\{' +
-          Object.values(sol)
-            .map((v) => exprToLatex(v.toString()))
-            .join(',\\;') +
-          '\\}';
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string
-        return { latex: lt, raw: sol.toString() };
+        const sol = nerdamer.solveEquations(e) as unknown as Array<{ toString(): string }>;
+        const solArr: Array<{ toString(): string }> = Array.isArray(sol) ? sol : Object.values(sol);
+        const lt = 'x \\in \\{' + solArr.map((v) => exprToLatex(v.toString())).join(',\\;') + '\\}';
+        return { latex: lt, raw: solArr.map((v) => v.toString()).join(', ') };
       } catch {
         return { latex: '\\text{(nicht lösbar)}', raw: 'error' };
       }

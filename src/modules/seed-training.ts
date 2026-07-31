@@ -7,7 +7,7 @@
 // actual user trace sessions. They get loaded at startup and
 // serve as the initial training knowledge.
 
-import type { LabeledExample } from './recognition';
+import type { LabeledExample } from '../types';
 
 /**
  * Build synthetic seed training points from mathematical functions.
@@ -56,6 +56,7 @@ export function getSeedExamples(): LabeledExample[] {
     const pts = sampleFn(fn, xMin, xMax);
     seeds.push({
       id: 'seed_' + id++,
+      timestamp: Date.now() - 86400000,
       label,
       normalizedPoints: pts,
       matchedType: type,
