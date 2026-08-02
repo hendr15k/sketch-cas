@@ -48,6 +48,12 @@ assert_body_match() {
   fi
 }
 
+echo "--- Training API health probe ---"
+RESP=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/health")
+assert_status "health status" "200" "$RESP"
+RESP=$(curl -s "http://127.0.0.1:$PORT/api/health")
+assert_body_match "health service" '"service": "sketch-cas"' "$RESP"
+
 echo "--- B5: invalid Content-Length must not crash, must return 400 ---"
 RESP=$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/api/send-training" \
   -H 'Content-Type: application/json' -H 'Content-Length: notanumber' -d 'x')

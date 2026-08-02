@@ -25,6 +25,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_GET(self):
+        if self.path == "/api/health":
+            self._send_json(200, {"ok": True, "service": "sketch-cas"})
+        else:
+            super().do_GET()
+
     def do_POST(self):
         if self.path == "/api/send-training":
             # Content-Length may be missing, malformed, or even negative for
