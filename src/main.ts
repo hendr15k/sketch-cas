@@ -34,6 +34,11 @@ import {
 } from './modules/cas';
 import { drawBode } from './modules/bode';
 import { getSeedExamples } from './modules/seed-training';
+import {
+  mergeTrainingData,
+  normalizeTrainingData,
+  parseTrainingDataJson,
+} from './modules/training-data';
 import type {
   TemplateCandidate,
   CasOperation,
@@ -361,12 +366,21 @@ let ovlP: { x: number; y: number }[] | null = null;
 let custP: { x: number; y: number }[] | null = null;
 let seedLoaded = false;
 
-const hist = JSON.parse(localStorage.getItem('scH5') || '[]') as {
+const rawHist = localStorage.getItem('scH5');
+let hist: {
   label: string;
   latex: string;
   time: string;
   matchedType?: string;
-}[];
+}[] = [];
+try {
+  if (rawHist) {
+    const parsed = JSON.parse(rawHist) as unknown;
+    if (Array.isArray(parsed)) hist = parsed as typeof hist;
+  }
+} catch {
+  hist = [];
+}
 
 // ---- Recognition ----
 let recognizeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -403,6 +417,7 @@ const DUPLICATE_RMSE_THRESHOLD = 0.05;
 const MAX_DEDUP_EXAMPLES = 15;
 const PERTURB_X_JITTER = 0.03;
 const PERTURB_Y_JITTER = 0.04;
+const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
 
 /**
  * Convert candidate errors to softmax probabilities.
@@ -1153,16 +1168,17 @@ let practiceActive = false;
 let activeTargetId: string | null = null;
 
 function loadTrainData(): void {
+  const empty: TrainingData = { targets: [], attempts: [], corrections: [] };
   try {
     const raw = localStorage.getItem('scTrainV6');
-    if (raw) trainData = JSON.parse(raw) as TrainingData;
+    if (!raw) {
+      trainData = empty;
+      return;
+    }
+    trainData = normalizeTrainingData(JSON.parse(raw) as unknown) ?? empty;
   } catch {
-    /* ignore */
+    trainData = empty;
   }
-  if (!trainData) trainData = { targets: [], attempts: [], corrections: [] };
-  if (!trainData.targets) trainData.targets = [];
-  if (!trainData.attempts) trainData.attempts = [];
-  if (!trainData.corrections) trainData.corrections = [];
 }
 
 /** Load pre-learned seed examples (only once per session). */
@@ -1792,7 +1808,9 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
       h += '</div>';
     }
 
-    h += `<div style="margin-top:8px"><button class="b grn" id="btnExportTrain">📥 Export JSON</button>`;
+    h += `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"><button class="b grn" id="btnExportTrain">📥 Export JSON</button>`;
+    h += `<button class="b" id="btnImportTrain" title="JSON-Backup einspielen">📤 Import JSON</button>`;
+    h += `<button class="b" id="btnUploadTrain" title="An Trainings-Server senden (nur wenn verfügbar)" style="display:none">⬆️ Server sichern</button>`;
     h += `<button class="b red" id="btnClearTrain">🗑 Alles löschen</button></div>`;
   }
 
@@ -1819,6 +1837,16 @@ function trainMode(mode: 'record' | 'practice' | 'trace' | 'stats'): void {
 
   document.getElementById('btnSaveTarget')?.addEventListener('click', saveTrainingTarget);
   document.getElementById('btnExportTrain')?.addEventListener('click', exportTrainingData);
+  document.getElementById('btnImportTrain')?.addEventListener('click', pickTrainingFile);
+  const uploadBtn = document.getElementById('btnUploadTrain');
+  if (uploadBtn) {
+    uploadBtn.addEventListener('click', () => {
+      void uploadTrainingData();
+    });
+    void checkTrainingServer().then((ok) => {
+      if (ok) uploadBtn.style.display = 'inline-block';
+    });
+  }
   document.getElementById('btnClearTrain')?.addEventListener('click', () => {
     if (confirm('Alle Trainingsdaten löschen?')) {
       trainData = { targets: [], attempts: [], corrections: [] };
@@ -2095,6 +2123,88 @@ function exportTrainingData(): void {
   toast('Training-Data exported!');
 }
 
+function importTrainingData(text: string, mode: 'merge' | 'replace' = 'merge'): boolean {
+  const incoming = parseTrainingDataJson(text);
+  if (!incoming) {
+    toast('Import fehlgeschlagen: Ungültiges JSON/Format!');
+    return false;
+  }
+  if (
+    incoming.targets.length === 0 &&
+    incoming.attempts.length === 0 &&
+    incoming.corrections.length === 0
+  ) {
+    toast('Import fehlgeschlagen: Keine gültigen Daten gefunden!');
+    return false;
+  }
+  const replace = mode === 'replace';
+  trainData = replace ? incoming : mergeTrainingData(trainData, incoming);
+  saveTrainData();
+  renderTrainingList();
+  toast(replace ? 'Trainingsdaten ersetzt!' : 'Trainingsdaten importiert (zusammengeführt)!');
+  return true;
+}
+
+function pickTrainingFile(): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json,.json';
+  input.style.display = 'none';
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) {
+      input.remove();
+      return;
+    }
+    if (file.size > MAX_IMPORT_BYTES) {
+      input.remove();
+      toast('Datei zu groß (max 25 MB)!');
+      return;
+    }
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      input.remove();
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      importTrainingData(text, 'merge');
+    });
+    reader.addEventListener('error', () => {
+      input.remove();
+      toast('Datei konnte nicht gelesen werden!');
+    });
+    reader.readAsText(file);
+  });
+  document.body.appendChild(input);
+  input.click();
+}
+
+async function checkTrainingServer(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/health', { method: 'GET' });
+    if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return false;
+    const body = (await res.json()) as { ok?: boolean; service?: string };
+    return body.ok === true && body.service === 'sketch-cas';
+  } catch {
+    return false;
+  }
+}
+
+async function uploadTrainingData(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/send-training', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: trainData }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = (await res.json()) as { ok?: boolean; file?: string };
+    toast(j.file ? 'Hochgeladen: ' + j.file : 'Trainingsdaten hochgeladen!');
+    return true;
+  } catch (e) {
+    toast('Upload fehlgeschlagen: ' + (e as Error).message);
+    return false;
+  }
+}
+
 // ---- Audio ----
 let audioCtx: AudioContext | null = null;
 
@@ -2352,6 +2462,8 @@ declare global {
       loadTrainData: () => void;
       saveTrainData: () => void;
       exportTrainingData: () => void;
+      importTrainingData: (text: string, mode?: 'merge' | 'replace') => boolean;
+      uploadTrainingData: () => Promise<boolean>;
       saveTrainingTarget: () => void;
       deleteTarget: (id: string) => void;
       startPractice: (id: string) => void;
@@ -2405,6 +2517,8 @@ function exposeTestAPI(): void {
       loadTrainData,
       saveTrainData,
       exportTrainingData,
+      importTrainingData,
+      uploadTrainingData,
       runCas,
       getSymExpr,
       updateScore,
