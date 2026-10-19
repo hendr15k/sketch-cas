@@ -5,9 +5,12 @@
 // checks whether the correct template wins (lowest composite score).
 // ============================================================
 
-const { normalizeAndResample, getFeatures, matchTrainingExamples } =
-  require('/tmp/sketch-build/modules/recognition.js');
-const { generateTemplates } = require('/tmp/sketch-build/modules/templates.js');
+const path = require('path');
+const buildDir = path.join(__dirname, '..', '..', '.test-build', 'modules');
+const { normalizeAndResample, getFeatures, matchTrainingExamples } = require(
+  path.join(buildDir, 'recognition.js'),
+);
+const { generateTemplates } = require(path.join(buildDir, 'templates.js'));
 
 let passed = 0, failed = 0, failures = [];
 

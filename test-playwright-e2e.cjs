@@ -8,7 +8,9 @@ const { chromium } = require('playwright');
 const assert = require('assert');
 
 const URL = 'http://localhost:4173/sketch-cas/';
-const CHROME_PATH = '/opt/data/.chromium/opt/google/chrome/chrome';
+// Optional explicit browser binary; falls back to Playwright's bundled
+// Chromium so the suite is runnable on machines without the author's path.
+const CHROME_PATH = process.env.PW_CHROME || null;
 const SK = 'window.__sk';
 const TIMEOUT = 15000;
 
@@ -235,7 +237,7 @@ async function isPageAlive() {
 (async () => {
   browser = await chromium.launch({
     headless: true,
-    executablePath: CHROME_PATH,
+    ...(CHROME_PATH ? { executablePath: CHROME_PATH } : {}),
     args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
   });
 

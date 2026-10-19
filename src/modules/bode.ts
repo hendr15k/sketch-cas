@@ -22,7 +22,10 @@ export function drawBode(c: TemplateCandidate): void {
 
   const t = c.params['type'] as string;
   const freq = (c.params['freq'] as number) || 1;
-  const amp = (c.params['amp'] as number) || 1;
+  // Magnitude is a gain: a negative amplitude (e.g. the downward |sin| fit)
+  // must not produce a negative magnitude, which would make 20*log10() NaN
+  // and blank the whole plot.
+  const amp = Math.abs((c.params['amp'] as number) || 1);
   const om0 = 2 * Math.PI * freq;
 
   requestAnimationFrame(() => {
@@ -33,6 +36,10 @@ export function drawBode(c: TemplateCandidate): void {
     const dpr = window.devicePixelRatio || 1;
     for (const cv of [magC, phC]) {
       const rect = cv.getBoundingClientRect();
+      // The Bode tab is hidden while recognition runs, so the first call gets
+      // a zero-sized box. Bail out instead of creating a 0×0 canvas; the tab
+      // handler calls drawBode() again once the panel is visible.
+      if (!rect.width || !rect.height) return;
       cv.width = rect.width * dpr;
       cv.height = rect.height * dpr;
       cv.style.width = rect.width + 'px';
@@ -87,7 +94,10 @@ export function drawBode(c: TemplateCandidate): void {
           Math.sqrt(Math.pow(w * w - om0 * om0, 2) + Math.pow(w * om0 * 0.5, 2) + 0.001);
         phase = -Math.atan2(w * om0 * 0.5, om0 * om0 - w * w) * (180 / Math.PI);
       } else if (t === 'exponential' || t === 'heaviside') {
-        const tau = 1 / freq;
+        // The exponential template is a*exp(fB*x), so its rate is fB, not the
+        // period-derived freq (which is 1 for aperiodic strokes).
+        const rate = Math.abs((c.params['fB'] as number) ?? 0) || freq;
+        const tau = 1 / rate;
         mag = amp / Math.sqrt(1 + Math.pow(w * tau, 2));
         phase = -Math.atan(w * tau) * (180 / Math.PI);
       } else if (t === 'damped') {

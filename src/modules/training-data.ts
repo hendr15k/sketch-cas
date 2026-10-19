@@ -8,6 +8,11 @@ import type {
 } from '../types';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+// A hand-drawn example is resampled to 400 points; 10k is already generous.
+// The cap keeps an oversized import from allocating unbounded memory.
+const MAX_POINTS_PER_EXAMPLE = 10_000;
+// Upper bound for imported collections (each entry carries stroke geometry).
+const MAX_ENTRIES = 20_000;
 
 function safeId(v: unknown): string {
   return typeof v === 'string' && ID_RE.test(v) ? v : '';
@@ -20,7 +25,9 @@ function isFiniteNumber(v: unknown): v is number {
 function sanitizePoints(v: unknown): Point[] | null {
   if (!Array.isArray(v) || v.length === 0) return null;
   const out: Point[] = [];
-  for (const raw of v) {
+  const limit = Math.min(v.length, MAX_POINTS_PER_EXAMPLE);
+  for (let i = 0; i < limit; i++) {
+    const raw: unknown = v[i];
     if (typeof raw !== 'object' || raw === null) continue;
     const o = raw as Record<string, unknown>;
     if (!isFiniteNumber(o['x']) || !isFiniteNumber(o['y'])) continue;
@@ -107,9 +114,16 @@ export function normalizeTrainingData(raw: unknown): TrainingData | null {
     return null;
   }
   return {
-    targets: o['targets'].map(sanitizeTarget).filter((t): t is TrainingTarget => t !== null),
-    attempts: o['attempts'].map(sanitizeAttempt).filter((t): t is TrainingAttempt => t !== null),
+    targets: o['targets']
+      .slice(0, MAX_ENTRIES)
+      .map(sanitizeTarget)
+      .filter((t): t is TrainingTarget => t !== null),
+    attempts: o['attempts']
+      .slice(0, MAX_ENTRIES)
+      .map(sanitizeAttempt)
+      .filter((t): t is TrainingAttempt => t !== null),
     corrections: o['corrections']
+      .slice(0, MAX_ENTRIES)
       .map(sanitizeCorrection)
       .filter((t): t is LabeledExample => t !== null),
   };

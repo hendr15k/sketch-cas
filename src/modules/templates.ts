@@ -272,11 +272,16 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
           }
         }
       }
+      // Convert the fitted 1-2|sin| representation into the canonical
+      // amp*|sin|+offset form used by evalTemplate/LaTeX/CAS:
+      //   a*(1 - 2|sin|) + o  ==  (-2a)*|sin| + (a + o)
+      const canonAmp = -2 * aAbsBest;
+      const canonOff = aAbsBest + oAbsBest;
       add(
-        (x) => aAbsBest * (1 - 2 * Math.abs(Math.sin(omegaAbs * x + pAbsBest))) + oAbsBest,
+        (x) => canonAmp * Math.abs(Math.sin(omegaAbs * x + pAbsBest)) + canonOff,
         '|Sinus|',
-        buildLatex('abs_sin', omegaAbs, pAbsBest, aAbsBest, oAbsBest),
-        { type: 'abs_sin', phase: pAbsBest, amp: aAbsBest, offset: oAbsBest, freq: freq / 2 },
+        buildLatex('abs_sin', omegaAbs, pAbsBest, canonAmp, canonOff),
+        { type: 'abs_sin', phase: pAbsBest, amp: canonAmp, offset: canonOff, freq: freq / 2 },
       );
     }
 
@@ -305,11 +310,20 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
           }
         }
       }
+      // Store the frequency the fit actually used: for non-periodic strokes
+      // it is omegaSq = π, not the default 2π that evalTemplate would derive
+      // from freq=1 — otherwise the re-evaluated square has twice the period.
       add(
         (x) => aSqBest * Math.sign(Math.sin(omegaSq * x + pSqBest)) + oSqBest,
         'Rechteck',
         buildLatex('sgn', omegaSq, pSqBest, aSqBest, oSqBest),
-        { type: 'square', phase: pSqBest, amp: aSqBest, offset: oSqBest },
+        {
+          type: 'square',
+          phase: pSqBest,
+          amp: aSqBest,
+          offset: oSqBest,
+          freq: omegaSq / (2 * Math.PI),
+        },
       );
     }
 
@@ -410,7 +424,8 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
               }
               return isFinite(r) ? r : 0;
             },
-            labels[degree]!,
+            // degrees are 2..4, the label array starts at index 0 → offset it
+            labels[degree - 2]!,
             buildLatexPoly(cc),
             { type: 'poly' + degree, coeffs: cc },
           );
@@ -523,8 +538,8 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
       add(
         (x) => bestA * Math.sqrt(Math.max(0, x + bestShift)) + bestOff,
         'Wurzelfunktion',
-        buildLatex('sqrt', 0, 0, bestA, bestOff),
-        { type: 'sqrt', fA: bestA, offset: bestOff },
+        buildLatex('sqrt', 0, 0, bestA, bestOff, { c: bestShift }),
+        { type: 'sqrt', fA: bestA, fShift: bestShift, offset: bestOff },
       );
     }
   }
@@ -644,14 +659,18 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     let bestAmp = f.amp;
     let bestMu = 0.5;
     let bestSigma = 0.2;
-    let bestOff = f.off;
+    // A bell curve sits on its baseline, which for a normalized stroke is
+    // f.off - f.amp (the bottom of the drawing), not the vertical centre.
+    // Searching around the centre made every bell fit ~0.4 RMSE off and lose
+    // to `linear`.
+    let bestOff = f.off - f.amp;
     let bestErr = Infinity;
     for (const mu of [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) {
       for (const sigma of [0.05, 0.1, 0.15, 0.2, 0.3, 0.4]) {
         for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
           const testAmp = f.amp * aMul;
           for (const oDelta of [-0.3, -0.1, 0, 0.1, 0.3]) {
-            const testOff = f.off + oDelta;
+            const testOff = f.off - f.amp + oDelta;
             const test = xs.map(
               (x) => testAmp * Math.exp(-((x - mu) ** 2) / (2 * sigma * sigma)) + testOff,
             );
@@ -699,6 +718,17 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
               bestX0 = x0;
               bestOff = testOff;
             }
+            // normalizeAndResample flips Y, so a normally drawn rising S is
+            // decreasing here and only a negative amplitude can fit it.
+            const testNeg = xs.map((x) => -testAmp / (1 + Math.exp(-k * (x - x0))) + testOff);
+            const errNeg = rmse(ys, testNeg);
+            if (errNeg < bestErr) {
+              bestErr = errNeg;
+              bestAmp = -testAmp;
+              bestK = k;
+              bestX0 = x0;
+              bestOff = testOff;
+            }
           }
         }
       }
@@ -731,6 +761,16 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
             if (err < bestErr) {
               bestErr = err;
               bestAmp = testAmp;
+              bestK = k;
+              bestX0 = x0;
+              bestOff = testOff;
+            }
+            // Mirrored variant, see the sigmoid candidate above.
+            const testNeg = xs.map((x) => -testAmp * Math.tanh(k * (x - x0)) + testOff);
+            const errNeg = rmse(ys, testNeg);
+            if (errNeg < bestErr) {
+              bestErr = errNeg;
+              bestAmp = -testAmp;
               bestK = k;
               bestX0 = x0;
               bestOff = testOff;

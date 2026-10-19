@@ -2,7 +2,9 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
-  base: '/sketch-cas/',
+  // GitHub Pages serves the app from /sketch-cas/; the Docker/nginx image
+  // serves it from the domain root. Set VITE_BASE=/ for the latter.
+  base: process.env['VITE_BASE'] ?? '/sketch-cas/',
   root: '.',
   resolve: {
     alias: {

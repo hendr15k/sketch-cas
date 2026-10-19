@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 cd "$(dirname "$0")"
-node node_modules/.bin/vite build 2>&1
-echo "BUILD_EXIT:$?"
+npx tsc --noEmit
+node node_modules/.bin/vite build

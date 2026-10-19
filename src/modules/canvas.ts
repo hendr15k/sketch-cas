@@ -231,10 +231,13 @@ function setupPointerEvents(): void {
 
   canvas.addEventListener('pointercancel', () => {
     if (!state) return;
+    // A pointercancel can also arrive for a pan gesture or after pointerup.
+    // Only drop the undo snapshot when a stroke was actually in progress,
+    // otherwise the user silently loses an undo step.
+    const wasDrawing = state.isDrawing && state.currentStroke !== null;
     state.isDrawing = false;
     state.currentStroke = null;
-    // Pop the undo entry that was pushed in pointerdown (stroke was cancelled)
-    if (state.undoStack.length > 0) state.undoStack.pop();
+    if (wasDrawing && state.undoStack.length > 0) state.undoStack.pop();
   });
 }
 
@@ -462,26 +465,40 @@ function drawTraceTarget(points: Point[]): void {
   ctx.setLineDash([]);
 }
 
-function drawOverlayPath(points: Point[], color: string, useInverseNorm = true): void {
+function drawOverlayPath(
+  points: Point[],
+  color: string,
+  space: 'normalized' | 'model' = 'normalized',
+): void {
   if (!state || points.length < 2) return;
   const { mainCtx: ctx } = state;
-  const bounds = useInverseNorm ? getStrokeBounds() : null;
+  const bounds = space === 'normalized' ? getStrokeBounds() : null;
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 4]);
   ctx.beginPath();
+  const plotTop = 30;
+  const plotBottom = state.height - 30;
+  const plotH = plotBottom - plotTop;
   for (let i = 0; i < points.length; i++) {
     const p = points[i]!;
     let cx: number, cy: number;
-    if (bounds) {
-      // Inverse of normalizeAndResample: map [0,1]×[-1,1] back to canvas pixels
+    if (space === 'model') {
+      cx = nx(p.x);
+      cy = ny(p.y);
+    } else if (bounds) {
+      // Inverse of normalizeAndResample: map [0,1]×[-1,1] back onto the ink
       const xRange = bounds.xMax - bounds.xMin || 1;
       const yRange = bounds.yMax - bounds.yMin || 1;
       cx = p.x * xRange + bounds.xMin;
       cy = bounds.yMin + ((1 - p.y) * yRange) / 2;
     } else {
-      cx = nx(p.x);
-      cy = ny(p.y);
+      // No ink yet (e.g. the ghost at the start of a practice session):
+      // spread the normalized reference over the whole plot area instead of
+      // squeezing it through the model transform, which would draw a tiny
+      // curve around the origin.
+      cx = p.x * state.width;
+      cy = plotTop + ((1 - p.y) / 2) * plotH;
     }
     if (i === 0) ctx.moveTo(cx, cy);
     else ctx.lineTo(cx, cy);
@@ -504,8 +521,8 @@ export function redraw(): void {
   // Trace target (light blue dashed reference)
   if (state.traceTarget) drawTraceTarget(state.traceTarget);
   if (state.showOverlay) {
-    if (state.overlayPoints) drawOverlayPath(state.overlayPoints, '#ff8a4c');
-    if (state.customPoints) drawOverlayPath(state.customPoints, '#ff6ac1', false);
+    if (state.overlayPoints) drawOverlayPath(state.overlayPoints, '#ff8a4c', 'normalized');
+    if (state.customPoints) drawOverlayPath(state.customPoints, '#ff6ac1', 'model');
   }
 }
 

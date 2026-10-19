@@ -7,7 +7,9 @@
 #   B6d — happy path still returns 200
 set -u
 
-PORT=3142
+# Pick a free ephemeral port: a hard-coded one silently tests whatever else
+# happens to listen there (and reports bogus 405s).
+PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.." && pwd)"
 SERVER="$SCRIPT_DIR/server.py"
 LOG=$(mktemp)
@@ -21,10 +23,16 @@ cd "$SCRIPT_DIR"
 python3 "$SERVER" "$PORT" > "$LOG" 2>&1 &
 PID=$!
 # Wait until server is ready
+READY=0
 for i in $(seq 1 30); do
-  if curl -sf "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then break; fi
+  if curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; then READY=1; break; fi
   sleep 0.2
 done
+if [ "$READY" -ne 1 ] || ! kill -0 "$PID" 2>/dev/null; then
+  echo "  ✗ server failed to start on port $PORT"
+  cat "$LOG"
+  exit 1
+fi
 
 assert_status() {
   local name="$1" want="$2" got="$3"
@@ -98,6 +106,22 @@ echo "--- B6e: negative Content-Length must return 400 ---"
 RESP=$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/api/send-training" \
   -H 'Content-Type: application/json' -H 'Content-Length: -1' -d 'x')
 assert_status "negative CL" "400" "$RESP"
+
+echo "--- B7: two uploads in the same second must not overwrite each other ---"
+BEFORE=$(ls training-data/training_*.json 2>/dev/null | wc -l)
+curl -s -o /dev/null -X POST "http://127.0.0.1:$PORT/api/send-training" \
+  -H 'Content-Type: application/json' -d '{"data":{"burst":1}}'
+curl -s -o /dev/null -X POST "http://127.0.0.1:$PORT/api/send-training" \
+  -H 'Content-Type: application/json' -d '{"data":{"burst":2}}'
+AFTER=$(ls training-data/training_*.json 2>/dev/null | wc -l)
+assert_status "burst of 2 uploads writes 2 files" "2" "$((AFTER-BEFORE))"
+if python3 -c 'import json,sys; json.load(open("training-data/latest.json"))' 2>/dev/null; then
+  echo "  ✓ latest.json is valid JSON"
+  PASS=$((PASS+1))
+else
+  echo "  ✗ latest.json is corrupt"
+  FAIL=$((FAIL+1))
+fi
 
 # Make sure the server is still alive (none of the above crashed it)
 if ! kill -0 "$PID" 2>/dev/null; then
