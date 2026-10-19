@@ -495,11 +495,24 @@ async function isPageAlive() {
   });
 
   await test('loadTrainData restores from localStorage', async () => {
-    await page.evaluate((d) => localStorage.setItem('scTrainV6', d),
-      JSON.stringify({ targets: [{ id: 'lt_test', label: 'x', points: [{x:0,y:0}], matchedType: 'linear' }], corrections: [] }));
+    const backup = await page.evaluate(() => localStorage.getItem('scTrainV6'));
+    // Valid shape: the sanitizer requires all three arrays and normalizedPoints.
+    const fixture = {
+      targets: [{ id: 'lt_test', label: 'x', strokes: [], difficulty: 'Einfach',
+                  normalizedPoints: [{ x: 0, y: 0 }, { x: 1, y: 1 }], matchedType: 'linear' }],
+      attempts: [],
+      corrections: [],
+    };
+    await page.evaluate((d) => localStorage.setItem('scTrainV6', d), JSON.stringify(fixture));
     await page.evaluate(SK + '.loadTrainData()');
     const d = await page.evaluate(SK + '.trainData');
     assert.ok(d.targets.some(t => t.id === 'lt_test'), 'lt_test found');
+    // Restore the previous store so later tests still see the seeded examples.
+    await page.evaluate((d) => {
+      if (d === null) localStorage.removeItem('scTrainV6');
+      else localStorage.setItem('scTrainV6', d);
+    }, backup);
+    await page.evaluate(SK + '.loadTrainData()');
   });
 
   await test('Thresholds accessible', async () => {
