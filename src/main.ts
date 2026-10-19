@@ -888,11 +888,18 @@ function loadTrainData(): void {
     const raw = localStorage.getItem('scTrainV6');
     if (!raw) {
       trainData = empty;
-      return;
+    } else {
+      trainData = normalizeTrainingData(JSON.parse(raw) as unknown) ?? empty;
     }
-    trainData = normalizeTrainingData(JSON.parse(raw) as unknown) ?? empty;
   } catch {
     trainData = empty;
+  }
+  // A corrupt or missing store must not leave the app without its built-in
+  // training examples: re-seed them (loadSeedData is a no-op when they are
+  // already present).
+  if (!trainData.corrections.some((c) => c.id.startsWith('seed_'))) {
+    seedLoaded = false;
+    loadSeedData();
   }
 }
 
