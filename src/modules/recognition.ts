@@ -145,7 +145,7 @@ export function getFeatures(pts: Point[]): Features {
 
   // Check for damped oscillation
   let isDamp = false;
-  if (pkV.length >= 2) {
+  if (pkV.length >= 2 && vlV.length >= 2) {
     // Damping: peak amplitudes decreasing, valley amplitudes decreasing (both getting closer to offset)
     const pkDec = pkV.every(
       (v, i) => !i || Math.abs(v - off) <= Math.abs(pkV[i - 1]! - off) + 0.01,
@@ -153,7 +153,15 @@ export function getFeatures(pts: Point[]): Features {
     const vlDec = vlV.every(
       (v, i) => !i || Math.abs(v - off) <= Math.abs(vlV[i - 1]! - off) + 0.01,
     );
-    if (pkDec && vlDec) isDamp = true;
+    // A constant-amplitude oscillation also satisfies "non-increasing", so
+    // demand a real decay before calling it damped (otherwise every plain
+    // sine gets the damped template's 0.45 boost).
+    const firstPk = Math.abs(pkV[0]! - off);
+    const lastPk = Math.abs(pkV[pkV.length - 1]! - off);
+    const firstVl = Math.abs(vlV[0]! - off);
+    const lastVl = Math.abs(vlV[vlV.length - 1]! - off);
+    const decayed = lastPk < firstPk * 0.7 && lastVl < firstVl * 0.7;
+    if (pkDec && vlDec && decayed) isDamp = true;
   }
 
   // Curvature variance: low = parabola (constant 2nd deriv), high = sinusoidal (oscillating 2nd deriv)
@@ -167,6 +175,13 @@ export function getFeatures(pts: Point[]): Features {
       d2.push(ys[i + 1]! - 2 * ys[i]! + ys[i - 1]!);
     }
     if (d2.length > 2) {
+      // d2 is a raw second difference on a 1/399 x-grid, so its magnitude
+      // scales with h² (≈6e-6) and every smooth curve looks like "constant
+      // curvature" at the thresholds below.  Normalise by h² to get the
+      // actual second derivative, which makes lowCurv/highCurv mean what
+      // their comments say (Var(y'') ≈ 0 for polynomials, large for sin).
+      const h2 = 1 / ((ys.length - 1) * (ys.length - 1));
+      for (let i = 0; i < d2.length; i++) d2[i] = d2[i]! / h2;
       const mean = d2.reduce((a, b) => a + b, 0) / d2.length;
       curvatureVar = d2.reduce((a, b) => a + (b - mean) * (b - mean), 0) / d2.length;
       // concaveDown: the Y axis is flipped during normalization (see

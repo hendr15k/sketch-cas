@@ -174,6 +174,7 @@ export function loadGiac(): void {
       caseval = mod.cwrap('caseval', 'string', ['string']);
       giacLoaded = true;
       giacLoading = false;
+      clearTimeout(watchdog);
       if (statusEl) {
         statusEl.innerHTML = '<span style="color:var(--color-accent-green)">✓ Giac</span>';
       }
@@ -191,10 +192,22 @@ export function loadGiac(): void {
     },
   };
 
+  // If the runtime never initialises (WASM OOM, aborted fetch) the flag
+  // would stay true and no retry could ever succeed.
+  const watchdog = setTimeout(() => {
+    if (!giacLoaded) {
+      giacLoading = false;
+      if (statusEl) {
+        statusEl.innerHTML = '<span style="color:var(--color-accent-red)">✗ Giac</span>';
+      }
+    }
+  }, 60000);
+
   const script = document.createElement('script');
   script.src = 'giac.js';
   script.async = true;
   script.onerror = () => {
+    clearTimeout(watchdog);
     giacLoading = false;
     if (statusEl) {
       statusEl.innerHTML = '<span style="color:var(--color-accent-red)">✗ Giac</span>';
@@ -376,7 +389,7 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
         (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '')
       );
     case 'heaviside':
-      return F(a, 4) + '*(x>=0?1:0)' + (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '');
+      return F(a, 4) + '*sign(x)' + (Math.abs(o) > 0.05 ? '+' + F(o, 4) : '');
     case 'square':
       return (
         F(a, 4) +
@@ -394,15 +407,18 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
       return (
         F(lA, 4) +
         '*log(x' +
-        (lC > 0.011 ? '+' + F(lC, 4) : '') +
+        (lC > 0.011 ? '+' + F(lC, 4) : lC < -0.011 ? '-' + F(-lC, 4) : '') +
         ')' +
         (Math.abs(lOff) > 0.05 ? '+' + F(lOff, 4) : '')
       );
     }
     case 'sqrt': {
-      const sA = (p['fA'] as number) || 1;
-      const sOff = (p['offset'] as number) || o;
-      return F(sA, 4) + '*sqrt(x)' + (Math.abs(sOff) > 0.05 ? '+' + F(sOff, 4) : '');
+      const sA = (p['fA'] as number) ?? 1;
+      const sOff = (p['offset'] as number) ?? o;
+      const sShift = (p['fShift'] as number) ?? 0;
+      const arg =
+        'x' + (sShift > 0.001 ? '+' + F(sShift, 4) : sShift < -0.001 ? '-' + F(-sShift, 4) : '');
+      return F(sA, 4) + '*sqrt(' + arg + ')' + (Math.abs(sOff) > 0.05 ? '+' + F(sOff, 4) : '');
     }
     case 'reciprocal': {
       const rA = (p['fA'] as number) || 1;
@@ -411,7 +427,7 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
       return (
         F(rA, 4) +
         '/(x' +
-        (rC > 0.011 ? '+' + F(rC, 4) : '') +
+        (rC > 0.011 ? '+' + F(rC, 4) : rC < -0.011 ? '-' + F(-rC, 4) : '') +
         ')' +
         (Math.abs(rOff) > 0.05 ? '+' + F(rOff, 4) : '')
       );
@@ -479,13 +495,20 @@ export function getSymExpr(c: { params: Record<string, unknown> }): string | nul
       const sA = (p['amp'] as number) ?? a;
       const sPh = (p['phase'] as number) ?? ph;
       const sOff = (p['offset'] as number) ?? o;
+      // Neither Algebrite nor Nerdamer knows a sawtooth() function: both
+      // silently treat the name as a symbol and return nonsense (Nerdamer
+      // produced "sawtooth*x").  Expand the definition instead, which both
+      // engines parse and differentiate:
+      //   amp*(2*frac(t) - 1) + off,  t = (w*x + phase)/(2*pi)
+      const w = 2 * Math.PI * f;
+      const t = '(' + F(w, 4) + '*x' + (Math.abs(sPh) > 0.05 ? '+' + F(sPh, 4) : '') + ')/(2*pi)';
       return (
         F(sA, 4) +
-        '*sawtooth(' +
-        F(2 * Math.PI * f, 4) +
-        '*x' +
-        (Math.abs(sPh) > 0.05 ? '+' + F(sPh, 4) : '') +
-        ')' +
+        '*(2*(' +
+        t +
+        '-floor(' +
+        t +
+        '))-1)' +
         (Math.abs(sOff) > 0.05 ? '+' + F(sOff, 4) : '')
       );
     }

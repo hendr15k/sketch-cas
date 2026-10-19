@@ -18,9 +18,15 @@ export function toast(message: string): void {
 
 /**
  * Escape HTML special characters to prevent XSS.
+ * Accepts unknown so a missing label degrades to text instead of throwing
+ * (several call sites render optional, data-derived strings).
  */
-export function esc(s: string): string {
-  return s
+export function esc(s: unknown): string {
+  // Only strings and primitives are rendered; anything else (a missing label,
+  // an object) degrades to an empty string instead of throwing.
+  const str =
+    typeof s === 'string' ? s : typeof s === 'number' || typeof s === 'boolean' ? String(s) : '';
+  return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

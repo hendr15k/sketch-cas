@@ -43,20 +43,25 @@ export function exprToLatex(s: string): string {
     i++;
   }
 
-  return result
-    .replace(/\*\*/g, '^')
-    .replace(/asin\(/g, '\\arcsin(')
-    .replace(/acos\(/g, '\\arccos(')
-    .replace(/atan\(/g, '\\arctan(')
-    .replace(/\bsin\(/g, '\\sin(')
-    .replace(/\bcos\(/g, '\\cos(')
-    .replace(/\btan\(/g, '\\tan(')
-    .replace(/sinh\(/g, '\\sinh(')
-    .replace(/cosh\(/g, '\\cosh(')
-    .replace(/tanh\(/g, '\\tanh(')
-    .replace(/log\(/g, '\\ln(')
-    .replace(/\bpi\b/g, '\\pi')
-    .replace(/(\d)([a-z(])/g, '$1\\cdot $2');
+  return (
+    result
+      .replace(/\*\*/g, '^')
+      .replace(/asin\(/g, '\\arcsin(')
+      .replace(/acos\(/g, '\\arccos(')
+      .replace(/atan\(/g, '\\arctan(')
+      .replace(/\bsin\(/g, '\\sin(')
+      .replace(/\bcos\(/g, '\\cos(')
+      .replace(/\btan\(/g, '\\tan(')
+      .replace(/sinh\(/g, '\\sinh(')
+      .replace(/cosh\(/g, '\\cosh(')
+      .replace(/tanh\(/g, '\\tanh(')
+      .replace(/log\(/g, '\\ln(')
+      .replace(/\bpi\b/g, '\\pi')
+      .replace(/(\d)([a-z(])/g, '$1\\cdot $2')
+      // KaTeX only takes the first token as superscript: x^10 would render as
+      // x¹0 and x^-1 as x⁻1.  Brace plain numeric exponents.
+      .replace(/\^(-?\d+(?:\.\d+)?)/g, '^{$1}')
+  );
 }
 
 /**
@@ -118,7 +123,9 @@ export function buildLatex(
       break;
     case 'dmp': {
       const d = extra?.['d'] ?? 1;
-      result = formatNum(amp) + '\\,e^{-' + formatNum(d, 2) + 'x}\\sin(' + arg + ')';
+      // e^{--1x} is invalid; keep the sign explicit.
+      const dec = (d >= 0 ? '-' : '+') + formatNum(Math.abs(d), 2);
+      result = formatNum(amp) + '\\,e^{' + dec + 'x}\\sin(' + arg + ')';
       break;
     }
     case 'lin':
@@ -150,23 +157,34 @@ export function buildLatex(
       const c = extra?.['c'] ?? 0.01;
       const aVal = amp;
       result = (Math.abs(aVal - 1) > 0.01 ? formatNum(aVal) + '\\cdot ' : '') + '\\ln\\!\\left(x';
-      if (Math.abs(c) > 0.011) {
+      if (c > 0.011) {
         result += ' + ' + formatNum(c);
+      } else if (c < -0.011) {
+        result += ' - ' + formatNum(Math.abs(c));
       }
       result += '\\right)';
       break;
     }
     case 'sqrt': {
       const aVal = amp;
-      result = (Math.abs(aVal - 1) > 0.01 ? formatNum(aVal) + '\\cdot ' : '') + '\\sqrt{x}';
+      const shift = extra?.['c'] ?? 0;
+      result = (Math.abs(aVal - 1) > 0.01 ? formatNum(aVal) + '\\cdot ' : '') + '\\sqrt{x';
+      if (shift > 0.011) {
+        result += ' + ' + formatNum(shift);
+      } else if (shift < -0.011) {
+        result += ' - ' + formatNum(Math.abs(shift));
+      }
+      result += '}';
       break;
     }
     case 'recip': {
       const c = extra?.['c'] ?? 0.01;
       const aVal = amp;
       result = formatNum(aVal) + '\\,\\frac{1}{x';
-      if (Math.abs(c) > 0.011) {
+      if (c > 0.011) {
         result += ' + ' + formatNum(c);
+      } else if (c < -0.011) {
+        result += ' - ' + formatNum(Math.abs(c));
       }
       result += '}';
       break;
@@ -248,6 +266,86 @@ export function buildLatexPoly(coefficients: number[]): string {
     }
   }
   return result || '0';
+}
+
+/**
+ * Best-effort reverse of the LaTeX this app generates, so a history entry
+ * written by an older version can still be loaded into the plain-text CAS
+ * input (which cannot parse LaTeX).
+ */
+export function latexToExpr(s: string): string {
+  if (!s) return '';
+  let out = s;
+
+  // \frac{A}{B} → ((A)/(B)), innermost first
+  for (let guard = 0; guard < 10 && out.includes('\\frac{'); guard++) {
+    const start = out.indexOf('\\frac{');
+    const numStart = start + 5; // index of '{'
+    const numEnd = matchBrace(out, numStart);
+    if (numEnd < 0) break;
+    const denStart = numEnd + 1; // index of the '{' after the numerator
+    const denEnd = matchBrace(out, denStart);
+    if (denEnd < 0) break;
+    const num = out.substring(numStart + 1, numEnd);
+    const den = out.substring(denStart + 1, denEnd);
+    out = out.substring(0, start) + '((' + num + ')/(' + den + '))' + out.substring(denEnd + 1);
+  }
+
+  // \sqrt{X} → sqrt(X)
+  for (let guard = 0; guard < 10 && out.includes('\\sqrt{'); guard++) {
+    const start = out.indexOf('\\sqrt{');
+    const argStart = start + 5;
+    const argEnd = matchBrace(out, argStart);
+    if (argEnd < 0) break;
+    out =
+      out.substring(0, start) +
+      'sqrt(' +
+      out.substring(argStart + 1, argEnd) +
+      ')' +
+      out.substring(argEnd + 1);
+  }
+
+  out = out
+    .replace(/\\left\|/g, 'abs(')
+    .replace(/\\right\|/g, ')')
+    .replace(/\\left/g, '')
+    .replace(/\\right/g, '')
+    .replace(/\\mathrm\{sgn\}/g, 'sign')
+    .replace(/\\mathrm\{saw\}/g, 'sawtooth')
+    .replace(/\\cdot/g, '*')
+    .replace(/\\pi/g, 'pi')
+    .replace(/\\arcsin/g, 'asin')
+    .replace(/\\arccos/g, 'acos')
+    .replace(/\\arctan/g, 'atan')
+    .replace(/\\sinh/g, 'sinh')
+    .replace(/\\cosh/g, 'cosh')
+    .replace(/\\(sin|cos|tan|ln|log|tanh|exp|abs|sqrt)/g, '$1')
+    .replace(/\\[!,;]/g, '')
+    .replace(/\\ /g, '')
+    .replace(/[!;,]/g, ' ')
+    .replace(/\\,/g, '');
+
+  // x^{2} → x^2 (single-token exponents); e^{...} → exp(...)
+  out = out.replace(/e\^\{([^{}]*)\}/g, 'exp($1)');
+  out = out.replace(/\^\{([^{}]*)\}/g, '^($1)');
+  // Explicit multiplication: the CAS engines reject "6.28x".
+  out = out.replace(/(\d)([a-zA-Z(])/g, '$1*$2');
+  out = out.replace(/\s*\+\s*/g, '+').replace(/\s*-\s*/g, '-');
+  return out.trim();
+}
+
+/** Index of the '}' matching the '{' at `open`, or -1. */
+function matchBrace(s: string, open: number): number {
+  if (s[open] !== '{') return -1;
+  let depth = 0;
+  for (let i = open; i < s.length; i++) {
+    if (s[i] === '{') depth++;
+    else if (s[i] === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
 }
 
 export { formatNum };

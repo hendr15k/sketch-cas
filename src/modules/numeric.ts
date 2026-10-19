@@ -34,7 +34,11 @@ export function evalTemplate(x: number, candidate: { params: Record<string, unkn
     case 'cos':
       return amp * Math.cos(omega * x + phase) + offset;
     case 'abs_sin':
-      return amp * (1 - 2 * Math.abs(Math.sin(omega * x + phase))) + offset;
+      // Canonical form: amp*|sin(...)| + offset.  The template fit works in
+      // the equivalent 1-2|sin(...)| family internally (it comes from the
+      // Y-flip during normalization) and converts before storing, so every
+      // consumer (overlay, LaTeX, CAS expression, audio) sees this one form.
+      return amp * Math.abs(Math.sin(omega * x + phase)) + offset;
     case 'square':
       return amp * Math.sign(Math.sin(omega * x + phase)) + offset;
     case 'heaviside':
@@ -79,8 +83,10 @@ export function evalTemplate(x: number, candidate: { params: Record<string, unkn
     case 'sqrt': {
       const a = (p['fA'] as number) ?? 1;
       const off = (p['offset'] as number) ?? 0;
-      if (x < 0) return off;
-      return a * Math.sqrt(x) + off;
+      const shift = (p['fShift'] as number) ?? 0;
+      const arg = x + shift;
+      if (arg < 0) return off;
+      return a * Math.sqrt(arg) + off;
     }
     case 'reciprocal': {
       const a = (p['fA'] as number) ?? 1;
