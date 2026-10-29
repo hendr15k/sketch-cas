@@ -219,14 +219,10 @@ export function transformToModelSpace(
       const freq = (params['freq'] as number) ?? 1;
       const omega = 2 * Math.PI * freq;
       const modelOmega = omega / ax;
-      let modelAmp = ay * amp;
-      let modelPhase = phase - (omega * bx) / ax;
-      if (modelAmp < 0) {
-        modelAmp = -modelAmp;
-        modelPhase += Math.PI;
-      }
-      params['amp'] = modelAmp;
-      params['phase'] = modelPhase;
+      // tan(x + π) = tan(x), so a negative amplitude cannot be absorbed into
+      // the phase (unlike sin/cos/square). Keep the signed amplitude instead.
+      params['amp'] = ay * amp;
+      params['phase'] = phase - (omega * bx) / ax;
       params['offset'] = ay * offset + by;
       params['freq'] = modelOmega / (2 * Math.PI);
       break;

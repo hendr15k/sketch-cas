@@ -8,7 +8,7 @@
 //   - feature_factor: 0.7 bonus if features match, 1.4 penalty if not
 
 import type { Point, Features, TemplateCandidate } from '../types';
-import { rmse, fitPolynomial, fitExponential } from './numeric';
+import { rmse, fitPolynomial, fitExponential, evalTemplate } from './numeric';
 import { buildLatex, buildLatexPoly } from './latex';
 
 // Complexity penalty: prefer simpler models
@@ -255,7 +255,10 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
         oAbsBest = f.off,
         eAbsBest = Infinity;
       for (let p = 0; p < Math.PI; p += 0.05) {
-        for (const aMul of [0.5, 1.0, 2.0]) {
+        // Negative multipliers are required: the |sin| template is linear in
+        // its amplitude, so an upward-drawn bump (positive amp in canonical
+        // form) needs a negative coefficient in the 1-2|sin| family.
+        for (const aMul of [0.5, 1.0, 2.0, -0.5, -1.0, -2.0]) {
           const testAmp = f.amp * aMul;
           for (const oDelta of [-1, -0.5, -0.2, 0, 0.2, 0.5, 1]) {
             const testOff = f.off + oDelta;
@@ -834,7 +837,28 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     }
   }
 
+  // A candidate whose fitted curve collapses to a constant (zero amplitude)
+  // describes nothing beyond the plain linear model: on a flat stroke every
+  // template ties at rmse 0 and the sort order alone would then pick, say, a
+  // sine with amp 0 or a Gaussian with a 0 height. Drop those so `linear`
+  // wins, which is what a horizontal line actually is.
+  const probeX = Array.from({ length: 21 }, (_, i) => i / 20);
+  const isConstantCurve = (c: TemplateCandidate): boolean => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const x of probeX) {
+      const v = evalTemplate(x, c);
+      if (!isFinite(v)) return false;
+      lo = Math.min(lo, v);
+      hi = Math.max(hi, v);
+    }
+    return hi - lo < 1e-9;
+  };
+  const filtered = candidates.filter(
+    (c) => (c.params['type'] as string) === 'linear' || !isConstantCurve(c),
+  );
+
   // Sort by composite score (lower is better)
-  candidates.sort((a, b) => a.err - b.err);
-  return candidates;
+  filtered.sort((a, b) => a.err - b.err);
+  return filtered;
 }

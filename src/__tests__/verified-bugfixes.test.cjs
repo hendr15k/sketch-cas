@@ -356,6 +356,49 @@ test('getSymExpr keeps a negative ln/reciprocal shift', () => {
   assert(rExpr.includes('x-0.3'), 'reciprocal shift lost: ' + rExpr);
 });
 
+console.log('\n--- regression: abs_sin sign, flat-line winner, tan sign ---');
+
+test('upward |sin| is recognised as abs_sin (needs a negative amplitude in the fit family)', () => {
+  const raw = makePts((x) => Math.abs(Math.sin(2 * Math.PI * x)));
+  const ys = raw.map((p) => p.y);
+  const lo = Math.min(...ys);
+  const hi = Math.max(...ys);
+  const range = hi - lo || 1;
+  const pts = raw.map((p) => ({ x: p.x, y: -(((p.y - lo) / range) * 2 - 1) }));
+  const cands = generateTemplates(pts, getFeatures(pts));
+  const absC = cands.find((c) => c.params.type === 'abs_sin');
+  assert(absC, 'no abs_sin candidate');
+  assert((absC.params.rawErr ?? 1) < 0.1, 'abs_sin fit rmse ' + absC.params.rawErr);
+  const cosC = cands.find((c) => c.params.type === 'cos');
+  assert(!cosC || cosC.err > absC.err, 'cos must not beat abs_sin');
+  assert(cands[0].params.type === 'abs_sin', 'winner is ' + cands[0].params.type);
+});
+
+test('flat horizontal line wins as linear, not as a degenerate periodic curve', () => {
+  const pts = makePts(() => 0.4);
+  const cands = generateTemplates(pts, getFeatures(pts));
+  assert(cands[0].params.type === 'linear', 'flat-line winner is ' + cands[0].params.type);
+  assert(Math.abs(cands[0].params.m ?? 0) < 1e-3, 'slope should be ~0');
+});
+
+test('model-space transform keeps the sign for a negative-amp tan (tan(x+pi)=tan(x))', () => {
+  const view = { ppu: 200, width: 800, height: 600, panX: 0, panY: 0 };
+  const bounds = { xMin: 400, xMax: 600, yMin: 100, yMax: 500 };
+  const cand = {
+    label: 'T', latex: '', err: 0,
+    params: { type: 'tan', amp: -1.0, phase: 0.3, offset: 0.5, freq: 0.5 },
+  };
+  const model = transformToModelSpace(cand, bounds, view);
+  const m = mapping(bounds, view);
+  const clip = (v) => Math.max(-5, Math.min(5, v));
+  for (let i = 0; i <= 12; i++) {
+    const nx = i / 12;
+    const ny = -1.0 * clip(Math.tan(Math.PI * nx + 0.3)) + 0.5;
+    const { x: mx, y: my } = m.toModel(nx, ny);
+    assertClose(evalTemplate(mx, model), my, 1e-6, `tan at nx=${nx.toFixed(2)}`);
+  }
+});
+
 console.log('\n--- polynomial fit sanity (baseline guard) ---');
 test('fitPolynomial recovers a known cubic', () => {
   const xs = [];
