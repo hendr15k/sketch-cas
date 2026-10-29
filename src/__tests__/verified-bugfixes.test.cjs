@@ -454,6 +454,12 @@ test('LaTeX folds a negative sigma centre into "(x + a)"', () => {
   assert(!sig.includes('--'), 'double minus in ' + sig);
 });
 
+test('a flat stroke renders as a constant, not as "0x + c"', () => {
+  const tex = buildLatex('lin', 0, 0, 0.0004, 0.39);
+  assert(!tex.includes('x'), 'slope leaked into ' + tex);
+  assert(tex.includes('0.39'), 'offset missing in ' + tex);
+});
+
 console.log('\n--- polynomial fit sanity (baseline guard) ---');
 test('fitPolynomial recovers a known cubic', () => {
   const xs = [];

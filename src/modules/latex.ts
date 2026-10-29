@@ -137,6 +137,10 @@ export function buildLatex(
       break;
     }
     case 'lin':
+      // A degenerate slope (flat stroke) must not read as "0x".
+      if (Math.abs(amp) < 0.005) {
+        return formatNum(offset);
+      }
       result = formatNum(amp) + '\\,x';
       if (Math.abs(offset) > 0.01) {
         result += (offset > 0 ? ' + ' : ' - ') + formatNum(Math.abs(offset));
