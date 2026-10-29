@@ -9,17 +9,103 @@ import { exprToLatex } from './latex';
 import Algebrite from 'algebrite';
 import nerdamer from 'nerdamer';
 import 'nerdamer/Calculus';
-// nerdamer/Solve throws uncaught TypeError on import (line 213: undefined[0])
-// on some browser/config combos. We suppress it — solve is non-critical since
-// the page uses nerdamer.solveEquations() which is part of the Solve plugin.
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('nerdamer/Solve');
-} catch {
-  // non-fatal — diff, integrate, taylor, laplace all work without Solve
+// Extra brings laplace/ilt/sum, Solve brings solve/solveEquations.
+// These must be static ESM imports: `require()` does not exist in the
+// browser bundle, so the old try/require() silently never registered the
+// plugins and solve/laplace stayed broken.
+import 'nerdamer/Extra';
+import 'nerdamer/Solve';
+
+/**
+ * nerdamer 1.1.13's bundled typings omit methods that its plugins add at
+ * runtime (sub from the core, simplify from the Algebra plugin), so widen the
+ * expression type locally instead of scattering casts.
+ */
+interface NerdamerExpr {
+  sub(variable: string, value: string): NerdamerExpr;
+  simplify(): NerdamerExpr;
+  evaluate(): NerdamerExpr;
+  toString(): string;
+}
+const nexpr = (v: unknown): NerdamerExpr => v as NerdamerExpr;
+
+/* ---- Shared helpers ---- */
+
+/**
+ * Algebrite prints long decimals as "2.495872..." (its internal precision
+ * marker). The ellipsis leaks into the rendered formula, so round it away.
+ */
+function cleanNum(s: string): string {
+  return s.replace(/(\d+\.\d{3,})\.\.\./g, (_m, digits: string) => {
+    const v = Number(digits);
+    return Number.isFinite(v) ? String(Number(v.toFixed(6))) : digits;
+  });
 }
 
-/* ---- Algebrite Laplace (hardcoded table) ---- */
+/** "x^2-4=0" -> "(x^2-4)-(0)" so root finders get a zero-form expression. */
+function toZeroForm(eq: string): string {
+  const i = eq.indexOf('=');
+  if (i < 0) return eq;
+  const lhs = eq.slice(0, i).trim();
+  const rhs = eq.slice(i + 1).trim();
+  if (!rhs) return lhs;
+  return '(' + lhs + ')-(' + rhs + ')';
+}
+
+/** "list[-2,2]" / "[-2,2]" / "list[2]" -> ["-2", "2"] */
+function parseSolutionList(s: string): string[] {
+  const m = /^(?:list)?\[(.*)\]$/s.exec(s.trim());
+  const body = m ? m[1]! : s;
+  return body
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0);
+}
+
+function solutionLatex(sols: string[]): string {
+  return 'x \\in \\{' + sols.map((v) => exprToLatex(v)).join(',\\;') + '\\}';
+}
+
+/* ---- Laplace helpers ---- */
+
+/** Split a sum into signed top-level terms, respecting parentheses. */
+function splitSumTerms(e: string): string[] {
+  const s = e.replace(/\s+/g, '');
+  const out: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]!;
+    if (c === '(' || c === '[') depth++;
+    else if (c === ')' || c === ']') depth--;
+    if ((c === '+' || c === '-') && depth === 0 && i > 0) {
+      const prev = s[i - 1]!;
+      if (prev !== '*' && prev !== '^' && prev !== '/' && prev !== '(') {
+        out.push(cur);
+        cur = c === '-' ? '-' : '';
+        continue;
+      }
+    }
+    cur += c;
+  }
+  if (cur.trim() !== '') out.push(cur);
+  return out.filter((t) => t !== '' && t !== '-' && t !== '+');
+}
+
+/**
+ * nerdamer's laplace() mis-parses sums with a negative constant term:
+ * laplace(x^2-4,x,s) evaluates to -4*(-4*s^(-1)+factorial(2)*s^(-3)), which is
+ * plain wrong. Laplace is linear, so transform term by term and add up.
+ */
+function nerdamerLaplace(e: string): string {
+  const parts = splitSumTerms(e).map((t) => nerdamer('laplace(' + t + ',x,s)').toString());
+  const joined = parts.join('+').replace(/\+-/g, '-');
+  return nexpr(nerdamer(joined || '0'))
+    .evaluate()
+    .toString();
+}
+
+/* ---- Algebrite Laplace (table + polynomial terms) ---- */
 function algebriteLaplace(e: string): string {
   const el = e.toLowerCase().replace(/\s+/g, '');
   if (el === 'sin(t)' || el === 'sin(x)') return '\\frac{1}{s^2+1}';
@@ -40,15 +126,49 @@ function algebriteLaplace(e: string): string {
     const b = cm[2] || '1';
     return '\\frac{' + a + '\\cdot s}{s^2+' + b + '^2}';
   }
-  return '\\text{(nicht direkt)}';
+
+  // Polynomials and constants: L{x^n} = n!/s^(n+1), summed per power of x.
+  const byPower = new Map<number, number>();
+  for (const term of splitSumTerms(el)) {
+    const m = /^([+-]?(?:\d+\.?\d*|\.\d+)?)\*?(x(?:\^(\d+))?)?$/.exec(term);
+    if (!m || (!m[2] && !m[1])) return '\\text{(nicht direkt)}';
+    const coeff = m[1] ? Number(m[1]) : 1;
+    const power = m[2] ? (m[3] ? Number(m[3]) : 1) : 0;
+    if (!Number.isFinite(coeff)) return '\\text{(nicht direkt)}';
+    // L{x^n} = n!/s^(n+1): factorial of the power, not (n+1)!.
+    let fact = 1;
+    for (let k = 2; k <= power; k++) fact *= k;
+    byPower.set(power, (byPower.get(power) ?? 0) + coeff * fact);
+  }
+  const parts: string[] = [];
+  for (const [power, coeff] of [...byPower.entries()].sort((a, b) => a[0] - b[0])) {
+    if (coeff === 0) continue;
+    const sign = coeff < 0 ? '-' : '';
+    const num = Math.abs(coeff);
+    const den = power === 0 ? 's' : 's^' + (power + 1);
+    const frac = '\\frac{' + num + '}{' + den + '}';
+    parts.push(parts.length === 0 ? sign + frac : sign ? '-' + frac : '+' + frac);
+  }
+  if (parts.length === 0) return '\\text{(nicht direkt)}';
+  return parts.join('');
 }
 
 function algebriteSolve(e: string): string {
   try {
-    const r = Algebrite.roots(e).toString();
-    return '\\text{Roots: }' + exprToLatex(r);
+    const r = Algebrite.roots(toZeroForm(e)).toString();
+    const sols = parseSolutionList(r);
+    return solutionLatex(sols);
   } catch {
     return '\\text{(nicht lösbar)}';
+  }
+}
+
+/** Raw solution list for the copy line under the Algebrite card. */
+function algebriteRawSolutions(e: string): string {
+  try {
+    return parseSolutionList(Algebrite.roots(toZeroForm(e)).toString()).join(', ');
+  } catch {
+    return 'keine Lösung';
   }
 }
 
@@ -57,22 +177,22 @@ function runAlgebrite(expr: string, op: CasOperation): CasResult {
   const e = expr.replace(/\*\*/g, '^');
   switch (op) {
     case 'simplify': {
-      const s = Algebrite.simplify(e).toString();
+      const s = cleanNum(Algebrite.simplify(e).toString());
       return { latex: exprToLatex(s), raw: s };
     }
     case 'diff': {
-      const d = Algebrite.derivative(e, 'x').toString();
+      const d = cleanNum(Algebrite.derivative(e, 'x').toString());
       return {
         latex: '\\frac{d}{dx}\\left(' + exprToLatex(e) + '\\right)=' + exprToLatex(d),
         raw: d,
       };
     }
     case 'integrate': {
-      const i = Algebrite.integral(e, 'x').toString();
+      const i = cleanNum(Algebrite.integral(e, 'x').toString());
       return { latex: '\\int ' + exprToLatex(e) + '\\,dx=' + exprToLatex(i) + '+C', raw: i };
     }
     case 'taylor': {
-      const t = Algebrite.taylor(e, 'x', 5).toString();
+      const t = cleanNum(Algebrite.taylor(e, 'x', 5).toString());
       return { latex: 'T_5(x)=' + exprToLatex(t), raw: t };
     }
     case 'laplace': {
@@ -80,17 +200,42 @@ function runAlgebrite(expr: string, op: CasOperation): CasResult {
       return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
     }
     case 'solve':
-      return { latex: algebriteSolve(e), raw: e };
+      return { latex: algebriteSolve(e), raw: algebriteRawSolutions(e) };
     case 'plot':
       return { latex: '\\text{Plot: }' + exprToLatex(e), raw: e };
   }
+}
+
+function nerdamerTaylor(e: string, order = 5): string {
+  // nerdamer 1.1.13 ships no taylor(); build the Maclaurin series directly.
+  let deriv = e;
+  let factorial = 1;
+  let series = '';
+  for (let k = 0; k <= order; k++) {
+    const coeff = nexpr(nerdamer(deriv)).sub('x', '0').evaluate().toString();
+    if (coeff !== '0') {
+      series += '+(' + coeff + ')' + (k > 0 ? '*x^' + k : '') + '/' + factorial;
+    }
+    deriv = nerdamer.diff(deriv, 'x').toString();
+    factorial *= k + 1;
+  }
+  const trimmed = series.replace(/^\+/, '');
+  return nexpr(nerdamer(trimmed || '0'))
+    .evaluate()
+    .toString();
+}
+
+function nerdamerSolve(e: string): string[] {
+  // solve() lives in the Solve plugin and expects a zero-form expression.
+  const r = nerdamer('solve(' + toZeroForm(e) + ',x)').toString();
+  return parseSolutionList(r);
 }
 
 function runNerdamer(expr: string, op: CasOperation): CasResult {
   const e = expr.replace(/\*\*/g, '^');
   switch (op) {
     case 'simplify': {
-      const s = nerdamer(e).evaluate().toString();
+      const s = nexpr(nerdamer(e)).simplify().toString();
       return { latex: exprToLatex(s), raw: s };
     }
     case 'diff': {
@@ -105,19 +250,18 @@ function runNerdamer(expr: string, op: CasOperation): CasResult {
       return { latex: '\\int ' + exprToLatex(e) + '\\,dx=' + exprToLatex(i) + '+C', raw: i };
     }
     case 'taylor': {
-      const t = nerdamer('taylor(' + e + ',x,0,5)').toString();
+      const t = nerdamerTaylor(e, 5);
       return { latex: 'T_5(x)=' + exprToLatex(t), raw: t };
     }
     case 'laplace': {
-      const lp = nerdamer('laplace(' + e + ',x,s)').toString();
-      return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
+      const lp = nerdamerLaplace(e);
+      return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + exprToLatex(lp), raw: lp };
     }
     case 'solve': {
       try {
-        const sol = nerdamer.solveEquations(e) as unknown as Array<{ toString(): string }>;
-        const solArr: Array<{ toString(): string }> = Array.isArray(sol) ? sol : Object.values(sol);
-        const lt = 'x \\in \\{' + solArr.map((v) => exprToLatex(v.toString())).join(',\\;') + '\\}';
-        return { latex: lt, raw: solArr.map((v) => v.toString()).join(', ') };
+        const sols = nerdamerSolve(e);
+        if (sols.length === 0) return { latex: '\\text{(nicht lösbar)}', raw: 'leer' };
+        return { latex: solutionLatex(sols), raw: sols.join(', ') };
       } catch {
         return { latex: '\\text{(nicht lösbar)}', raw: 'error' };
       }
@@ -149,10 +293,40 @@ export function isGiacLoading(): boolean {
   return giacLoading;
 }
 
+/**
+ * The Giac web build (giac.js) calls into a global `UI` object that belongs to
+ * Giac's own web UI (an ASM_CONSTS hook fires on every caseval() call, so even
+ * `1+1` dies with "UI is not defined"). Without this stub the whole engine is
+ * unusable, so install a minimal, side-effect-free stand-in.
+ */
+function installGiacUiStub(): void {
+  const w = window as unknown as Record<string, unknown>;
+  if (w['UI']) return;
+  w['UI'] = {
+    Datestart: Date.now(),
+    disable3d: 1,
+    add_evalf: 1,
+    js_bigint: 0,
+    python_output: '',
+    warnpy: false,
+    assistant_matr_maxrows: 10,
+    assistant_matr_maxcols: 10,
+    add_python_output(): void {
+      /* no-op: output is consumed via the caseval return value */
+    },
+    clean_for_html: (t: string): string => t,
+    set_config_width(): void {
+      /* no-op */
+    },
+  };
+}
+
 /** Load Giac/Xcas WASM lazily. */
 export function loadGiac(): void {
   if (giacLoaded || giacLoading) return;
   giacLoading = true;
+
+  installGiacUiStub();
 
   const statusEl = document.getElementById('engStatus');
   if (statusEl) {
@@ -232,36 +406,53 @@ export function setupGiacAutoload(): void {
 }
 
 /* ---- Run on Xcas ---- */
+
+/**
+ * Call caseval with a clean session: this Giac build ships a default
+ * assumption x>0, which makes solve(x^2-4=0,x) return only "list[2]".
+ * `purge(x)` clears it; ':' suppresses the result, but giac still prefixes a
+ * status token ("Done", a quoted message), which is stripped here.
+ */
+function giacCall(cmd: string): string {
+  const raw = caseval!('purge(x):;' + cmd);
+  let out = raw;
+  while (/^"[^"]*"\s*,\s*/.test(out)) out = out.replace(/^"[^"]*"\s*,\s*/, '');
+  return out;
+}
+
 function runXcas(expr: string, op: CasOperation): CasResult {
   const e = expr.replace(/\*\*/g, '^');
   try {
     switch (op) {
       case 'simplify': {
-        const s = caseval!('normal(simplify(' + e + '))').toString();
+        const s = giacCall('normal(simplify(' + e + '))');
         return { latex: exprToLatex(s), raw: s };
       }
       case 'diff': {
-        const d = caseval!('diff(' + e + ',x)').toString();
+        const d = giacCall('diff(' + e + ',x)');
         return {
           latex: '\\frac{d}{dx}\\left(' + exprToLatex(e) + '\\right)=' + exprToLatex(d),
           raw: d,
         };
       }
       case 'integrate': {
-        const i = caseval!('integrate(' + e + ',x)').toString();
+        const i = giacCall('integrate(' + e + ',x)');
         return { latex: '\\int ' + exprToLatex(e) + '\\,dx=' + exprToLatex(i) + '+C', raw: i };
       }
       case 'taylor': {
-        const t = caseval!('taylor(' + e + ',x,0,5)').toString();
+        // giac's signature is taylor(expr, var, order, point) — the old call
+        // passed (x,0,5) and expanded around x=5 instead of x=0.
+        const t = giacCall('taylor(' + e + ',x,5,0)').replace(/\+?x\^\d+\*order_size\(x\)/g, '');
         return { latex: 'T_5(x)=' + exprToLatex(t), raw: t };
       }
       case 'laplace': {
-        const lp = caseval!('laplace(' + e + ',x,s)').toString();
-        return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + lp, raw: lp };
+        const lp = giacCall('laplace(' + e + ',x,s)');
+        return { latex: '\\mathcal{L}\\{' + exprToLatex(e) + '\\}=' + exprToLatex(lp), raw: lp };
       }
       case 'solve': {
-        const sol = caseval!('solve(' + e + ',x)').toString();
-        return { latex: '\\text{solve: }' + exprToLatex(sol), raw: sol };
+        const sol = giacCall('solve(' + toZeroForm(e) + ',x)');
+        const sols = parseSolutionList(sol);
+        return { latex: solutionLatex(sols), raw: sols.join(', ') };
       }
       case 'plot':
         return { latex: '\\text{Plot: }' + exprToLatex(e), raw: e };
@@ -305,11 +496,68 @@ export function runCas(expr: string, op: CasOperation, selectedEngine: string): 
       } catch (e) {
         results.push({ engine: 'Xcas(Giac)', tag: 'xca', error: (e as Error).message });
       }
+    } else {
+      // The WASM build takes a few seconds; show the column while it loads
+      // instead of silently dropping it from the comparison.
+      results.push({
+        engine: 'Xcas(Giac)',
+        tag: 'xca',
+        error: giacLoading ? 'Engine lädt… bitte nochmal klicken.' : 'Engine nicht geladen.',
+        loading: true,
+      });
     }
   }
 
-  if (selectedEngine === 'xcas' && !hasXcas()) {
-    results.push({
+  return results;
+}
+
+export interface EngineSolution {
+  engine: string;
+  tag: 'alg' | 'ner' | 'xca';
+  solutions?: string[];
+  error?: string;
+  loading?: boolean;
+}
+
+/**
+ * Solve one equation on every available engine. Lives here so the UI never has
+ * to reach for window globals (the engines are bundled modules, not CDN globals).
+ */
+export function solveEquation(eq: string): EngineSolution[] {
+  const out: EngineSolution[] = [];
+
+  if (hasAlgebrite()) {
+    try {
+      out.push({
+        engine: 'Algebrite',
+        tag: 'alg',
+        solutions: parseSolutionList(Algebrite.roots(toZeroForm(eq)).toString()),
+      });
+    } catch (e) {
+      out.push({ engine: 'Algebrite', tag: 'alg', error: (e as Error).message });
+    }
+  }
+
+  if (hasNerdamer()) {
+    try {
+      out.push({ engine: 'Nerdamer', tag: 'ner', solutions: nerdamerSolve(eq) });
+    } catch (e) {
+      out.push({ engine: 'Nerdamer', tag: 'ner', error: (e as Error).message });
+    }
+  }
+
+  if (hasXcas()) {
+    try {
+      out.push({
+        engine: 'Xcas(Giac)',
+        tag: 'xca',
+        solutions: parseSolutionList(giacCall('solve(' + toZeroForm(eq) + ',x)')),
+      });
+    } catch (e) {
+      out.push({ engine: 'Xcas(Giac)', tag: 'xca', error: (e as Error).message });
+    }
+  } else {
+    out.push({
       engine: 'Xcas(Giac)',
       tag: 'xca',
       error: 'Wird geladen… Klicke nochmal.',
@@ -317,8 +565,10 @@ export function runCas(expr: string, op: CasOperation, selectedEngine: string): 
     });
   }
 
-  return results;
+  return out;
 }
+
+export { solutionLatex };
 
 /** Get a symbolic expression string from a template candidate. */
 export function getSymExpr(c: { params: Record<string, unknown> }): string | null {

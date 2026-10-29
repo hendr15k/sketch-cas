@@ -2,6 +2,9 @@
 // UI Helper Functions
 // ============================================================
 
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function toast(message: string): void {
@@ -92,27 +95,20 @@ export function copyToClipboard(el: HTMLElement): void {
 
 /**
  * Render all KaTeX elements within a container.
+ *
+ * Renders synchronously: the previous requestAnimationFrame() wrapper never
+ * fires while the page is in a background tab (and lags one frame otherwise),
+ * leaving formulas blank. KaTeX is bundled — relying on a window global from a
+ * CDN <script> made every formula disappear whenever that request failed.
  */
 export function renderKaTeX(el: HTMLElement): void {
-  requestAnimationFrame(() => {
-    el.querySelectorAll<HTMLElement>('[data-latex]').forEach((e) => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-        const katex = (window as any)['katex'] as {
-          render: (tex: string, target: HTMLElement, opts: Record<string, unknown>) => void;
-        };
-        if (katex) {
-          const latex = e.getAttribute('data-latex');
-          if (latex) {
-            katex.render(latex, e, { throwOnError: false, displayMode: false });
-          }
-        }
-      } catch {
-        const latex = e.getAttribute('data-latex');
-        if (latex) {
-          e.textContent = latex;
-        }
-      }
-    });
+  el.querySelectorAll<HTMLElement>('[data-latex]').forEach((e) => {
+    const latex = e.getAttribute('data-latex');
+    if (!latex) return;
+    try {
+      katex.render(latex, e, { throwOnError: false, displayMode: false });
+    } catch {
+      e.textContent = latex;
+    }
   });
 }

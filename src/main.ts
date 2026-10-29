@@ -23,15 +23,8 @@ import { normalizeAndResample, getFeatures, matchTrainingExamples } from './modu
 import { generateTemplates } from './modules/templates';
 import { evalTemplate } from './modules/numeric';
 import { toast, esc, copyToClipboard, updateScore, emptyState, renderKaTeX } from './modules/ui';
-import { exprToLatex, latexToExpr } from './modules/latex';
-import {
-  runCas,
-  hasAlgebrite,
-  hasNerdamer,
-  hasXcas,
-  setupGiacAutoload,
-  getSymExpr,
-} from './modules/cas';
+import { latexToExpr } from './modules/latex';
+import { runCas, setupGiacAutoload, getSymExpr, solveEquation, solutionLatex } from './modules/cas';
 import { drawBode } from './modules/bode';
 import { getSeedExamples } from './modules/seed-training';
 import {
@@ -823,46 +816,16 @@ function multiSolveEq(): void {
   const expr = raw.includes('=') ? raw.split('=').join('-(') + ')' : raw;
   let h = '';
 
-  if (hasAlgebrite()) {
-    try {
-      const r = (
-        window as unknown as { Algebrite: { roots: (e: string) => { toString: () => string } } }
-      ).Algebrite.roots(expr).toString();
-      h += `<div class="card" style="border-color:var(--orange)"><div class="cr"><span>Algebrite</span><span class="badge orange">Roots</span></div><div class="civ" data-latex="x=${esc(exprToLatex(r))}"></div><div class="cl" onclick="window.cpT(this)">${esc(r)}</div></div>`;
-    } catch (e) {
-      h += `<div class="card" style="border-color:var(--red)"><div class="cr"><span>Algebrite</span><span class="badge red">Fehler</span></div><div style="color:var(--red);font-size:11px">${esc((e as Error).message)}</div></div>`;
+  for (const sol of solveEquation(expr)) {
+    const accent = sol.tag === 'alg' ? 'orange' : sol.tag === 'ner' ? 'blue' : 'magenta';
+    if (sol.error) {
+      h += `<div class="card" style="border-color:var(--red)"><div class="cr"><span>${sol.engine}</span><span class="badge red">Fehler</span></div><div style="color:var(--red);font-size:11px">${esc(sol.error)}</div></div>`;
+      continue;
     }
-  }
-
-  if (hasNerdamer()) {
-    try {
-      const sol = (
-        window as unknown as {
-          nerdamer: { solveEquations: (e: string) => Array<{ toString: () => string }> };
-        }
-      ).nerdamer.solveEquations(expr);
-      const lt = 'x \\in \\{' + sol.map((v) => exprToLatex(v.toString())).join(',\\;') + '\\}';
-      h += `<div class="card" style="border-color:var(--blue)"><div class="cr"><span>Nerdamer</span><span class="badge blue">Solve</span></div><div class="civ" data-latex="${esc(lt)}"></div><div class="cl" onclick="window.cpT(this)">${esc(sol.toString())}</div></div>`;
-    } catch (e) {
-      h += `<div class="card" style="border-color:var(--red)"><div class="cr"><span>Nerdamer</span><span class="badge red">Fehler</span></div><div style="color:var(--red);font-size:11px">${esc((e as Error).message)}</div></div>`;
-    }
-  }
-
-  if (hasXcas()) {
-    const casState = (
-      window as unknown as {
-        Module?: { cwrap: (name: string, ret: string, args: string[]) => (s: string) => string };
-      }
-    ).Module;
-    const casevalFn = casState?.cwrap('caseval', 'string', ['string']);
-    if (casevalFn) {
-      try {
-        const sol = casevalFn('solve(' + expr + ',x)').toString();
-        h += `<div class="card" style="border-color:var(--magenta)"><div class="cr"><span>Xcas(Giac)</span><span class="badge pink">Solve</span></div><div class="civ" data-latex="x=${esc(exprToLatex(sol))}"></div><div class="cl" onclick="window.cpT(this)">${esc(sol)}</div></div>`;
-      } catch (e) {
-        h += `<div class="card" style="border-color:var(--red)"><div class="cr"><span>Xcas(Giac)</span><span class="badge red">Fehler</span></div><div style="color:var(--red);font-size:11px">${esc((e as Error).message)}</div></div>`;
-      }
-    }
+    const sols = sol.solutions ?? [];
+    const lt = sols.length > 0 ? solutionLatex(sols) : '\\text{(keine Lösung)}';
+    const rawTxt = sols.length > 0 ? sols.join(', ') : 'keine Lösung';
+    h += `<div class="card" style="border-color:var(--${accent})"><div class="cr"><span>${sol.engine}</span><span class="badge ${sol.tag === 'alg' ? 'orange' : sol.tag === 'ner' ? 'blue' : 'pink'}">Solve</span></div><div class="civ" data-latex="${esc(lt)}"></div><div class="cl" onclick="window.cpT(this)">${esc(rawTxt)}</div></div>`;
   }
 
   if (!h) h = emptyState('⚡', 'Kein CAS aktiv', '');
