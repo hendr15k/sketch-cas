@@ -322,6 +322,20 @@ export function runCas(expr: string, op: CasOperation, selectedEngine: string): 
 
 /** Get a symbolic expression string from a template candidate. */
 export function getSymExpr(c: { params: Record<string, unknown> }): string | null {
+  const raw = buildSymExpr(c);
+  return raw === null ? null : collapseSigns(raw);
+}
+
+/**
+ * Signed-term concatenation produces "+-1.5" / "(x--1)" for negative values.
+ * Nerdamer tolerates that, Algebrite answers with "syntax error" — so fold the
+ * double signs away before the expression reaches an engine.
+ */
+function collapseSigns(s: string): string {
+  return s.replace(/\+-/g, '-').replace(/--/g, '+');
+}
+
+function buildSymExpr(c: { params: Record<string, unknown> }): string | null {
   const p = c.params;
   const t = p['type'] as string;
   const a = (p['amp'] as number) || 0;

@@ -79,6 +79,14 @@ function formatNum(n: number, decimalPlaces?: number): string {
 }
 
 /**
+ * "(x - 2)" / "(x + 2)" / "x" — a negative shift must not render as "x--2".
+ */
+function xShift(v: number, dp = 2): string {
+  if (Math.abs(v) < 0.001) return 'x';
+  return v > 0 ? '(x - ' + formatNum(v, dp) + ')' : '(x + ' + formatNum(-v, dp) + ')';
+}
+
+/**
  * Build LaTeX for sinusoidal/trig templates.
  */
 export function buildLatex(
@@ -194,9 +202,9 @@ export function buildLatex(
       const sigma = extra?.['sigma'] ?? 0.2;
       result =
         (Math.abs(amp - 1) > 0.01 ? formatNum(amp) + '\\cdot ' : '') +
-        'e^{-\\frac{(x-' +
-        formatNum(mu) +
-        ')^2}{2\\cdot ' +
+        'e^{-\\frac{' +
+        xShift(mu) +
+        '^2}{2\\cdot ' +
         formatNum(sigma) +
         '^2}}';
       break;
@@ -208,9 +216,8 @@ export function buildLatex(
         (Math.abs(amp - 1) > 0.01 ? formatNum(amp) : '1') +
         '\\,\\frac{1}{1+e^{' +
         formatNum(-k) +
-        '(x-' +
-        formatNum(x0) +
-        ')}}';
+        xShift(x0) +
+        '}}';
       break;
     }
     case 'tanh': {
@@ -220,9 +227,8 @@ export function buildLatex(
         (Math.abs(amp - 1) > 0.01 ? formatNum(amp) + '\\cdot ' : '') +
         '\\tanh\\!\\left(' +
         formatNum(k) +
-        '(x-' +
-        formatNum(x0) +
-        ')\\right)';
+        xShift(x0) +
+        '\\right)';
       break;
     }
     case 'saw': {

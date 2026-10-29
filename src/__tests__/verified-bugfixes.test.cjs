@@ -399,6 +399,61 @@ test('model-space transform keeps the sign for a negative-amp tan (tan(x+pi)=tan
   }
 });
 
+console.log('\n--- regression: CAS / LaTeX signs for negative parameters ---');
+
+test('getSymExpr never emits "+-" or "--" (Algebrite answers those with a syntax error)', () => {
+  const cases = [
+    { type: 'sin', amp: 2, freq: 0.5, phase: -1.2, offset: -0.7 },
+    { type: 'cos', amp: 2, freq: 0.5, phase: -1.2, offset: -0.7 },
+    { type: 'abs_sin', amp: 2, freq: 0.5, phase: -1.2, offset: -0.7 },
+    { type: 'square', amp: 2, freq: 0.5, phase: -1.2, offset: -0.7 },
+    { type: 'logarithmic', fA: 1.5, fC: -0.4, offset: -0.7 },
+    { type: 'sqrt', fA: 1.5, fShift: -0.4, offset: -0.7 },
+    { type: 'reciprocal', fA: 1.5, fC: -0.4, offset: -0.7 },
+    { type: 'gaussian', fA: 1.5, mu: -0.4, sigma: 0.3, offset: -0.7 },
+    { type: 'sigmoid', fA: 1.5, k: 4, x0: -0.4, offset: -0.7 },
+    { type: 'tanh', fA: 1.5, k: 4, x0: -0.4, offset: -0.7 },
+    { type: 'tan', amp: -1.5, phase: -0.4, offset: -0.7, freq: 0.5 },
+    { type: 'sawtooth', amp: 1.5, phase: -0.4, offset: -0.7, freq: 0.5 },
+    { type: 'linear', m: -2, b: -0.4 },
+    { type: 'poly3', coeffs: [-0.4, 2, -3, 1] },
+  ];
+  for (const params of cases) {
+    const e = getSymExpr({ params });
+    assert(typeof e === 'string' && e.length > 0, `${params.type}: no expression`);
+    assert(!e.includes('+-'), `${params.type}: "${e}"`);
+    assert(!e.includes('--'), `${params.type}: "${e}"`);
+  }
+});
+
+test('sign folding keeps the CAS expression numerically identical to the fit', () => {
+  for (const params of [
+    { type: 'sin', amp: 2, freq: 0.5, phase: -1.2, offset: -0.7 },
+    { type: 'gaussian', fA: 1.5, mu: -0.4, sigma: 0.3, offset: -0.7 },
+    { type: 'sigmoid', fA: 1.5, k: 4, x0: -0.4, offset: -0.7 },
+  ]) {
+    const e = getSymExpr({ params });
+    const js = e
+      .replace(/\b(sin|cos|exp|tanh)\(/g, 'Math.$1(')
+      .replace(/\(([^()]*)\)\^(\d+)/g, 'Math.pow($1,$2)')
+      .replace(/([0-9.]+)\^(\d+)/g, 'Math.pow($1,$2)')
+      .replace(/(\d)([a-zA-Z(])/g, '$1*$2');
+    // eslint-disable-next-line no-new-func
+    const f = new Function('x', 'return ' + js + ';');
+    for (const x of [-1, -0.2, 0.3, 1.5]) {
+      assertClose(f(x), evalTemplate(x, { params }), 1e-3, `${params.type} at x=${x}`);
+    }
+  }
+});
+
+test('LaTeX folds a negative sigma centre into "(x + a)"', () => {
+  const tex = buildLatex('gauss', 0, 0, 1, 0, { mu: -0.4, sigma: 0.3 });
+  assert(!tex.includes('--'), 'double minus in ' + tex);
+  assert(tex.includes('(x + 0.4)'), 'unexpected shift: ' + tex);
+  const sig = buildLatex('sigmoid', 0, 0, 1, 0, { k: 4, x0: -0.4 });
+  assert(!sig.includes('--'), 'double minus in ' + sig);
+});
+
 console.log('\n--- polynomial fit sanity (baseline guard) ---');
 test('fitPolynomial recovers a known cubic', () => {
   const xs = [];
