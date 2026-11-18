@@ -781,6 +781,31 @@ function buildSymExpr(c: { params: Record<string, unknown> }): string | null {
       const b = (p['b'] as number) ?? o - a;
       return F(m, 4) + '*x' + (b >= 0 ? '+' + F(b, 4) : '-' + F(Math.abs(b), 4));
     }
+    case 'abs': {
+      // a*|x - x0| + b — both Algebrite and Nerdamer know abs().
+      const aV = (p['fA'] as number) ?? 1;
+      const x0 = (p['x0'] as number) ?? 0.5;
+      const off = (p['offset'] as number) ?? 0;
+      const inner = 'x' + (x0 > 0.001 ? '-' + F(x0, 4) : x0 < -0.001 ? '+' + F(-x0, 4) : '');
+      return F(aV, 4) + '*abs(' + inner + ')' + (Math.abs(off) > 0.05 ? '+' + F(off, 4) : '');
+    }
+    case 'lorentz': {
+      // d + a / (1 + ((x - c)/w)^2)
+      const aV = (p['fA'] as number) ?? 1;
+      const c = (p['c'] as number) ?? 0.5;
+      const w = (p['w'] as number) ?? 0.2;
+      const off = (p['offset'] as number) ?? 0;
+      const shift = c >= 0 ? '-' + F(c, 4) : '+' + F(Math.abs(c), 4);
+      return (
+        F(aV, 4) +
+        '/(1+((x' +
+        shift +
+        ')/' +
+        F(w, 4) +
+        ')^2)' +
+        (Math.abs(off) > 0.05 ? '+' + F(off, 4) : '')
+      );
+    }
     case 'poly2':
     case 'poly3':
     case 'poly4': {

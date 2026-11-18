@@ -273,6 +273,30 @@ export function transformToModelSpace(
       params['freq'] = modelOmega / (2 * Math.PI);
       break;
     }
+    case 'abs': {
+      // a*|nx - x0| + b with nx = (mx - bx)/ax
+      //   →  (a/ax)*|mx - (bx + ax*x0)| + (ay*b + by)
+      const a = (params['fA'] as number) ?? 1;
+      const x0 = (params['x0'] as number) ?? 0.5;
+      const off = (params['offset'] as number) ?? 0;
+      params['fA'] = (ay * a) / ax;
+      params['x0'] = bx + ax * x0;
+      params['offset'] = ay * off + by;
+      break;
+    }
+    case 'lorentz': {
+      // d + a/(1 + ((nx - c)/w)^2) is invariant under x-affine maps apart
+      // from the centre/width/height scaling.
+      const a = (params['fA'] as number) ?? 1;
+      const c = (params['c'] as number) ?? 0.5;
+      const w = (params['w'] as number) ?? 0.2;
+      const off = (params['offset'] as number) ?? 0;
+      params['fA'] = ay * a;
+      params['c'] = bx + ax * c;
+      params['w'] = w * ax;
+      params['offset'] = ay * off + by;
+      break;
+    }
   }
 
   let latex = cand.latex;
@@ -340,6 +364,15 @@ export function transformToModelSpace(
       (params['amp'] as number) ?? 0,
       (params['offset'] as number) ?? 0,
     );
+  } else if (type === 'abs') {
+    latex = buildLatex('absx', 0, 0, params['fA'] as number, params['offset'] as number, {
+      x0: params['x0'] as number,
+    });
+  } else if (type === 'lorentz') {
+    latex = buildLatex('lorentz', 0, 0, params['fA'] as number, params['offset'] as number, {
+      c: params['c'] as number,
+      w: params['w'] as number,
+    });
   }
 
   return { ...cand, params, latex };

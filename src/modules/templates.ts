@@ -8,7 +8,15 @@
 //   - feature_factor: 0.7 bonus if features match, 1.4 penalty if not
 
 import type { Point, Features, TemplateCandidate } from '../types';
-import { rmse, fitPolynomial, fitExponential, evalTemplate } from './numeric';
+import {
+  rmse,
+  fitPolynomial,
+  fitExponential,
+  fitAbsValue,
+  fitLorentz,
+  fitSCurve,
+  evalTemplate,
+} from './numeric';
 import { buildLatex, buildLatexPoly } from './latex';
 
 // Complexity penalty: prefer simpler models
@@ -31,7 +39,17 @@ const COMPLEXITY: Record<string, number> = {
   sigmoid: 1.15,
   sawtooth: 1.1,
   tanh: 1.1,
+  abs: 1.05,
+  lorentz: 1.15,
 };
+
+// A named family that sits within this absolute RMSE of the best quartic /
+// cubic keeps the win: polynomials must not shadow a recognisable form.
+const POLY_SHADOW_TOLERANCE = 0.005;
+/** The |x| fit must beat a straight-line fit by at least this factor. */
+const ABS_VS_LINE_RATIO = 0.75;
+/** Composite-score factor that promotes the shadowed named family. */
+const POLY_SHADOW_PROMOTION = 0.9;
 
 // Feature consistency factors (lower = better fit for this type)
 function featureFactor(type: string, f: Features): number {
@@ -154,6 +172,22 @@ function featureFactor(type: string, f: Features): number {
       if (f.sigmoidLike) return 0.5;
       if (totalExtrema <= 1) return 0.9;
       if (totalExtrema === 0) return 1.0;
+      return 2.5;
+
+    case 'abs':
+      // |x| has exactly one corner (an extremum) and is linear on both wings.
+      // Anything periodic or multi-extremal can not be a single V.
+      if (f.isPer || f.crossings >= 2) return 3.0;
+      if (totalExtrema === 1 && lowCurv) return 1.6; // parabola territory
+      if (totalExtrema === 1) return 0.5;
+      if (totalExtrema === 0) return 2.0;
+      return 1.5;
+
+    case 'lorentz':
+      // Resonance curve: one peak, smooth monotone wings that stay above the
+      // baseline (heavy tails) — a Gaussian decays too fast to fit it well,
+      // so the feature bonus stays modest and the RMSE decides.
+      if (totalExtrema === 1) return f.gaussLike ? 0.6 : 0.5;
       return 2.5;
 
     default:
@@ -416,6 +450,20 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
     for (const degree of [2, 3, 4]) {
       const cc = fitPolynomial(xs, ys, degree);
       if (cc) {
+        // A least-squares fit of a straight stroke yields "1 - 2x + 0x²": the
+        // leading coefficients vanish and the card only adds noise (and ties
+        // the probability display). Skip a degree whose top term contributes
+        // less than 0.1 % of the curve's variation over the stroke.
+        const top = Math.abs(cc[degree]!);
+        let lo = Infinity;
+        let hi = -Infinity;
+        for (const x of [0, 1]) {
+          let v = 0;
+          for (let i = 0; i <= degree; i++) v += cc[i]! * Math.pow(x, i);
+          lo = Math.min(lo, v);
+          hi = Math.max(hi, v);
+        }
+        if (top < Math.max(1e-9, (hi - lo) * 1e-3)) continue;
         try {
           add(
             (x) => {
@@ -701,93 +749,26 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
 
   // === SIGMOID CANDIDATE: y = amp / (1 + exp(-k*(x - x0))) + off ===
   {
-    let bestAmp = f.amp * 2;
-    let bestK = 10;
-    let bestX0 = 0.5;
-    let bestOff = f.off - f.amp;
-    let bestErr = Infinity;
-    for (const x0 of [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) {
-      for (const k of [3, 5, 8, 10, 15, 20, 30]) {
-        for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
-          const testAmp = f.amp * 2 * aMul;
-          for (const oDelta of [-0.3, -0.1, 0, 0.1, 0.3]) {
-            const testOff = f.off - f.amp + oDelta;
-            const test = xs.map((x) => testAmp / (1 + Math.exp(-k * (x - x0))) + testOff);
-            const err = rmse(ys, test);
-            if (err < bestErr) {
-              bestErr = err;
-              bestAmp = testAmp;
-              bestK = k;
-              bestX0 = x0;
-              bestOff = testOff;
-            }
-            // normalizeAndResample flips Y, so a normally drawn rising S is
-            // decreasing here and only a negative amplitude can fit it.
-            const testNeg = xs.map((x) => -testAmp / (1 + Math.exp(-k * (x - x0))) + testOff);
-            const errNeg = rmse(ys, testNeg);
-            if (errNeg < bestErr) {
-              bestErr = errNeg;
-              bestAmp = -testAmp;
-              bestK = k;
-              bestX0 = x0;
-              bestOff = testOff;
-            }
-          }
-        }
-      }
-    }
-    if (bestErr < 3) {
+    const fit = fitSCurve(xs, ys, 'sigmoid');
+    if (fit && fit.err < 3) {
       add(
-        (x) => bestAmp / (1 + Math.exp(-bestK * (x - bestX0))) + bestOff,
+        (x) => fit.a / (1 + Math.exp(-fit.k * (x - fit.x0))) + fit.off,
         'Sigmoid',
-        buildLatex('sigmoid', 0, 0, bestAmp, bestOff, { k: bestK, x0: bestX0 }),
-        { type: 'sigmoid', fA: bestAmp, k: bestK, x0: bestX0, offset: bestOff },
+        buildLatex('sigmoid', 0, 0, fit.a, fit.off, { k: fit.k, x0: fit.x0 }),
+        { type: 'sigmoid', fA: fit.a, k: fit.k, x0: fit.x0, offset: fit.off },
       );
     }
   }
 
   // === TANH CANDIDATE: y = amp * tanh(k*(x - x0)) + off ===
   {
-    let bestAmp = f.amp;
-    let bestK = 10;
-    let bestX0 = 0.5;
-    let bestOff = f.off;
-    let bestErr = Infinity;
-    for (const x0 of [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) {
-      for (const k of [3, 5, 8, 10, 15, 20, 30]) {
-        for (const aMul of [0.5, 1.0, 1.5, 2.0]) {
-          const testAmp = f.amp * aMul;
-          for (const oDelta of [-0.3, -0.1, 0, 0.1, 0.3]) {
-            const testOff = f.off + oDelta;
-            const test = xs.map((x) => testAmp * Math.tanh(k * (x - x0)) + testOff);
-            const err = rmse(ys, test);
-            if (err < bestErr) {
-              bestErr = err;
-              bestAmp = testAmp;
-              bestK = k;
-              bestX0 = x0;
-              bestOff = testOff;
-            }
-            // Mirrored variant, see the sigmoid candidate above.
-            const testNeg = xs.map((x) => -testAmp * Math.tanh(k * (x - x0)) + testOff);
-            const errNeg = rmse(ys, testNeg);
-            if (errNeg < bestErr) {
-              bestErr = errNeg;
-              bestAmp = -testAmp;
-              bestK = k;
-              bestX0 = x0;
-              bestOff = testOff;
-            }
-          }
-        }
-      }
-    }
-    if (bestErr < 3) {
+    const fit = fitSCurve(xs, ys, 'tanh');
+    if (fit && fit.err < 3) {
       add(
-        (x) => bestAmp * Math.tanh(bestK * (x - bestX0)) + bestOff,
+        (x) => fit.a * Math.tanh(fit.k * (x - fit.x0)) + fit.off,
         'Tanh',
-        buildLatex('tanh', 0, 0, bestAmp, bestOff, { k: bestK, x0: bestX0 }),
-        { type: 'tanh', fA: bestAmp, k: bestK, x0: bestX0, offset: bestOff },
+        buildLatex('tanh', 0, 0, fit.a, fit.off, { k: fit.k, x0: fit.x0 }),
+        { type: 'tanh', fA: fit.a, k: fit.k, x0: fit.x0, offset: fit.off },
       );
     }
   }
@@ -834,6 +815,71 @@ export function generateTemplates(pts: Point[], f: Features): TemplateCandidate[
           freq: omegaSaw / (2 * Math.PI),
         },
       );
+    }
+  }
+
+  // === ABSOLUTE VALUE: y = a*|x - x0| + b ===
+  {
+    const fit = fitAbsValue(xs, ys);
+    // A V with a barely visible corner also fits a straight line to 99 %.
+    // Require the |x| model to explain the stroke clearly better than a line
+    // before offering it (see the linear candidate above).
+    const lineCand = candidates.find((c) => c.params['type'] === 'linear');
+    const lineRaw = (lineCand?.params['rawErr'] as number | undefined) ?? 1;
+    if (fit && fit.err < 3 && fit.err <= lineRaw * ABS_VS_LINE_RATIO) {
+      add(
+        (x) => fit.a * Math.abs(x - fit.x0) + fit.b,
+        'Betrag',
+        buildLatex('absx', 0, 0, fit.a, fit.b, { x0: fit.x0 }),
+        { type: 'abs', fA: fit.a, x0: fit.x0, offset: fit.b },
+      );
+    }
+  }
+
+  // === LORENTZ / RESONANCE: y = d + a / (1 + ((x - c)/w)^2) ===
+  {
+    const fit = fitLorentz(xs, ys);
+    // A resonance curve whose peak sits outside the drawn window is not a
+    // resonance curve: inside the window it looks like a monotone tail and
+    // belongs to `exponential`/`reciprocal`. Very broad fits of a straight
+    // stroke drop out here instead of offering "-8/(1+((x-2)/2.6)^2)+6".
+    const spanX = xs[xs.length - 1]! - xs[0]! || 1;
+    const xLo = xs[0]! + spanX * 0.05;
+    const xHi = xs[xs.length - 1]! - spanX * 0.05;
+    if (fit && fit.err < 3 && fit.c >= xLo && fit.c <= xHi) {
+      add(
+        (x) => fit.d + fit.a / (1 + ((x - fit.c) / fit.w) ** 2),
+        'Lorentz (Resonanz)',
+        buildLatex('lorentz', 0, 0, fit.a, fit.d, { c: fit.c, w: fit.w }),
+        { type: 'lorentz', fA: fit.a, c: fit.c, w: fit.w, offset: fit.d },
+      );
+    }
+  }
+
+  // Generic polynomials are universal approximators: over one short stroke a
+  // quartic can shadow an exponential to ~0.1% RMSE and would then win a pure
+  // RMSE contest even though the ink is plainly a named family. When the best
+  // named family is within a small absolute RMSE of the best polynomial, the
+  // named family is the more honest answer and wins the tie.
+  {
+    const typeOf = (c: TemplateCandidate): string => (c.params['type'] as string) || '';
+    const named = candidates.filter((c) => !typeOf(c).startsWith('poly') && typeOf(c) !== 'linear');
+    const polys = candidates.filter((c) => /^poly[34]$/.test(typeOf(c)));
+    if (named.length && polys.length) {
+      const polyRaw = Math.min(...polys.map((c) => (c.params['rawErr'] as number) ?? c.err));
+      let bestNamed: TemplateCandidate | null = null;
+      let bestNamedRaw = Infinity;
+      for (const c of named) {
+        const raw = (c.params['rawErr'] as number) ?? c.err;
+        if (raw < bestNamedRaw) {
+          bestNamedRaw = raw;
+          bestNamed = c;
+        }
+      }
+      if (bestNamed && polyRaw < 0.02 && bestNamedRaw - polyRaw <= POLY_SHADOW_TOLERANCE) {
+        const bestPoly = polys.reduce((a, b) => (a.err <= b.err ? a : b));
+        bestNamed.err = Math.min(bestNamed.err, bestPoly.err * POLY_SHADOW_PROMOTION);
+      }
     }
   }
 

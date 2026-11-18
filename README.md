@@ -37,6 +37,8 @@ Handwritten math recognition with real CAS engines in the browser. Draw with you
 | Square root | `a·√x + b` | `2√x - 1` |
 | Reciprocal | `a/(x + c) + d` | `1/(x + 0.1)` |
 | Tangent | `a·tan(ωx + φ) + d` | `\tan(πx)` |
+| Absolute value | `a·\|x - x₀\| + b` | `-0.5\|x + 0.35\| + 0.6` |
+| Lorentz / resonance | `d + a/(1 + ((x-c)/w)²)` | `1.5/(1+(x/0.2)²)` |
 
 ## Quick Start
 
@@ -71,7 +73,7 @@ npm run preview  # Preview production build
 3. **Feature Extraction** — Amp, offset, zero crossings, periodicity, peak/valley count, curvature variance, damped detection, monotonic shape classifiers (sqrtLike, expLike, stepLike, tanLike)
 4. **Template Generation** — All 14 candidate types are generated and scored with a composite metric: `RMSE × complexity_penalty × feature_factor`
 5. **Training Boost** — Matches against stored labeled examples (seed data + user corrections + trace sessions) and scales the winner's error for consistency
-6. **Softmax** — Candidate errors converted to probabilities (temperature T=0.01); winner with ≥50% confidence auto-saved as training example
+6. **Confidence** — Candidate errors converted to probabilities on a *relative* scale (a candidate 15 % worse than the winner loses most of its mass), so a clean fit reads as confident instead of "50 % / 50 %". Auto-training additionally requires a ≥10 point lead over the runner-up and a raw RMSE ≤ 0.02, so a badly fitted stroke is never stored as an example
 7. **CAS Evaluation** — Winning template is converted to a symbolic expression and evaluated across all available CAS engines
 
 ## Test Suites
@@ -82,6 +84,7 @@ node src/__tests__/template-recognition.test.cjs    # Template fit + features (2
 node src/__tests__/recognition-accuracy.test.cjs    # End-to-end accuracy (19 tests)
 node src/__tests__/eval-template-bugfixes.test.cjs  # evalTemplate regression (5 tests)
 bash src/__tests__/server-bugfixes.test.sh          # Server hardening regression (7 tests)
+node src/__tests__/recognition-new-families.test.cjs # |x| + Lorentz, model space, confidence (30 tests)
 ```
 
 ## Tech Stack
@@ -122,8 +125,9 @@ src/
 └── modules/
     ├── canvas.ts        # Canvas management, pointer events, zoom/pan, grid, stroke rendering
     ├── recognition.ts   # Feature extraction, normalization, training example matching
-    ├── templates.ts     # Template generation + composite scoring for all 14 function types
-    ├── numeric.ts       # RMSE, evalTemplate, polynomial/exponential least-squares fitting
+    ├── templates.ts     # Template generation + composite scoring for all 20 function types
+    ├── numeric.ts       # RMSE, evalTemplate, least-squares fits (poly, exp, |x|, Lorentz, S-curves)
+    ├── confidence.ts    # Relative softmax probabilities + auto-training gate
     ├── latex.ts         # Expression → LaTeX conversion
     ├── cas.ts           # CAS engine abstraction (Algebrite, Nerdamer, Giac)
     ├── ui.ts            # Toast, HTML escaping, KaTeX rendering, clipboard

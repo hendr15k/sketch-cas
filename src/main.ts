@@ -24,6 +24,12 @@ import { generateTemplates } from './modules/templates';
 import { evalTemplate } from './modules/numeric';
 import { toast, esc, copyToClipboard, updateScore, emptyState, renderKaTeX } from './modules/ui';
 import { latexToExpr } from './modules/latex';
+import {
+  errorsToProbs,
+  shouldAutoSave,
+  AUTO_SAVE_THRESHOLD,
+  DISCARD_THRESHOLD,
+} from './modules/confidence';
 import { runCas, setupGiacAutoload, getSymExpr, solveEquation, solutionLatex } from './modules/cas';
 import { drawBode } from './modules/bode';
 import { getSeedExamples } from './modules/seed-training';
@@ -102,28 +108,13 @@ function scheduleR(): void {
 }
 
 // ---- Self-Training Thresholds ----
-const AUTO_SAVE_THRESHOLD = 0.5;
-const DISCARD_THRESHOLD = 0.05;
 const RECOGNIZE_DEBOUNCE_MS = 350;
-const SOFTMAX_TEMPERATURE = 0.01;
 const TRAINING_MATCH_RMSE_THRESHOLD = 0.15;
 const DUPLICATE_RMSE_THRESHOLD = 0.05;
 const MAX_DEDUP_EXAMPLES = 15;
 const PERTURB_X_JITTER = 0.03;
 const PERTURB_Y_JITTER = 0.04;
 const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
-
-/**
- * Convert candidate errors to softmax probabilities.
- * Lower error → higher probability.
- */
-function errorsToProbs(cands: TemplateCandidate[]): number[] {
-  const minErr = Math.min(...cands.map((c) => c.err));
-  const shifted = cands.map((c) => Math.max(0, c.err - minErr));
-  const exps = shifted.map((e) => Math.exp(-e / SOFTMAX_TEMPERATURE));
-  const sum = exps.reduce((s, v) => s + v, 0);
-  return sum > 0 ? exps.map((e) => e / sum) : exps.map(() => 1 / cands.length);
-}
 
 function recognize(): void {
   const state = getState();
@@ -176,7 +167,7 @@ function recognize(): void {
       sin: 'sin',
       cos: 'cos',
       tan: 'tan',
-      abs: 'abs_sin',
+      abs: 'abs',
       '1/x': 'reciprocal',
       recip: 'reciprocal',
     };
@@ -316,61 +307,7 @@ function recognize(): void {
   const matchType = (best.params['type'] as string) || '';
   let autoSaved = false;
 
-  if (bestProb >= AUTO_SAVE_THRESHOLD && !trainingBoostApplied) {
-    // Skip auto-save for custom/unknown types (no template to boost)
-    if (!matchType || matchType === 'unknown') {
-      debugLog('[SELF-TRAIN] ⏭ Skipped: no template type');
-    } else {
-      // Deduplication: only save if no existing example of this type has RMSE < 0.05
-      // Limit to 15 most recent examples for better training diversity
-      const existingSame = trainData.corrections
-        .filter((c) => c.matchedType === 'auto_' + matchType)
-        .slice(-MAX_DEDUP_EXAMPLES);
-      const isDuplicate =
-        existingSame.length > 0 &&
-        existingSame.some((c) => {
-          const match = matchTrainingExamples(pts, [c]);
-          return match.length > 0 && match[0]!.rmse < DUPLICATE_RMSE_THRESHOLD;
-        });
-      if (isDuplicate) {
-        debugLog('[SELF-TRAIN] ⏭ Skipped: duplicate of ' + matchType);
-      } else {
-        // Auto-save as training example (only if training boost didn't change the winner)
-        const autoLabel = best.label;
-        trainData.corrections.push({
-          id: genId(),
-          timestamp: Date.now(),
-          label: autoLabel,
-          normalizedPoints: pts,
-          matchedType: 'auto_' + matchType,
-        });
-        // Variety bonus: generate 2-3 perturbed versions for training diversity
-        const perturbCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
-        for (let pi = 0; pi < perturbCount; pi++) {
-          const perturbed = pts.map((p) => ({
-            x: Math.max(0, Math.min(1, p.x + (Math.random() - 0.5) * PERTURB_X_JITTER)),
-            y: Math.max(-1, Math.min(1, p.y + (Math.random() - 0.5) * PERTURB_Y_JITTER)),
-          }));
-          trainData.corrections.push({
-            id: genId(),
-            timestamp: Date.now(),
-            label: autoLabel,
-            normalizedPoints: perturbed,
-            matchedType: 'auto_' + matchType,
-          });
-        }
-        saveTrainData();
-        autoSaved = true;
-        debugLog(
-          '[SELF-TRAIN] ✅ Auto-saved: ' + autoLabel + ' (p=' + (bestProb * 100).toFixed(1) + '%)',
-        );
-      }
-    }
-  } else if (trainingBoostApplied) {
-    debugLog(
-      '[SELF-TRAIN] ⏸️ Skipped auto-save (training boost changed winner to ' + best.label + ')',
-    );
-  } else if (bestProb < DISCARD_THRESHOLD) {
+  if (bestProb < DISCARD_THRESHOLD) {
     // Too uncertain — discard this recognition
     best = null;
     ovlP = null;
@@ -397,6 +334,63 @@ function recognize(): void {
     }
     updateScore('' + tp, '⚠️ Unklar', (bestProb * 100).toFixed(0) + '%');
     return;
+  }
+
+  const autoSave = shouldAutoSave({
+    prob: bestProb,
+    runnerUpProb: probs[1] ?? 0,
+    rawErr,
+    type: matchType,
+    trainingBoostApplied,
+  });
+
+  if (autoSave.save) {
+    // Deduplication: only save if no existing example of this type has RMSE < 0.05
+    // Limit to 15 most recent examples for better training diversity
+    const existingSame = trainData.corrections
+      .filter((c) => c.matchedType === 'auto_' + matchType)
+      .slice(-MAX_DEDUP_EXAMPLES);
+    const isDuplicate =
+      existingSame.length > 0 &&
+      existingSame.some((c) => {
+        const match = matchTrainingExamples(pts, [c]);
+        return match.length > 0 && match[0]!.rmse < DUPLICATE_RMSE_THRESHOLD;
+      });
+    if (isDuplicate) {
+      debugLog('[SELF-TRAIN] ⏭ Skipped: duplicate of ' + matchType);
+    } else {
+      // Auto-save as training example (only if training boost didn't change the winner)
+      const autoLabel = best.label;
+      trainData.corrections.push({
+        id: genId(),
+        timestamp: Date.now(),
+        label: autoLabel,
+        normalizedPoints: pts,
+        matchedType: 'auto_' + matchType,
+      });
+      // Variety bonus: generate 2-3 perturbed versions for training diversity
+      const perturbCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
+      for (let pi = 0; pi < perturbCount; pi++) {
+        const perturbed = pts.map((p) => ({
+          x: Math.max(0, Math.min(1, p.x + (Math.random() - 0.5) * PERTURB_X_JITTER)),
+          y: Math.max(-1, Math.min(1, p.y + (Math.random() - 0.5) * PERTURB_Y_JITTER)),
+        }));
+        trainData.corrections.push({
+          id: genId(),
+          timestamp: Date.now(),
+          label: autoLabel,
+          normalizedPoints: perturbed,
+          matchedType: 'auto_' + matchType,
+        });
+      }
+      saveTrainData();
+      autoSaved = true;
+      debugLog(
+        '[SELF-TRAIN] ✅ Auto-saved: ' + autoLabel + ' (p=' + (bestProb * 100).toFixed(1) + '%)',
+      );
+    }
+  } else {
+    debugLog('[SELF-TRAIN] ⏸️ Skipped auto-save: ' + autoSave.reason);
   }
 
   renderRes([best, ...cands.slice(1)], trainMatches, probs, autoSaved);

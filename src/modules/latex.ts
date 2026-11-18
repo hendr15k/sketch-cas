@@ -87,6 +87,15 @@ function xShift(v: number, dp = 2): string {
 }
 
 /**
+ * "x - 2" / "x + 2" / "x" — like {@link xShift} without the wrapping
+ * parentheses, for contexts that already group the term (|…|, \frac{…}).
+ */
+function xShiftBare(v: number, dp = 2): string {
+  if (Math.abs(v) < 0.001) return 'x';
+  return v > 0 ? 'x - ' + formatNum(v, dp) : 'x + ' + formatNum(-v, dp);
+}
+
+/**
  * Build LaTeX for sinusoidal/trig templates.
  */
 export function buildLatex(
@@ -241,6 +250,30 @@ export function buildLatex(
         '\\mathrm{saw}\\!\\left(' +
         arg +
         '\\right)';
+      break;
+    }
+    case 'absx': {
+      // a*|x - x0| + b
+      const x0 = extra?.['x0'] ?? 0.5;
+      const inner = xShiftBare(x0);
+      result =
+        (Math.abs(amp - 1) > 0.01 ? formatNum(amp) + '\\cdot ' : '') +
+        '\\left|' +
+        inner +
+        '\\right|';
+      break;
+    }
+    case 'lorentz': {
+      // d + a / (1 + ((x - c)/w)^2)
+      const c = extra?.['c'] ?? 0.5;
+      const w = extra?.['w'] ?? 0.2;
+      result =
+        (Math.abs(amp - 1) > 0.01 ? formatNum(amp) + '\\,' : '') +
+        '\\frac{1}{1+\\left(\\frac{' +
+        xShiftBare(c) +
+        '}{' +
+        formatNum(w) +
+        '}\\right)^{2}}';
       break;
     }
   }

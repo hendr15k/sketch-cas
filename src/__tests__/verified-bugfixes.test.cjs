@@ -301,8 +301,10 @@ test('polynomial candidates have real labels', () => {
   assert(bad.length === 0, `${bad.length} candidate(s) with a missing label`);
   const p3 = cands.find((c) => c.params.type === 'poly3');
   assert(p3 && p3.label === 'Kubisch', `poly3 label is ${p3 && p3.label}`);
+  // Degenerate degrees (leading coefficient ~0) are omitted on purpose, but
+  // any polynomial that *is* offered must carry its real label.
   const p4 = cands.find((c) => c.params.type === 'poly4');
-  assert(p4 && p4.label === 'Quartisch', `poly4 label is ${p4 && p4.label}`);
+  assert(!p4 || p4.label === 'Quartisch', `poly4 label is ${p4 && p4.label}`);
 });
 
 console.log('\n--- recognition parameter round-trips ---');

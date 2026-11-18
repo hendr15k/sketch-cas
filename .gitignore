@@ -4,3 +4,4 @@ dist/
 training-data/
 *.local
 .env
+.probe/
